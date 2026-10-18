@@ -1,0 +1,50 @@
+/*
+ * Mimi design tokens.
+ * Màu lấy từ spec (#1B2559, #EAF1FF, #CFE0FF, #FF8A3D). Riêng chữ màu cam và đỏ
+ * được làm đậm hơn để đạt độ tương phản tối thiểu trên nền trắng; #FF8A3D chỉ
+ * dùng cho viền, vòng focus và chấm báo, không dùng làm màu chữ.
+ */
+:root {
+  /* Màu nền tảng */
+  --ink: #1b2559;          /* chữ chính, tiêu đề */
+  --ink-soft: #56618a;     /* dòng phụ */
+  --ink-faint: #8a93b3;    /* chú thích, gạch "–" */
+  --paper: #ffffff;
+  --sky: #eaf1ff;          /* nền ô đang gõ, nền mục chọn nhẹ */
+  --sky-line: #cfe0ff;     /* viền ô nhập, đường kẻ */
+  --blue: #2a5bd7;         /* "tô xanh đặc": mục đang chọn, nút chính */
+  --blue-press: #2149b0;
+  --orange: #ff8a3d;       /* viền focus, chấm số món, đuôi bong bóng */
+  --dark: #10173a;         /* nền màn quét */
+
+  /* Trạng thái tồn kho, luôn đi kèm chữ */
+  --st-out: #c5221f;       /* 0 ngày, Đã hết, Mua ngay */
+  --st-soon: #b4530a;      /* 1 đến 7 ngày */
+  --st-upcoming: #2a5bd7;  /* 8 đến 14 ngày */
+  --st-plenty: #1f7a3a;    /* trên 14 ngày */
+
+  /* Chữ: một họ Be Vietnam Pro, thiết kế cho tiếng Việt */
+  --font: "Be Vietnam Pro", system-ui, sans-serif;
+  --fs-xs: 0.8125rem;  /* 13 */
+  --fs-sm: 0.9375rem;  /* 15 */
+  --fs-md: 1rem;       /* 16, mọi ô nhập tối thiểu 16px để iOS không zoom */
+  --fs-lg: 1.25rem;    /* 20 */
+  --fs-xl: 1.625rem;   /* 26 */
+  --fs-num: 1.875rem;  /* 30, con số to bên phải mỗi dòng */
+  --fs-hero: 2.25rem;  /* 36 */
+
+  /* Khoảng cách theo bước 4px */
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 20px; --s6: 24px; --s8: 32px; --s10: 40px;
+
+  /* Bo góc theo cấp: nút lớn và ô tô bo nhiều, dòng danh sách không bo */
+  --r-pill: 999px;
+  --r-tile: 20px;
+  --r-ctl: 14px;
+  --r-chip: 10px;
+
+  --tap: 48px;               /* vùng chạm tối thiểu theo spec */
+  --frame: 430px;            /* khung app tối đa, thiết kế chuẩn ở 390px */
+  --nav-h: 64px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+}
