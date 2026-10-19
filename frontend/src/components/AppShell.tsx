@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { Link, NavLink } from "react-router-dom";
 import { Bell, BookOpen, CircleUserRound, ClipboardList, Package, ScanLine, Settings } from "lucide-react";
 import { useHome } from "../api/hooks";
+import { applyUpdate, useUpdateReady } from "../app/pwaUpdate";
 import { useOnline } from "../lib/useOnline";
 import { MimiBrand, MimiMark } from "./MimiMark";
 
@@ -70,6 +71,19 @@ export function OfflineBanner() {
     <p className="offline" role="status">
       {t.common.offline}
     </p>
+  );
+}
+
+/* ---------- Có phiên bản mới ---------- */
+
+export function UpdateBanner() {
+  const ready = useUpdateReady();
+  if (!ready) return null;
+  return (
+    <div className="update" role="status">
+      <p>{t.common.updateReady}</p>
+      <button type="button" onClick={applyUpdate}>{t.common.updateReload}</button>
+    </div>
   );
 }
 

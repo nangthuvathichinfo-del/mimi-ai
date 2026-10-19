@@ -56,12 +56,3 @@ src/
 - Thao tác ghi nhẹ (sửa tồn, tick giỏ) xếp hàng khi mất mạng, xả lại khi app mở hoặc có mạng.
   Lưu hóa đơn luôn gửi trực tiếp, dùng `receipt_id` làm khóa idempotent.
 - Kiểu dữ liệu trong `src/api/types.ts` là bản viết tay; khi có `api/openapi.yaml` chạy `npm run gen:api`.
-
-## Việc tiếp theo
-
-1. Sinh kiểu từ OpenAPI, thay `types.ts`.
-2. Dựng Sổ chi tiêu, Kế hoạch (4 bước), Cài đặt, Thông báo theo spec mục 3, 5, 6.
-3. Đưa trạng thái tab và bộ lọc của Đồ dùng lên URL.
-4. Tách chuỗi chữ ra file dịch (i18next) nếu làm giao diện tiếng Anh.
-5. Thay `MimiMark` bằng logo chính thức.
-6. Thêm Playwright e2e ở 320, 390, 430px.

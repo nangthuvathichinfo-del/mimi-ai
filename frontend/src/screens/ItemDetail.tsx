@@ -1,9 +1,7 @@
 import { t } from "../i18n";
-import { useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { apiGet } from "../api/client";
-import { qk, useQuickStock, useUndoStock } from "../api/hooks";
-import type { Item } from "../api/types";
+import { Link, useParams } from "react-router-dom";
+import { ApiError } from "../api/client";
+import { useItem, useQuickStock, useUndoStock } from "../api/hooks";
 import { TopBar, useUndo, MainFrame } from "../components/AppShell";
 import { CategoryIcon, STATUS_TEXT, statusTone } from "../components/ItemRow";
 import { formatDayMonth } from "../lib/text";
@@ -13,7 +11,7 @@ const CONFIDENCE = t.detail.confidenceLevels;
 /** Chi tiết món (spec mục 4). Bản khung: số ngày, độ tin cậy, nguồn, ba nút chỉnh nhanh. */
 export function ItemDetail() {
   const { key = "" } = useParams();
-  const q = useQuery({ queryKey: qk.item(key), queryFn: () => apiGet<Item>(`/items/${key}`) });
+  const q = useItem(key);
   const quick = useQuickStock();
   const undo = useUndoStock();
   const showUndo = useUndo();
@@ -23,6 +21,15 @@ export function ItemDetail() {
     <MainFrame>
       <TopBar title={item?.name ?? t.detail.fallbackTitle} variant="sub" />
       <div className="page detail">
+        {!item && q.isPending && <p className="hint">{t.common.loading}</p>}
+        {!item && q.isError && (
+          <div className="empty">
+            <p>
+              {q.error instanceof ApiError && q.error.status === 404 ? t.detail.notFound : t.common.genericError}
+            </p>
+            <Link className="btn btn--quiet" to="/items">{t.items.title}</Link>
+          </div>
+        )}
         {item && (
           <>
             <div className="detail__figure">

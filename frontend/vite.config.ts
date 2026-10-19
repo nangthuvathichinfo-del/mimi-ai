@@ -6,7 +6,8 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: "autoUpdate",
+      // "prompt": bản mới tải ngầm, người dùng bấm "Tải lại" khi sẵn sàng (không mất form đang nhập).
+      registerType: "prompt",
       includeAssets: ["icons/mimi.svg", "icons/apple-touch-icon.png"],
       manifest: {
         name: "Mimi",

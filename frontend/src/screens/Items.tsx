@@ -2,6 +2,7 @@ import { t } from "../i18n";
 import { useId, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ListFilter, Search, X } from "lucide-react";
+import { OfflineError } from "../api/client";
 import { useItems, useQuickStock, useUndoStock } from "../api/hooks";
 import type { Item, ItemsQuery } from "../api/types";
 import { MainFrame, TopBar, useUndo } from "../components/AppShell";
@@ -156,7 +157,8 @@ export function Items() {
             ) : items.isError && !items.data ? (
               <div className="empty">
                 <h2>{t.items.loadFailedTitle}</h2>
-                <p>{t.items.loadFailedBody}</p>
+                {/* Chỉ gợi ý kiểm tra mạng khi thật sự mất mạng; lỗi khác hiện câu chung. */}
+                <p>{items.error instanceof OfflineError ? t.items.loadFailedBody : t.common.genericError}</p>
                 <button className="btn btn--quiet" onClick={() => items.refetch()}>{t.common.retry}</button>
               </div>
             ) : visible.length === 0 ? (

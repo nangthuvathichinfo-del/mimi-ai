@@ -32,3 +32,25 @@ export function formatDayMonth(iso: string): string {
   if (uiLang === "en") return dayMonthEn.format(new Date(Date.UTC(y, m - 1, d)));
   return `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}`;
 }
+
+/** "YYYY-MM" → en: "October 2026" · vi: "tháng 10/2026" */
+export function formatMonth(ym: string): string {
+  const [y, m] = ym.split("-").map(Number);
+  if (uiLang === "en") {
+    return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(y, m - 1, 1)));
+  }
+  return `tháng ${m}/${y}`;
+}
+
+/** Tháng hiện tại theo giờ máy, dạng "YYYY-MM". */
+export function currentMonth(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/** Cộng trừ tháng trên chuỗi "YYYY-MM". */
+export function addMonths(ym: string, n: number): string {
+  const [y, m] = ym.split("-").map(Number);
+  const d = new Date(Date.UTC(y, m - 1 + n, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}

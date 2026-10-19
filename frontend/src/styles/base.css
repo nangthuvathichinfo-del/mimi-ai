@@ -177,3 +177,17 @@ a { color: inherit; }
 .empty { padding: var(--s8) 0; display: grid; gap: var(--s3); justify-items: start; }
 .empty h2 { font-size: var(--fs-lg); }
 .empty p { color: var(--ink-soft); max-width: 32ch; }
+
+/* ---------- Có phiên bản mới ---------- */
+.update {
+  position: fixed; left: 50%; translate: -50% 0;
+  top: calc(var(--safe-t, 0px) + var(--s3));
+  width: min(calc(100% - 32px), calc(var(--frame) - 32px));
+  display: flex; align-items: center; gap: var(--s3);
+  padding: var(--s2) var(--s2) var(--s2) var(--s4);
+  background: var(--ink); color: #fff;
+  border-radius: var(--r-ctl);
+  z-index: 30;
+}
+.update p { flex: 1; font-size: var(--fs-sm); }
+.update button { background: transparent; border: 0; color: #fff; font-weight: 700; min-height: 40px; padding: 0 var(--s3); text-decoration: underline; text-underline-offset: 3px; }

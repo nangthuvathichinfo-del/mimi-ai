@@ -27,3 +27,9 @@ export const uiLang: UiLang = detect();
 export const t: Messages = uiLang === "vi" ? vi : en;
 
 if (typeof document !== "undefined") document.documentElement.lang = uiLang;
+
+/** Nhãn nhóm hàng theo ngôn ngữ giao diện; khóa lạ hiện "Khác" thay vì để trống. */
+export function categoryLabel(key: string | null | undefined): string {
+  const map = t.categories as Record<string, string>;
+  return (key && map[key]) || t.categories.khac;
+}

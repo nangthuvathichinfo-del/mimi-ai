@@ -2,9 +2,9 @@ import { t, uiLang } from "../i18n";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Camera, ImagePlus, X } from "lucide-react";
-import { useReadReceipt, useSaveReceipt } from "../api/hooks";
+import { toSaveRequest, useReadReceipt, useSaveReceipt } from "../api/hooks";
 import type { ReceiptDraft } from "../api/types";
-import { OfflineError } from "../api/client";
+import { ApiError, OfflineError } from "../api/client";
 import { compressReceiptImage, grabFrame } from "../lib/image";
 import { formatDayMonth, formatVnd } from "../lib/text";
 import { MimiMark } from "../components/MimiMark";
@@ -219,12 +219,25 @@ function ScanSession({ onNext }: { onNext: () => void }) {
   );
 }
 
-/** Xác nhận hóa đơn: màn tối giản, đối chiếu tổng tiền thành một dòng chữ. */
+/** YYYY-MM-DD theo giờ máy người dùng (ngày mua mặc định khi hóa đơn không in ngày). */
+function todayLocal(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/**
+ * Xác nhận hóa đơn: màn tối giản, đối chiếu tổng tiền thành một dòng chữ.
+ * Mọi con số (từng dòng, tổng, khớp hay lệch) do backend tính trong bản nháp; khi lưu backend tính lại.
+ */
 function Confirm({ draft, onDone, onNext }: { draft: ReceiptDraft; onDone: () => void; onNext: () => void }) {
   const [usePrediction, setUsePrediction] = useState(true);
+  const [purchasedOn, setPurchasedOn] = useState(draft.purchased_on || todayLocal());
   const save = useSaveReceipt();
-  const sum = draft.lines.reduce((s, l) => s + l.line_total, 0); // chỉ để đối chiếu hiển thị; backend tính lại khi lưu
-  const matches = draft.total_printed != null && draft.total_printed === sum;
+  const sum = draft.sum_vnd;
+  const matches = !!draft.total_printed && !draft.total_mismatch;
+  const submit = (confirmDuplicate: boolean) =>
+    !save.isPending &&
+    save.mutate(toSaveRequest(draft, { purchasedOn, usePrediction, confirmDuplicate }));
 
   if (save.isSuccess) {
     return (
@@ -237,9 +250,9 @@ function Confirm({ draft, onDone, onNext }: { draft: ReceiptDraft; onDone: () =>
           </div>
           <dl className="facts">
             <dt>{t.confirm.store}</dt>
-            <dd>{draft.store ?? t.confirm.unknown}</dd>
+            <dd>{draft.store || t.confirm.unknown}</dd>
             <dt>{t.confirm.date}</dt>
-            <dd>{draft.purchased_on ? formatDayMonth(draft.purchased_on) : t.confirm.unknown}</dd>
+            <dd>{formatDayMonth(purchasedOn)}</dd>
             <dt>{t.confirm.total}</dt>
             <dd className="num">{formatVnd(sum)}</dd>
           </dl>
@@ -257,42 +270,68 @@ function Confirm({ draft, onDone, onNext }: { draft: ReceiptDraft; onDone: () =>
     );
   }
 
+  const err = save.error;
+  const duplicate = err instanceof ApiError && err.code === "possible_duplicate";
+  const errorText = !err
+    ? ""
+    : err instanceof OfflineError
+      ? `${t.confirm.saveFailed} ${t.confirm.checkConnection}`
+      : duplicate
+        ? t.confirm.duplicate
+        : err instanceof ApiError && err.code === "validation_failed"
+          ? `${t.confirm.saveFailed} ${t.confirm.checkDetails}`
+          : `${t.confirm.saveFailed} ${t.common.genericError}`;
+
   return (
     <main className="frame">
       <div className="page">
         <div className="confirm__head">
-          {draft.store ?? t.confirm.noStore}
-          <span>{draft.purchased_on ? formatDayMonth(draft.purchased_on) : t.confirm.noDate}</span>
+          {draft.store || t.confirm.noStore}
+          <label className="confirm__date">
+            <span className="sr-only">{t.confirm.date}</span>
+            <input
+              type="date"
+              value={purchasedOn}
+              max={todayLocal()}
+              onChange={(e) => e.target.value && setPurchasedOn(e.target.value)}
+            />
+          </label>
         </div>
+        {draft.unreadable_pages > 0 && <p className="check warn">{t.confirm.unreadablePages(draft.unreadable_pages)}</p>}
         <ul className="lines">
           {draft.lines.map((l) => (
             <li key={l.line_id}>
               <span>{l.name}</span>
-              <span className="num">{formatVnd(l.line_total)}</span>
-              <span className="sub">{t.confirm.qty(l.qty)}</span>
-              {l.category_key === null && <button className="btn btn--quiet" style={{ minHeight: 36, gridColumn: 2 }}>{t.confirm.chooseGroup}</button>}
+              <span className="num">{l.amount_vnd != null ? formatVnd(l.amount_vnd) : `${l.amount} ${draft.currency}`}</span>
+              <span className="sub">
+                {t.confirm.qty(l.qty)}
+                {l.amount_vnd == null && ` · ${t.confirm.notConverted}`}
+              </span>
+              {!l.category_key && <button className="btn btn--quiet" style={{ minHeight: 36, gridColumn: 2 }}>{t.confirm.chooseGroup}</button>}
             </li>
           ))}
         </ul>
         <p className={`check ${matches ? "ok" : "warn"}`}>
-          {draft.total_printed == null
+          {!draft.total_printed
             ? t.confirm.noTotal(formatVnd(sum))
             : matches
               ? t.confirm.matches(formatVnd(sum))
-              : t.confirm.mismatch(formatVnd(sum), formatVnd(draft.total_printed))}
+              : t.confirm.mismatch(formatVnd(sum), draft.total_printed)}
         </p>
         <label className="switch-row">
           {t.confirm.usePrediction}
           <input type="checkbox" role="switch" {...{ switch: "" }} checked={usePrediction} onChange={(e) => setUsePrediction(e.target.checked)} />
         </label>
-        {save.isError && <p className="error" role="alert">{t.confirm.saveFailed} {save.error instanceof OfflineError ? t.confirm.checkConnection : save.error.message}</p>}
-        <button
-          className="btn btn--primary btn--block btn--lg"
-          aria-disabled={save.isPending || undefined}
-          onClick={() => !save.isPending && save.mutate({ ...draft, use_for_prediction: usePrediction })}
-        >
-          {save.isPending ? t.confirm.saving : t.confirm.save}
-        </button>
+        {errorText && <p className="error" role="alert">{errorText}</p>}
+        {duplicate ? (
+          <button className="btn btn--primary btn--block btn--lg" aria-disabled={save.isPending || undefined} onClick={() => submit(true)}>
+            {save.isPending ? t.confirm.saving : t.confirm.saveAnyway}
+          </button>
+        ) : (
+          <button className="btn btn--primary btn--block btn--lg" aria-disabled={save.isPending || undefined} onClick={() => submit(false)}>
+            {save.isPending ? t.confirm.saving : t.confirm.save}
+          </button>
+        )}
       </div>
     </main>
   );

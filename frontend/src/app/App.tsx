@@ -1,9 +1,8 @@
-import { t } from "../i18n";
 import { lazy, Suspense, useEffect, useRef } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { configureApi, flushQueue } from "../api/client";
-import { UndoProvider } from "../components/AppShell";
+import { UndoProvider, UpdateBanner } from "../components/AppShell";
 import { AuthProvider, useAuth } from "../lib/auth";
 import { queryClient, queryPersister } from "./queryClient";
 import { Welcome } from "../screens/Welcome";
@@ -13,7 +12,10 @@ import { Home } from "../screens/Home";
 const Items = lazy(() => import("../screens/Items").then((m) => ({ default: m.Items })));
 const ItemDetail = lazy(() => import("../screens/ItemDetail").then((m) => ({ default: m.ItemDetail })));
 const Scan = lazy(() => import("../screens/Scan").then((m) => ({ default: m.Scan })));
-const Stub = lazy(() => import("../screens/Stub").then((m) => ({ default: m.Stub })));
+const Plan = lazy(() => import("../screens/Plan").then((m) => ({ default: m.Plan })));
+const Spending = lazy(() => import("../screens/Spending").then((m) => ({ default: m.Spending })));
+const Settings = lazy(() => import("../screens/Settings").then((m) => ({ default: m.Settings })));
+const Notifications = lazy(() => import("../screens/Notifications").then((m) => ({ default: m.Notifications })));
 const Account = lazy(() => import("../screens/Stub").then((m) => ({ default: m.Account })));
 const TodayMeal = lazy(() => import("../screens/Stub").then((m) => ({ default: m.TodayMeal })));
 
@@ -54,11 +56,11 @@ function Gate() {
         <Route path="/items" element={<Items />} />
         <Route path="/items/:key" element={<ItemDetail />} />
         <Route path="/scan" element={<Scan />} />
-        <Route path="/spending" element={<Stub title={t.stub.spending} section="3" />} />
-        <Route path="/plan" element={<Stub title={t.stub.plan} section="5" />} />
-        <Route path="/settings" element={<Stub title={t.stub.settings} section="6" />} />
+        <Route path="/spending" element={<Spending />} />
+        <Route path="/plan" element={<Plan />} />
+        <Route path="/settings" element={<Settings />} />
         <Route path="/settings/account" element={<Account />} />
-        <Route path="/notifications" element={<Stub title={t.stub.notifications} section="6" sub />} />
+        <Route path="/notifications" element={<Notifications />} />
         <Route path="/today" element={<TodayMeal />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -73,6 +75,7 @@ export function App() {
         <BrowserRouter>
           <UndoProvider>
             <Gate />
+            <UpdateBanner />
           </UndoProvider>
         </BrowserRouter>
       </AuthProvider>

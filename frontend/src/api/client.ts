@@ -27,12 +27,29 @@ export function configureApi(opts: { getToken: TokenGetter; onUnauthorized: () =
   onUnauthorized = opts.onUnauthorized;
 }
 
+/**
+ * Dựng header TRƯỚC khi gọi mạng, để lỗi lấy token không bị báo nhầm thành "mất mạng".
+ * - ID token: lỗi mạng khi làm mới token mới là OfflineError; lỗi khác giữ nguyên để hiện đúng.
+ * - App Check: lấy token lỗi (key sai, tên miền chưa khai báo...) thì vẫn gửi request không kèm
+ *   header. Backend bật APP_CHECK_REQUIRED sẽ trả 401 app_check_failed, nhìn thấy được trong Network.
+ */
 async function headers(extra?: Record<string, string>) {
   const h: Record<string, string> = { Accept: "application/json", ...extra };
-  const token = await getToken();
+  let token: string | null;
+  try {
+    token = await getToken();
+  } catch (e) {
+    if ((e as { code?: string }).code === "auth/network-request-failed") throw new OfflineError("offline");
+    console.error("[mimi] Không lấy được ID token", e);
+    throw e;
+  }
   if (token) h.Authorization = `Bearer ${token}`;
-  const ac = await appCheckToken();
-  if (ac) h["X-Firebase-AppCheck"] = ac;
+  try {
+    const ac = await appCheckToken();
+    if (ac) h["X-Firebase-AppCheck"] = ac;
+  } catch (e) {
+    console.error("[mimi] Không lấy được App Check token, gửi request không kèm token", e);
+  }
   return h;
 }
 
@@ -55,9 +72,10 @@ async function parse<T>(res: Response): Promise<T> {
 }
 
 export async function apiGet<T>(path: string): Promise<T> {
+  const h = await headers();
   let res: Response;
   try {
-    res = await rawFetch(path, { headers: await headers() });
+    res = await rawFetch(path, { headers: h });
   } catch {
     throw new OfflineError("offline");
   }
@@ -71,11 +89,12 @@ export async function apiSend<T>(
   body?: unknown,
   idempotencyKey: string = crypto.randomUUID(),
 ): Promise<T> {
+  const h = await headers({ "Content-Type": "application/json", "Idempotency-Key": idempotencyKey });
   let res: Response;
   try {
     res = await rawFetch(path, {
       method,
-      headers: await headers({ "Content-Type": "application/json", "Idempotency-Key": idempotencyKey }),
+      headers: h,
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {
@@ -122,9 +141,10 @@ export async function apiUploadReceipt<T>(receiptId: string, images: Blob[], lan
   form.append("receipt_id", receiptId);
   form.append("lang", lang);
   images.forEach((b, i) => form.append("images", b, `p${i + 1}.jpg`));
+  const h = await headers();
   let res: Response;
   try {
-    res = await rawFetch("/receipts/read", { method: "POST", headers: await headers(), body: form });
+    res = await rawFetch("/receipts/read", { method: "POST", headers: h, body: form });
   } catch {
     throw new OfflineError("offline");
   }
