@@ -100,17 +100,22 @@ type Event struct {
 
 // Order là đơn Mimi Online, lưu nguyên khối (users/{uid}/orders/{id}).
 type Order struct {
-	ID                 string     `json:"id"`
-	State              State      `json:"state"`
-	Merchant           string     `json:"merchant"`
-	Lines              []Line     `json:"lines"`
-	TotalVND           int64      `json:"total_vnd"`
-	AmountUSD          string     `json:"amount_usd"`
-	VNDPerUSD          int64      `json:"vnd_per_usd"`
-	RateSource         string     `json:"rate_source,omitempty"`
-	RateAsOf           string     `json:"rate_as_of,omitempty"`
-	Decision           Decision   `json:"decision"`
-	ApprovedByUser     bool       `json:"approved_by_user"` // người dùng duyệt đơn ASK
+	ID             string   `json:"id"`
+	State          State    `json:"state"`
+	Merchant       string   `json:"merchant"`
+	Lines          []Line   `json:"lines"`
+	TotalVND       int64    `json:"total_vnd"`
+	AmountUSD      string   `json:"amount_usd"`
+	VNDPerUSD      int64    `json:"vnd_per_usd"`
+	RateSource     string   `json:"rate_source,omitempty"`
+	RateAsOf       string   `json:"rate_as_of,omitempty"`
+	Decision       Decision `json:"decision"`
+	ApprovedByUser bool     `json:"approved_by_user"` // người dùng duyệt đơn ASK
+	// Provider là cổng đã nhận tiền (paypal | braintree). Đơn lưu trước khi có ô này là paypal.
+	Provider        string `json:"provider"`
+	ProviderOrderID string `json:"provider_order_id,omitempty"`
+	ProviderTxnID   string `json:"provider_txn_id,omitempty"`
+	// Ô cũ của PayPal, vẫn ghi cho đơn PayPal để app và đơn đã lưu đọc được.
 	PayPalOrderID      string     `json:"paypal_order_id"`
 	ApproveURL         string     `json:"approve_url,omitempty"`
 	CaptureID          string     `json:"paypal_capture_id,omitempty"`
@@ -350,6 +355,30 @@ func (s *Service) paidOn(ctx context.Context, p authz.Principal, day domain.Date
 
 // ---------- Checkout (PayPal) ----------
 
+// Cổng thanh toán của đơn.
+const (
+	ProviderPayPal    = "paypal"
+	ProviderBraintree = "braintree"
+)
+
+// ProviderOf trả cổng của đơn; đơn cũ chưa có ô provider là PayPal.
+func ProviderOf(o Order) string {
+	if o.Provider == "" {
+		return ProviderPayPal
+	}
+	return o.Provider
+}
+
+// Description là mô tả đơn gửi cổng thanh toán: tiếng Anh, chỉ ASCII, tối đa 127 ký tự
+// (giới hạn của PayPal purchase_units.description).
+func Description(items int) string {
+	unit := "items"
+	if items == 1 {
+		unit = "item"
+	}
+	return domain.ASCII(fmt.Sprintf("Mimi order - %d %s", items, unit), 127)
+}
+
 type CheckoutRequest struct {
 	Keys    []string `json:"keys"`    // dòng Kế hoạch mua online; rỗng: tất cả
 	Approve bool     `json:"approve"` // người dùng duyệt các ngoại lệ ASK
@@ -393,10 +422,11 @@ func (s *Service) Checkout(ctx context.Context, p authz.Principal, req CheckoutR
 			o.ETA = l.ETA
 		}
 	}
-	ppo, err := s.payments.CreateOrder(ctx, o.ID, o.AmountUSD, fmt.Sprintf("Mimi · %s · %d món", o.Merchant, len(o.Lines)))
+	ppo, err := s.payments.CreateOrder(ctx, o.ID, o.AmountUSD, Description(len(o.Lines)))
 	if err != nil {
 		return Order{}, paymentErr(err)
 	}
+	o.Provider, o.ProviderOrderID = ProviderPayPal, ppo.ID
 	o.PayPalOrderID, o.ApproveURL = ppo.ID, ppo.ApproveURL
 	if err := s.store.CreateOrder(ctx, p.UID, o); err != nil {
 		return Order{}, err
@@ -430,7 +460,7 @@ func (s *Service) Capture(ctx context.Context, p authz.Principal, id string) (Or
 		return Order{}, apperr.New(apperr.CodePaymentFailed, "PayPal chưa hoàn tất thanh toán.").With("paypal_status", cp.Status)
 	}
 	now := s.now()
-	o.State, o.CaptureID, o.PaidAt, o.UpdatedAt = StatePaid, cp.ID, &now, now
+	o.State, o.CaptureID, o.ProviderTxnID, o.PaidAt, o.UpdatedAt = StatePaid, cp.ID, cp.ID, &now, now
 	o.NetVND = o.TotalVND
 	o.Events = append(o.Events, Event{State: StatePaid, At: now})
 	if err := s.store.RecordPayment(ctx, p.UID, o, domain.Location(p.Timezone)); err != nil {
