@@ -305,3 +305,30 @@ func TestCheckoutRecordsRateInfo(t *testing.T) {
 		t.Fatalf("rate info %d %q %q", o.VNDPerUSD, o.RateSource, o.RateAsOf)
 	}
 }
+
+// Lỗi N1: hai đơn tạo liền, mỗi đơn dưới trần ngày, đơn thứ hai không được thu khi tổng vượt trần.
+func TestCaptureRechecksDayBudget(t *testing.T) {
+	ctx := context.Background()
+	m := enabled
+	m.MaxDayVND = 200_000
+	lines := planLines{{Key: "trung", Name: "Trứng", Qty: 20, Unit: "qua", CategoryKey: "tuoi-song"},
+		{Key: "sua-tuoi", Name: "Sữa tươi", Qty: 2, Unit: "hop", CategoryKey: "sua"}}
+	svc, st := setup(t, m, lines)
+	a, err := svc.Checkout(ctx, owner, CheckoutRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := svc.Checkout(ctx, owner, CheckoutRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Capture(ctx, owner, a.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Capture(ctx, owner, b.ID); code(err) != apperr.CodeApprovalRequired {
+		t.Fatalf("second capture over day budget: %v", err)
+	}
+	if st.payments != 1 || st.orders[b.ID].State != StateAwaitingPayment {
+		t.Fatalf("second order must stay unpaid: payments=%d state=%s", st.payments, st.orders[b.ID].State)
+	}
+}
