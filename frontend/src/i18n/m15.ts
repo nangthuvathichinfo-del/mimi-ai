@@ -307,6 +307,19 @@ const vi = {
     empty: "Không có hóa đơn nào khớp.",
     monthHead: (m: string, n: number, k = 0) => `${m} (${[n ? `${n} hóa đơn` : "", k ? `${k} khoản định kỳ` : ""].filter(Boolean).join(", ")})`,
     recurringTag: "Định kỳ",
+    view: { list: "Danh sách", table: "Bảng" },
+    grid: {
+      day: "Ngày", where: "Nơi mua", kind: "Loại", items: "Số món", total: "Số tiền",
+      kinds: { own: "Tự mua", delegated: "Mua hộ", recurring: "Định kỳ" } as Record<string, string>,
+      hint: "Bấm tiêu đề cột để sắp xếp.", csv: "Tải CSV",
+      // Chữ của AG Grid (thanh trang, bộ lọc); bản tiếng Anh dùng chữ mặc định của AG Grid.
+      locale: {
+        page: "Trang", of: "/", to: "–", firstPage: "Trang đầu", lastPage: "Trang cuối", nextPage: "Trang sau", previousPage: "Trang trước",
+        noRowsToShow: "Không có dòng nào", filterOoo: "Lọc…", contains: "Có chứa", notContains: "Không chứa", equals: "Bằng", notEqual: "Khác",
+        startsWith: "Bắt đầu bằng", endsWith: "Kết thúc bằng", blank: "Trống", notBlank: "Không trống", lessThan: "Nhỏ hơn", greaterThan: "Lớn hơn",
+        lessThanOrEqual: "Nhỏ hơn hoặc bằng", greaterThanOrEqual: "Lớn hơn hoặc bằng", inRange: "Trong khoảng", andCondition: "VÀ", orCondition: "HOẶC",
+      } as Record<string, string>,
+    },
     more: (n: number) => `Xem thêm ${n} hóa đơn…`,
     delegated: (b: string, p: string) => (p ? `${b} mua hộ · ${p}` : `${b} mua hộ`),
     plans: (n: string) => `Đã trừ vào kế hoạch: ${n}`,
@@ -679,6 +692,13 @@ const en: typeof vi = {
     empty: "No matching receipts.",
     monthHead: (m, n, k = 0) => `${m} (${[n ? `${n} receipts` : "", k ? `${k} recurring` : ""].filter(Boolean).join(", ")})`,
     recurringTag: "Recurring",
+    view: { list: "List", table: "Table" },
+    grid: {
+      day: "Date", where: "Where", kind: "Type", items: "Items", total: "Amount",
+      kinds: { own: "Own", delegated: "Bought for you", recurring: "Recurring" },
+      hint: "Tap a column header to sort.", csv: "Download CSV",
+      locale: {},
+    },
     more: (n) => `See ${n} more receipts…`,
     delegated: (b, p) => (p ? `${b} bought for you · ${p}` : `${b} bought for you`),
     plans: (n) => `Counted toward plan: ${n}`,

@@ -458,3 +458,11 @@
 .gi15__none { padding: var(--s2) var(--s3); color: var(--ink-soft); font-size: var(--fs-sm); }
 .lines .gi15 { grid-column: 1 / -1; }
 .lines .gi15__list li { display: block; padding: 0; border: 0; }
+
+/* Bảng Lịch sử mua hàng (AG Grid) */
+.ph15__view { display: flex; gap: var(--s2); }
+.ph15__view > .btn { flex: 1; }
+.hgrid { display: grid; gap: var(--s2); }
+.hgrid__bar { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); }
+.hgrid__bar > .btn { flex: none; }
+.hgrid__table { width: 100%; overflow-x: auto; }

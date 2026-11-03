@@ -1,6 +1,6 @@
 import { m15 } from "../i18n/m15";
 import { t } from "../i18n";
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { CalendarClock, ChevronLeft, ChevronRight, ClipboardList, Search, ShieldCheck, Store, UsersRound } from "lucide-react";
 import { useReceiptDetail, useReceiptHistory } from "../api/hooks";
@@ -10,6 +10,8 @@ import { MainFrame, TopBar } from "../components/AppShell";
 import { CategoryIcon } from "../components/ItemRow";
 import { formatVnd } from "../lib/text";
 import { useRelations } from "../lib/relation";
+
+const HistoryGrid = lazy(() => import("../components/HistoryGrid"));
 
 const pad = (n: number) => String(n).padStart(2, "0");
 /** Giờ Việt Nam của một mốc ISO: "14/10 · 18:15". */
@@ -66,6 +68,8 @@ export function PurchaseHistory() {
   const [month, setMonth] = useState("");
   const [showFilter, setShowFilter] = useState(false);
   const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [view, setView] = useState<"list" | "table">("list");
+  const titleOf = useCallback((r: HistoryReceipt) => receiptTitle(r, relationOf), [relationOf]);
   const all = h.data ?? [];
   const stores = [...new Set(all.map((r) => r.store))];
   const months = [...new Set(all.map((r) => monthKey(r.purchased_at)))];
@@ -119,9 +123,22 @@ export function PurchaseHistory() {
           </select>
         </label>
 
+        <div className="ph15__view" role="group" aria-label={m15.history.view.table}>
+          {(["list", "table"] as const).map((v) => (
+            <button key={v} type="button" className={`btn ${view === v ? "btn--primary" : "btn--outline"}`} aria-pressed={view === v} onClick={() => setView(v)}>
+              {m15.history.view[v]}
+            </button>
+          ))}
+        </div>
+
         <LoadState q={h} hasData={!!h.data} />
         {h.data && groups.length === 0 && <p className="hint">{m15.history.empty}</p>}
-        {groups.map(({ m, rows }) => {
+        {view === "table" && list.length > 0 && (
+          <Suspense fallback={null}>
+            <HistoryGrid rows={list} titleOf={titleOf} />
+          </Suspense>
+        )}
+        {view === "list" && groups.map(({ m, rows }) => {
           const shown = open[m] ? rows : rows.slice(0, 3);
           return (
             <section key={m} className="box15 ph15__month" aria-label={label(m)}>
