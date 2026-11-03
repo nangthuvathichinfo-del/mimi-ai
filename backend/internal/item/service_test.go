@@ -56,6 +56,15 @@ func (m *memStore) ClearOverride(_ context.Context, uid, k string, _ time.Time) 
 	m.recs[uid][k] = r
 	return r, nil
 }
+func (m *memStore) SetBaseline(_ context.Context, uid, k string, b domain.Baseline) (Record, error) {
+	r, ok := m.recs[uid][k]
+	if !ok {
+		return Record{}, apperr.ErrNotFound
+	}
+	r.Baseline = b
+	m.recs[uid][k] = r
+	return r, nil
+}
 func (m *memStore) OwnerOf(context.Context, string) (string, error) { return "owner", nil }
 
 func date(s string) domain.Date { d, _ := domain.ParseDate(s); return d }
@@ -83,8 +92,8 @@ func TestItems(t *testing.T) {
 			t.Fatalf("got=%+v", got)
 		}
 	})
-	t.Run("member gets shared view, not full list", func(t *testing.T) {
-		if _, err := svc.List(context.Background(), member, Query{Tab: "soon", Horizon: 7}); !errors.Is(err, apperr.ErrForbidden) {
+	t.Run("member gets own list and shared view", func(t *testing.T) {
+		if _, err := svc.List(context.Background(), member, Query{Tab: "soon", Horizon: 7}); err != nil {
 			t.Fatalf("err=%v", err)
 		}
 		shared, err := svc.ListShared(context.Background(), member, 7)
@@ -157,8 +166,8 @@ func TestDetailAndNeedsCount(t *testing.T) {
 			}
 		}
 	})
-	t.Run("member cannot read detail", func(t *testing.T) {
-		if _, err := svc.Get(ctx, member, "sua"); !errors.Is(err, apperr.ErrForbidden) {
+	t.Run("member detail reads own inventory only", func(t *testing.T) {
+		if _, err := svc.Get(ctx, member, "sua"); err != nil && !errors.Is(err, apperr.ErrNotFound) {
 			t.Fatalf("err=%v", err)
 		}
 	})
@@ -172,9 +181,73 @@ func TestDetailAndNeedsCount(t *testing.T) {
 			t.Fatalf("horizon 14: n=%d", n)
 		}
 	})
-	t.Run("member count uses shared list", func(t *testing.T) {
-		if n, err := svc.CountNeeds(ctx, member, 7); err != nil || n != 1 {
+	t.Run("member count uses own inventory", func(t *testing.T) {
+		if n, err := svc.CountNeeds(ctx, member, 7); err != nil || n != 0 {
 			t.Fatalf("err=%v n=%d", err, n)
 		}
 	})
+}
+
+func TestSetQuantity(t *testing.T) {
+	now := time.Date(2026, 10, 16, 3, 0, 0, 0, time.UTC)
+	st := &memStore{recs: map[string]map[string]Record{"owner": {
+		"gao": {GroupKey: "gao", Name: "Gạo", RatePerDay: 200, Prediction: domain.Prediction{PurchaseCount: 4, Source: "predicted"}},
+	}}}
+	svc := New(st, func() time.Time { return now })
+	owner := authz.Principal{UID: "owner", Role: authz.RoleOwner, Timezone: "Asia/Ho_Chi_Minh"}
+
+	it, err := svc.SetQuantity(context.Background(), owner, "gao", QuantitySet{Qty: 2.5, Unit: "kg"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if it.Stock == nil || it.Stock.Confirmed != 2500 || it.Stock.Unit != "g" || it.Stock.ConfirmedSource != "manual" ||
+		it.Stock.Estimated != 2500 || it.Stock.DaysOfStock == nil || *it.Stock.DaysOfStock != 12 {
+		t.Fatalf("stock %+v", it.Stock)
+	}
+	if _, err := svc.SetQuantity(context.Background(), owner, "gao", QuantitySet{Qty: -1}); err == nil {
+		t.Fatal("negative qty accepted")
+	}
+	member := authz.Principal{UID: "m", Role: authz.RoleMember}
+	if _, err := svc.SetQuantity(context.Background(), member, "gao", QuantitySet{Qty: 1}); err == nil {
+		t.Fatal("member can set quantity")
+	}
+}
+
+func TestQuantityActions(t *testing.T) {
+	ctx := context.Background()
+	today, _ := domain.ParseDate("2026-10-10")
+	st := &memStore{recs: map[string]map[string]Record{"u1": {"sua": {GroupKey: "sua", Name: "Sữa", Baseline: domain.Baseline{Qty: 1800, Unit: domain.UnitML, On: today}}}}}
+	svc := New(st, func() time.Time { return today.At(12, 0, time.UTC) })
+	owner := authz.Principal{UID: "u1", Role: authz.RoleOwner, Timezone: "UTC"}
+	it, err := svc.SetQuantity(ctx, owner, "sua", QuantitySet{Qty: 1, Unit: "l", Action: "decrease"})
+	if err != nil || it.Stock == nil || it.Stock.Confirmed != 800 {
+		t.Fatalf("decrease %+v %v", it.Stock, err)
+	}
+	it, _ = svc.SetQuantity(ctx, owner, "sua", QuantitySet{Qty: 200, Unit: "ml", Action: "increase"})
+	if it.Stock.Confirmed != 1000 {
+		t.Fatalf("increase %+v", it.Stock)
+	}
+	if _, err := svc.SetQuantity(ctx, owner, "sua", QuantitySet{Qty: 1, Unit: "kg", Action: "increase"}); err == nil {
+		t.Fatal("other dimension must fail")
+	}
+	it, _ = svc.SetQuantity(ctx, owner, "sua", QuantitySet{Action: "mark_out"})
+	if it.Stock.Confirmed != 0 || it.Stock.Unit != "ml" {
+		t.Fatalf("mark_out %+v", it.Stock)
+	}
+	if _, err := svc.SetQuantity(ctx, owner, "sua", QuantitySet{Action: "bogus"}); err == nil {
+		t.Fatal("unknown action must fail")
+	}
+}
+
+// Lỗi V3: chia FIFO trên đủ lịch sử, nhưng Chi tiết món chỉ hiện lot còn hàng và 20 lot mới nhất.
+func TestVisibleLots(t *testing.T) {
+	lots := make([]domain.Lot, 30)
+	for i := range lots {
+		lots[i] = domain.Lot{ID: string(rune('a' + i))}
+	}
+	lots[25].Remaining = 2 // lot cũ nhưng còn hàng
+	got := visibleLots(lots)
+	if len(got) != lotShow+1 || got[lotShow].ID != lots[25].ID {
+		t.Fatalf("got %d lots, last %q", len(got), got[len(got)-1].ID)
+	}
 }

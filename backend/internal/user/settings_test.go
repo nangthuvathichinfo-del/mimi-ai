@@ -36,6 +36,8 @@ func TestValidate(t *testing.T) {
 		"channels":     {Channels: &[]string{"email", "email"}},
 		"channels_bad": {Channels: &[]string{"sms"}},
 		"lang":         {Lang: ptr("fr")},
+		"country":      {Country: ptr("JP")},
+		"currency":     {Currency: ptr("EUR")},
 		"remind_freq":  {RemindFreq: ptr("Every Day!")},
 	}
 	for name, p := range bad {
@@ -67,6 +69,12 @@ func TestApplyMergesAndReschedules(t *testing.T) {
 	}
 
 	// Không đổi lịch nhắc thì không ghi next_notify_at.
+	if g := (SettingsPatch{Country: ptr("US")}); g.Validate() != nil || g.Apply(cur, now).Settings["country"] != "US" {
+		t.Fatal("country US")
+	}
+	if g := (SettingsPatch{Country: ptr("SG")}); g.Validate() != nil || g.Apply(cur, now).Settings["country"] != "SG" {
+		t.Fatal("country SG")
+	}
 	if g := (SettingsPatch{Lang: ptr("en")}).Apply(cur, now); g.NextNotifyAt != nil {
 		t.Fatalf("unexpected reschedule %v", g.NextNotifyAt)
 	}
@@ -97,5 +105,33 @@ func TestSettingsServiceUpdate(t *testing.T) {
 	}
 	if _, err := svc.Update(context.Background(), authz.Principal{}, SettingsPatch{Lang: ptr("en")}); !errors.Is(err, apperr.ErrUnauthenticated) {
 		t.Fatalf("err=%v", err)
+	}
+}
+
+// B11: tên gọi người nhà lưu trên máy chủ, riêng cho từng tài khoản; "" là xóa.
+func TestRelations(t *testing.T) {
+	ctx := context.Background()
+	st := &memSettings{doc: Stored{Settings: map[string]any{"lang": "vi"}}}
+	svc := NewSettingsService(st, nil)
+	p := authz.Principal{UID: "u1", Role: authz.RoleOwner}
+	if _, err := svc.Update(ctx, p, SettingsPatch{Relations: map[string]string{"uid-minh": "anh", "uid-bo": "bo"}}); err != nil {
+		t.Fatal(err)
+	}
+	view, err := svc.Update(ctx, p, SettingsPatch{Relations: map[string]string{"uid-minh": ""}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rels, _ := view["relations"].(map[string]any)
+	if len(rels) != 1 || rels["uid-bo"] != "bo" || view["lang"] != "vi" {
+		t.Fatalf("relations: %v", view)
+	}
+	for name, patch := range map[string]SettingsPatch{
+		"vai lạ": {Relations: map[string]string{"uid-minh": "sep"}},
+		"uid lạ": {Relations: map[string]string{"../x": "anh"}},
+		"rỗng":   {Relations: map[string]string{}},
+	} {
+		if err := patch.Validate(); apperr.From(err).Code != apperr.CodeValidation {
+			t.Errorf("%s: got %v", name, err)
+		}
 	}
 }

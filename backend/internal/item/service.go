@@ -5,13 +5,17 @@ package item
 
 import (
 	"context"
+	"math"
 	"sort"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/smartlife-lab/mimi/backend/internal/apperr"
 	"github.com/smartlife-lab/mimi/backend/internal/authz"
 	"github.com/smartlife-lab/mimi/backend/internal/domain"
+	"github.com/smartlife-lab/mimi/backend/internal/taxonomy"
 )
 
 // Record là tài liệu users/{uid}/items/{group_key} đã lưu.
@@ -25,6 +29,20 @@ type Record struct {
 	LastPurchase  domain.Date
 	Dropped       bool
 	AskLaterUntil *domain.Date
+	// Tồn theo số lượng (Mimi 2.0 mục 4): Baseline là Confirmed Inventory, RatePerDay là
+	// tốc độ dùng ước tính, Consumed là các lần tiêu thụ đã ghi (bữa ăn đã qua).
+	Baseline   domain.Baseline
+	RatePerDay float64
+	Consumed   []domain.Consumption
+	// Extra là các consumption stream khác chiều đo của cùng nhóm (0.1 mục 18, 20): "Sữa
+	// tắm" có lot 800 g và lot 900 ml thì g và ml là hai stream, không cộng thành một tổng.
+	Extra map[domain.Unit]Stream
+}
+
+// Stream là tồn của một chiều đo: baseline có bằng chứng và tốc độ dùng ước tính.
+type Stream struct {
+	Baseline   domain.Baseline
+	RatePerDay float64
 }
 
 // Store đọc ghi items. Mọi hàm nhận uid của Principal, không nhận uid từ request.
@@ -35,6 +53,8 @@ type Store interface {
 	// có (lần bấm sau thắng), rồi tính lại Prediction bằng domain.Predict.
 	SetOverride(ctx context.Context, uid, groupKey string, ov domain.Override) (Record, error)
 	ClearOverride(ctx context.Context, uid, groupKey string, setAt time.Time) (Record, error)
+	// SetBaseline ghi mốc tồn mới do người dùng xác nhận; không sửa lịch sử mua.
+	SetBaseline(ctx context.Context, uid, groupKey string, b domain.Baseline) (Record, error)
 	// OwnerOf trả uid chủ nhà để thành viên đọc danh sách dùng chung.
 	OwnerOf(ctx context.Context, householdID string) (string, error)
 	// History trả các lần mua thói quen gần nhất của một nhóm, mới nhất trước
@@ -54,7 +74,23 @@ type HistoryEntry struct {
 type Detail struct {
 	Item
 	History []HistoryEntry `json:"history"`
+	// Lots: các lần mua (purchase lot) với phần còn lại chia theo FIFO từ tồn ước tính của
+	// stream cùng chiều đo (0.1 mục 11 đến 13). Rỗng khi Store chưa đọc được lot.
+	Lots []domain.Lot `json:"lots"`
 }
+
+// LotReader là phần tùy chọn của Store: đọc purchase lot của một nhóm, mới nhất trước.
+type LotReader interface {
+	Lots(ctx context.Context, uid, key string, limit int) ([]domain.Lot, error)
+}
+
+// lotLimit: số lot đọc để chia FIFO. Mọi lần mua đều được lưu, nên đọc đủ lịch sử để
+// tồn kho không bị mất phần nằm ở lot cũ (lỗi V3). lotShow: số lot đã dùng hết vẫn hiện
+// (mới nhất trước); lot còn hàng luôn hiện.
+const (
+	lotLimit = 500
+	lotShow  = 20
+)
 
 // historyLimit: số lần mua hiển thị trong Chi tiết món.
 const historyLimit = 10
@@ -74,6 +110,30 @@ type Item struct {
 	PurchaseCount int           `json:"purchase_count"`
 	Confidence    string        `json:"confidence,omitempty"`
 	Source        string        `json:"source"`
+	Stock         *Stock        `json:"stock,omitempty"` // nil khi chưa có số lượng nào
+}
+
+// Stock tách Confirmed Inventory (có bằng chứng) và Estimated Inventory (Mimi ước tính).
+type Stock struct {
+	Estimated       float64 `json:"estimated"`
+	Unit            string  `json:"unit"` // g | ml | pc
+	Confirmed       float64 `json:"confirmed"`
+	ConfirmedOn     string  `json:"confirmed_on"`
+	ConfirmedSource string  `json:"confirmed_source"` // receipt | delivery | manual
+	RatePerDay      float64 `json:"rate_per_day,omitempty"`
+	DaysOfStock     *int    `json:"days_of_stock,omitempty"`
+	// Parts: khi nhóm có lot khác chiều đo (800 g và 900 ml), mỗi chiều một dòng; UI không
+	// được cộng thành một tổng giả (0.1 mục 20). Rỗng khi chỉ có một chiều.
+	Parts []StockPart `json:"parts,omitempty"`
+}
+
+// StockPart là tồn của một chiều đo phụ.
+type StockPart struct {
+	Estimated   float64 `json:"estimated"`
+	Unit        string  `json:"unit"`
+	Confirmed   float64 `json:"confirmed"`
+	ConfirmedOn string  `json:"confirmed_on"`
+	DaysOfStock *int    `json:"days_of_stock,omitempty"`
 }
 
 // SharedItem là kiểu riêng cho thành viên nhà: KHÔNG có trường giá hay chi tiêu nào,
@@ -139,7 +199,7 @@ func (s *Service) List(ctx context.Context, p authz.Principal, q Query) ([]Item,
 		if q.Tab == "soon" && !domain.InNeeds(v, q.Horizon) {
 			continue
 		}
-		out = append(out, toItem(r, v))
+		out = append(out, toItem(r, v, today))
 	}
 	sortByDays(out)
 	return out, nil
@@ -192,20 +252,66 @@ func (s *Service) Get(ctx context.Context, p authz.Principal, key string) (Detai
 	if hist == nil {
 		hist = []HistoryEntry{} // JSON trả [] thay vì null
 	}
-	v := domain.ViewAt(rec.Prediction, domain.Today(s.now(), loc(p)), lead(p))
-	return Detail{Item: toItem(rec, v), History: hist}, nil
+	today := domain.Today(s.now(), loc(p))
+	v := domain.ViewAt(rec.Prediction, today, lead(p))
+	d := Detail{Item: toItem(rec, v, today), History: hist, Lots: []domain.Lot{}}
+	if lr, ok := s.store.(LotReader); ok {
+		lots, err := lr.Lots(ctx, p.UID, key, lotLimit)
+		if err != nil {
+			return Detail{}, err
+		}
+		d.Lots = visibleLots(allocateLots(lots, d.Stock))
+	}
+	return d, nil
+}
+
+// visibleLots giữ mọi lot còn hàng và các lot mới nhất cho đủ lotShow, theo thứ tự đọc
+// (mới nhất trước), để Chi tiết món không dài 500 dòng.
+func visibleLots(lots []domain.Lot) []domain.Lot {
+	out := make([]domain.Lot, 0, min(len(lots), lotShow))
+	for i, l := range lots {
+		if l.Remaining > 0 || i < lotShow {
+			out = append(out, l)
+		}
+	}
+	return out
+}
+
+// allocateLots chia tồn ước tính của từng stream (chính và phụ) xuống các lot cùng chiều đo.
+func allocateLots(lots []domain.Lot, st *Stock) []domain.Lot {
+	if len(lots) == 0 {
+		return []domain.Lot{}
+	}
+	if st == nil {
+		out := append([]domain.Lot(nil), lots...)
+		for i := range out {
+			out[i].Remaining = 0
+		}
+		return out
+	}
+	est := map[domain.Unit]float64{domain.ParseUnit(st.Unit): st.Estimated}
+	for _, p := range st.Parts {
+		est[domain.ParseUnit(p.Unit)] = p.Estimated
+	}
+	remaining := map[string]float64{}
+	for unit, e := range est {
+		alloc, _ := domain.AllocateFIFO(lots, e, unit)
+		for _, l := range alloc {
+			if l.Unit == unit {
+				remaining[l.ID] = l.Remaining
+			}
+		}
+	}
+	out := append([]domain.Lot(nil), lots...)
+	for i := range out {
+		out[i].Remaining = remaining[out[i].ID]
+	}
+	return out
 }
 
 // CountNeeds đếm món trong "Cần mua" với khoảng ngày horizon, cùng quy tắc với màn
-// Đồ dùng (tab "soon"). Thành viên nhà đếm trên danh sách dùng chung của chủ nhà.
+// Đồ dùng (tab "soon"). Mỗi thành viên nhà đếm trên tồn kho của chính mình (4.1 mục 4).
 func (s *Service) CountNeeds(ctx context.Context, p authz.Principal, horizon int) (int, error) {
-	if p.Role == authz.RoleMember {
-		shared, err := s.ListShared(ctx, p, horizon)
-		if err != nil {
-			return 0, err
-		}
-		return len(shared), nil
-	}
 	if err := authz.Can(p, authz.ActionReadItemsFull); err != nil {
 		return 0, err
 	}
@@ -271,7 +377,8 @@ func (s *Service) ChangeStock(ctx context.Context, p authz.Principal, key string
 	if err != nil {
 		return Item{}, err
 	}
-	return toItem(rec, domain.ViewAt(rec.Prediction, domain.Today(now, loc(p)), lead(p))), nil
+	today := domain.Today(now, loc(p))
+	return toItem(rec, domain.ViewAt(rec.Prediction, today, lead(p)), today), nil
 }
 
 // UndoStock xóa bản sửa tay (Hoàn tác). Không nhận cả tài liệu từ client.
@@ -286,10 +393,78 @@ func (s *Service) UndoStock(ctx context.Context, p authz.Principal, key string, 
 	if err != nil {
 		return Item{}, err
 	}
-	return toItem(rec, domain.ViewAt(rec.Prediction, domain.Today(s.now(), loc(p)), lead(p))), nil
+	today := domain.Today(s.now(), loc(p))
+	return toItem(rec, domain.ViewAt(rec.Prediction, today, lead(p)), today), nil
 }
 
-func toItem(r Record, v domain.View) Item {
+// QuantitySet là thao tác "SET số lượng thực tế" (Mimi 2.0 mục 4). Unit nhận dạng in
+// trên bao bì ("kg", "hộp"...), server quy về g | ml | pc.
+type QuantitySet struct {
+	Qty  float64 `json:"qty"`
+	Unit string  `json:"unit"`
+	// Action (0.1 mục 14): set (mặc định, lượng đếm được), increase / decrease (cộng / trừ
+	// vào tồn ước tính hiện tại, cùng chiều đo), mark_out (hết hàng: tồn = 0).
+	Action string `json:"action,omitempty"`
+}
+
+// MaxStockQty chặn số phi lý: 1 tấn, 1.000 lít hoặc 100.000 cái.
+const MaxStockQty = 1_000_000
+
+// SetQuantity tạo Confirmed Inventory baseline mới từ lượng người dùng đếm được.
+// Lịch sử mua giữ nguyên; tồn ước tính tính lại từ mốc này.
+func (s *Service) SetQuantity(ctx context.Context, p authz.Principal, key string, q QuantitySet) (Item, error) {
+	if err := authz.Can(p, authz.ActionWriteItems); err != nil {
+		return Item{}, err
+	}
+	if !ValidKey(key) {
+		return Item{}, apperr.ErrNotFound
+	}
+	if q.Qty < 0 || math.IsNaN(q.Qty) || math.IsInf(q.Qty, 0) {
+		return Item{}, apperr.New(apperr.CodeValidation, "Số lượng không hợp lệ.").With("field", "qty")
+	}
+	qty, unit := domain.ToBase(q.Qty, q.Unit)
+	today := domain.Today(s.now(), loc(p))
+	switch q.Action {
+	case "", "set":
+	case "increase", "decrease", "mark_out":
+		cur, err := s.store.GetItem(ctx, p.UID, key)
+		if err != nil {
+			return Item{}, err
+		}
+		base := cur.Baseline.Unit
+		if q.Action == "mark_out" {
+			qty, unit = 0, base
+			if unit == "" {
+				unit = domain.UnitItem
+			}
+			break
+		}
+		if cur.Baseline.On.IsZero() {
+			return Item{}, apperr.New(apperr.CodeInvalidState, "Chưa có tồn để cộng hoặc trừ. Hãy nhập số lượng hiện có.").With("field", "action")
+		}
+		if unit != base {
+			return Item{}, apperr.New(apperr.CodeValidation, "Đơn vị khác chiều đo với tồn hiện tại.").With("field", "unit")
+		}
+		est := domain.EstimateAt(cur.Baseline, cur.RatePerDay, cur.Consumed, today)
+		if q.Action == "increase" {
+			qty = est + qty
+		} else {
+			qty = math.Max(0, est-qty)
+		}
+	default:
+		return Item{}, apperr.New(apperr.CodeValidation, "Action là set, increase, decrease hoặc mark_out.").With("field", "action")
+	}
+	if qty > MaxStockQty {
+		return Item{}, apperr.New(apperr.CodeValidation, "Số lượng quá lớn.").With("field", "qty")
+	}
+	rec, err := s.store.SetBaseline(ctx, p.UID, key, domain.Baseline{Qty: qty, Unit: unit, On: today, Source: domain.BaselineManual})
+	if err != nil {
+		return Item{}, err
+	}
+	return toItem(rec, domain.ViewAt(rec.Prediction, today, lead(p)), today), nil
+}
+
+func toItem(r Record, v domain.View, today domain.Date) Item {
 	it := Item{
 		Key: r.GroupKey, Name: r.Name, CategoryKey: r.CategoryKey,
 		Status: v.Status, DaysLeft: v.DaysLeft, PurchaseCount: r.Prediction.PurchaseCount,
@@ -299,7 +474,35 @@ func toItem(r Record, v domain.View) Item {
 	if !r.Prediction.OutOn.IsZero() {
 		it.OutOn = r.Prediction.OutOn.String()
 	}
+	if !r.Baseline.On.IsZero() {
+		est := domain.EstimateAt(r.Baseline, r.RatePerDay, r.Consumed, today)
+		it.Stock = &Stock{
+			Estimated: est, Unit: string(r.Baseline.Unit),
+			Confirmed: r.Baseline.Qty, ConfirmedOn: r.Baseline.On.String(), ConfirmedSource: string(r.Baseline.Source),
+			RatePerDay: r.RatePerDay, DaysOfStock: domain.DaysOfStock(est, r.RatePerDay),
+		}
+		for _, u := range sortedUnits(r.Extra) {
+			x := r.Extra[u]
+			if x.Baseline.On.IsZero() {
+				continue
+			}
+			e := domain.EstimateAt(x.Baseline, x.RatePerDay, nil, today)
+			it.Stock.Parts = append(it.Stock.Parts, StockPart{
+				Estimated: e, Unit: string(u), Confirmed: x.Baseline.Qty, ConfirmedOn: x.Baseline.On.String(),
+				DaysOfStock: domain.DaysOfStock(e, x.RatePerDay),
+			})
+		}
+	}
 	return it
+}
+
+func sortedUnits(m map[domain.Unit]Stream) []domain.Unit {
+	out := make([]domain.Unit, 0, len(m))
+	for u := range m {
+		out = append(out, u)
+	}
+	sort.Slice(out, func(a, b int) bool { return out[a] < out[b] })
+	return out
 }
 
 func sortByDays(xs []Item) {
@@ -325,3 +528,64 @@ func lead(p authz.Principal) int {
 }
 
 func loc(p authz.Principal) *time.Location { return domain.Location(p.Timezone) }
+
+// Corrector là phần tùy chọn của Store cho màn chi tiết món (0.1 mục 3.2): sửa tên chuẩn hóa
+// và chuyển món sang nhóm đúng khi AI phân loại sai. Lịch sử mua giữ nguyên số liệu, chỉ đổi
+// nhóm; tồn và dự đoán của nhóm đích tính lại từ lịch sử gộp.
+type Corrector interface {
+	RenameItem(ctx context.Context, uid, key, name string) (Record, error)
+	// RegroupItem chuyển mọi purchase của from sang to, gộp tồn vào to rồi xóa from.
+	RegroupItem(ctx context.Context, uid, from, to, category string) (Record, error)
+}
+
+// Correction là thân PATCH /items/{key}: chỉ gửi trường cần sửa.
+type Correction struct {
+	Name     *string `json:"name,omitempty"`
+	GroupKey *string `json:"group_key,omitempty"`
+}
+
+// Correct sửa tên và / hoặc nhóm của một món. Trả món sau khi sửa (key mới nếu đổi nhóm).
+func (s *Service) Correct(ctx context.Context, p authz.Principal, key string, c Correction) (Item, error) {
+	if err := authz.Can(p, authz.ActionWriteItems); err != nil {
+		return Item{}, err
+	}
+	if !ValidKey(key) {
+		return Item{}, apperr.ErrNotFound
+	}
+	cs, ok := s.store.(Corrector)
+	if !ok {
+		return Item{}, apperr.New(apperr.CodeNotImplemented, "Chưa hỗ trợ sửa món.")
+	}
+	if c.Name == nil && c.GroupKey == nil {
+		return Item{}, apperr.New(apperr.CodeValidation, "Chưa có gì để sửa.")
+	}
+	var rec Record
+	var err error
+	if c.Name != nil {
+		name := domain.CleanItemName(*c.Name)
+		if name == "" || utf8.RuneCountInString(name) > 60 || strings.IndexFunc(name, unicode.IsControl) >= 0 {
+			return Item{}, apperr.New(apperr.CodeValidation, "Tên món từ 1 đến 60 ký tự.").With("field", "name")
+		}
+		if rec, err = cs.RenameItem(ctx, p.UID, key, name); err != nil {
+			return Item{}, err
+		}
+	}
+	if c.GroupKey != nil {
+		to := taxonomy.Normalize(*c.GroupKey)
+		if !taxonomy.Has(to) {
+			return Item{}, apperr.New(apperr.CodeValidation, "Nhóm không có trong danh sách.").With("field", "group_key")
+		}
+		if to != key {
+			if rec, err = cs.RegroupItem(ctx, p.UID, key, to, taxonomy.SpendingCategory(to)); err != nil {
+				return Item{}, err
+			}
+		}
+	}
+	if rec.GroupKey == "" {
+		if rec, err = s.store.GetItem(ctx, p.UID, key); err != nil {
+			return Item{}, err
+		}
+	}
+	today := domain.Today(s.now(), loc(p))
+	return toItem(rec, domain.ViewAt(rec.Prediction, today, lead(p)), today), nil
+}

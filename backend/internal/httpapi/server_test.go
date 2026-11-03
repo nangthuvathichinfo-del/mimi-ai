@@ -90,6 +90,12 @@ func (fakeItems) ChangeStock(context.Context, authz.Principal, string, item.Stoc
 func (fakeItems) UndoStock(context.Context, authz.Principal, string, time.Time) (item.Item, error) {
 	return item.Item{}, nil
 }
+func (fakeItems) SetQuantity(context.Context, authz.Principal, string, item.QuantitySet) (item.Item, error) {
+	return item.Item{}, nil
+}
+func (fakeItems) Correct(context.Context, authz.Principal, string, item.Correction) (item.Item, error) {
+	return item.Item{}, nil
+}
 
 type fakeHome struct{}
 
@@ -126,12 +132,16 @@ func (f *fakePlanStore) AddLine(_ context.Context, _ string, l plan.Line) error 
 	f.lines[l.Key] = l
 	return nil
 }
+func (f *fakePlanStore) UpdateLine(_ context.Context, _ string, l plan.Line) error {
+	f.lines[l.Key] = l
+	return nil
+}
 func (f *fakePlanStore) RemoveLine(_ context.Context, _ string, k string) error {
 	delete(f.lines, k)
 	return nil
 }
-func (f *fakePlanStore) State(context.Context, string) (plan.State, error)  { return plan.State{}, nil }
-func (f *fakePlanStore) SetState(context.Context, string, plan.State) error { return nil }
+func (f *fakePlanStore) State(context.Context, string) (plan.State, error)           { return plan.State{}, nil }
+func (f *fakePlanStore) SetState(context.Context, string, plan.State) (int64, error) { return 1, nil }
 func (f *fakePlanStore) Prices(context.Context, string, []string) ([]domain.LastPrice, error) {
 	return []domain.LastPrice{{GroupKey: "sua", Store: "Co.op", Unit: 32000}}, nil
 }
@@ -173,6 +183,7 @@ func newTestServer(t *testing.T) (http.Handler, *fakeReceipts) {
 		Home: fakeHome{}, Spending: spending.New(fakeSpendingStore{}), Settings: user.NewSettingsService(fakeSettingsStore{}, nil),
 		Plan:  plan.New(&fakePlanStore{lines: map[string]plan.Line{}}, fakePlanItems{}, nil),
 		Notes: fakeNotes{},
+		FX:    fakeFX{},
 	}, WithWriteLimit(2))
 	if err != nil {
 		t.Fatal(err)
@@ -225,9 +236,9 @@ func TestServer(t *testing.T) {
 			}
 		}
 	})
-	t.Run("member is forbidden from full items", func(t *testing.T) {
+	t.Run("member reads own items", func(t *testing.T) {
 		rec, body := do(h, "GET", "/items", "member-tok", "")
-		if rec.Code != 403 || body["code"] != "forbidden" {
+		if rec.Code != 200 {
 			t.Fatalf("status %d body %v", rec.Code, body)
 		}
 	})
@@ -262,7 +273,7 @@ func TestServer(t *testing.T) {
 		if rec, _ := do(h, "GET", "/api/items/khong-co", "owner-tok", ""); rec.Code != 404 {
 			t.Fatalf("missing item status %d", rec.Code)
 		}
-		if rec, _ := do(h, "GET", "/api/items/sua", "member-tok", ""); rec.Code != 403 {
+		if rec, _ := do(h, "GET", "/api/items/sua", "member-tok", ""); rec.Code != 200 {
 			t.Fatalf("member status %d", rec.Code)
 		}
 	})
@@ -274,7 +285,7 @@ func TestServer(t *testing.T) {
 		if rec, body := do(h, "GET", "/api/spending?month=10-2026", "owner-tok", ""); rec.Code != 422 || body["code"] != "validation_failed" {
 			t.Fatalf("bad month status %d body %v", rec.Code, body)
 		}
-		if rec, _ := do(h, "GET", "/api/spending?month=2026-10", "member-tok", ""); rec.Code != 403 {
+		if rec, _ := do(h, "GET", "/api/spending?month=2026-10", "member-tok", ""); rec.Code != 200 {
 			t.Fatalf("member status %d", rec.Code)
 		}
 	})
@@ -342,7 +353,7 @@ func TestServer(t *testing.T) {
 		if rec, _ := do(h9, "DELETE", "/api/plan/items/sua", "owner-tok", ""); rec.Code != 204 {
 			t.Fatalf("remove status %d", rec.Code)
 		}
-		if rec, _ := do(h9, "GET", "/api/plan", "member-tok", ""); rec.Code != 403 {
+		if rec, _ := do(h9, "GET", "/api/plan", "member-tok", ""); rec.Code != 200 {
 			t.Fatalf("member status %d", rec.Code)
 		}
 	})

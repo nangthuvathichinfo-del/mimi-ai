@@ -9,6 +9,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -21,19 +22,31 @@ import (
 
 	"cloud.google.com/go/firestore"
 
+	"github.com/smartlife-lab/mimi/backend/internal/account"
 	"github.com/smartlife-lab/mimi/backend/internal/config"
+	"github.com/smartlife-lab/mimi/backend/internal/demo"
+	"github.com/smartlife-lab/mimi/backend/internal/fx"
 	"github.com/smartlife-lab/mimi/backend/internal/gcp/fbauth"
 	"github.com/smartlife-lab/mimi/backend/internal/gcp/fsstore"
 	"github.com/smartlife-lab/mimi/backend/internal/gcp/gemini"
+	"github.com/smartlife-lab/mimi/backend/internal/gcp/tasks"
+	"github.com/smartlife-lab/mimi/backend/internal/history"
 	"github.com/smartlife-lab/mimi/backend/internal/home"
+	"github.com/smartlife-lab/mimi/backend/internal/household"
 	"github.com/smartlife-lab/mimi/backend/internal/httpapi"
 	"github.com/smartlife-lab/mimi/backend/internal/inbox"
 	"github.com/smartlife-lab/mimi/backend/internal/item"
+	"github.com/smartlife-lab/mimi/backend/internal/market"
 	"github.com/smartlife-lab/mimi/backend/internal/notify"
+	"github.com/smartlife-lab/mimi/backend/internal/order"
+	"github.com/smartlife-lab/mimi/backend/internal/paypal"
 	"github.com/smartlife-lab/mimi/backend/internal/plan"
 	"github.com/smartlife-lab/mimi/backend/internal/platform/logx"
+	"github.com/smartlife-lab/mimi/backend/internal/pricing"
 	"github.com/smartlife-lab/mimi/backend/internal/receipt"
+	"github.com/smartlife-lab/mimi/backend/internal/recurring"
 	"github.com/smartlife-lab/mimi/backend/internal/spending"
+	groupTaxonomy "github.com/smartlife-lab/mimi/backend/internal/taxonomy"
 	"github.com/smartlife-lab/mimi/backend/internal/user"
 )
 
@@ -69,10 +82,10 @@ func run(args []string) error {
 	case "serve-api":
 		return serveAPI(ctx, cfg, log, store)
 	case "serve-worker":
-		return serveWorker(ctx, cfg, log)
+		return serveWorker(ctx, cfg, log, store)
 	case "job":
 		if len(args) < 2 {
-			return errors.New("usage: mimi job <digest|price-sync|fx-sync|cleanup>")
+			return errors.New("usage: mimi job <digest|migrate|fx-sync|cleanup|seed-demo|price-sync>")
 		}
 		return runJob(ctx, args[1], cfg, log, store)
 	}
@@ -87,14 +100,17 @@ func serveAPI(ctx context.Context, cfg config.Config, log *slog.Logger, store *f
 	if err != nil {
 		return err
 	}
-	taxonomy := loadTaxonomy()
-	reader, err := gemini.New(ctx, cfg.ProjectID, cfg.GeminiLocation, cfg.GeminiModel, taxonomy)
+	taxonomy := groupTaxonomy.SpendingKeys()
+	reader, err := gemini.New(ctx, cfg.ProjectID, cfg.GeminiLocation, cfg.GeminiModel, taxonomy, groupTaxonomy.Keys())
+	if err == nil {
+		reader.SetThinking(cfg.GeminiThinking)
+	}
 	if err != nil {
 		return err
 	}
 	receipts, err := receipt.New(reader, store, store, store, store, log,
 		receipt.WithDailyLimit(cfg.ReceiptDailyLimit),
-		receipt.WithTaxonomy(taxonomy))
+		receipt.WithTaxonomy(taxonomy), receipt.WithPageCache(store))
 	if err != nil {
 		return err
 	}
@@ -102,35 +118,114 @@ func serveAPI(ctx context.Context, cfg config.Config, log *slog.Logger, store *f
 	if cfg.AppCheckRequired {
 		appCheck = auth
 	}
+	// B9: có cấu hình hàng đợi thì đẩy thông báo sự kiện cho worker gửi thư; chưa có thì
+	// thông báo chỉ hiện trong app.
+	if cfg.TasksQueue != "" {
+		q, err := tasks.New(ctx, cfg.TasksQueue, cfg.WorkerURL, cfg.TasksSAEmail)
+		if err != nil {
+			return err
+		}
+		store.WithQueue(q)
+	}
 	items := item.New(store, nil)
-	planSvc := plan.New(store, store, nil)
+	planSvc := plan.New(store, store, nil).WithPlans(store)
+	payments, err := newPayments(cfg)
+	if err != nil {
+		return err
+	}
+	orders, err := order.New(store, store, order.NewSandboxCatalog(time.Now()), payments, reader, cfg.VNDPerUSD, log, nil)
+	if err != nil {
+		return err
+	}
+	orders.WithRateInfo(cfg.VNDRateSource, cfg.VNDRateAsOf)
 	api, err := httpapi.New(httpapi.Deps{
 		Log: log, Tokens: auth, AppCheck: appCheck, Principals: store, Profiles: store,
 		Receipts: receipts, Items: items, Ready: store,
 		Home:     home.New(store, items, planSvc, nil),
 		Plan:     planSvc,
-		Notes:    inbox.New(items, planSvc, nil),
+		Notes:    inbox.New(items, planSvc, nil).WithEvents(store),
 		Spending: spending.New(store),
 		Settings: user.NewSettingsService(store, nil),
-	}, httpapi.WithTimeouts(cfg.ReadTimeout, cfg.DefaultTimeout))
+		Orders:   orders,
+		// Bộ spec Mimi 1.0: khoản định kỳ + dự báo (2.1), nhà + mua hộ (4.1), lịch sử giá (8.1).
+		Recurring:  recurring.NewService(store, store, store, nil),
+		Households: household.New(store, store, nil).WithReceipts(receipts),
+		Pricing:    pricing.New(store, store, nil),
+		Market:     store, // bảng giá chung, job price-sync ghi mỗi đêm
+		// Nút "Cập nhật giá": tra lại giá món trong một kế hoạch, cùng nguồn công khai với job.
+		PriceRefresh: market.NewRefresher(store, []market.Source{reader.NewPriceSearch(store, log)}, store, market.RefreshOptions{Log: log, FX: store}),
+		History:      history.New(store),
+		FX:           store, // tỷ giá từng ngày, app quy đổi sang tiền tệ hiển thị
+		Accounts:     account.New(store, store, auth),
+		SignIn:       auth,
+	}, httpapi.WithTimeouts(cfg.ReadTimeout, cfg.DefaultTimeout), httpapi.WithIdempotency(fsstore.NewIdempotency(store)),
+		httpapi.WithSharedLimiter(fsstore.NewRateLimiter(store)))
 	if err != nil {
 		return err
 	}
 	return listen(ctx, log, cfg.Port, api.Handler())
 }
 
+// newPayments chọn PayPal theo PAYPAL_MODE. off trả nil: các route thanh toán báo
+// payment_not_enabled thay vì âm thầm giả lập.
+func newPayments(cfg config.Config) (order.Payments, error) {
+	switch cfg.PayPalMode {
+	case "sandbox":
+		return paypal.New(paypal.SandboxBaseURL, cfg.PayPalClientID, cfg.PayPalSecret)
+	case "live":
+		return paypal.New(paypal.LiveBaseURL, cfg.PayPalClientID, cfg.PayPalSecret)
+	case "fake":
+		if cfg.Env == "prod" {
+			return nil, errors.New("PAYPAL_MODE=fake is not allowed in prod")
+		}
+		return paypal.NewFake(), nil
+	}
+	return nil, nil
+}
+
 // serveWorker: nhận task từ Cloud Tasks. Cloud Run đã kiểm tra OIDC (ingress internal,
 // bắt buộc IAM), handler chỉ kiểm tra nội dung task.
-func serveWorker(ctx context.Context, cfg config.Config, log *slog.Logger) error {
+func serveWorker(ctx context.Context, cfg config.Config, log *slog.Logger, store *fsstore.Store) error {
+	auth, err := fbauth.New(ctx, cfg.ProjectID, false)
+	if err != nil {
+		return err
+	}
+	mailer, err := newMailer(cfg, log)
+	if err != nil {
+		return err
+	}
+	d := notify.NewDeliverer(fsstore.NewNotifyStore(store, auth), mailer)
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
-	mux.HandleFunc("POST /tasks/notify", func(w http.ResponseWriter, r *http.Request) {
-		// Bước tiếp theo: giải mã task, kiểm tra uid và loại task trong danh sách cho phép,
-		// gửi email qua Mailer với timeout. Trả 2xx khi xong hoặc lỗi vĩnh viễn, 5xx để
-		// Cloud Tasks retry khi lỗi tạm thời.
-		http.Error(w, "not implemented", http.StatusNotImplemented)
-	})
+	mux.HandleFunc("POST /tasks/notify", notifyHandler(d, log))
 	return listen(ctx, log, cfg.Port, mux)
+}
+
+// notifyHandler (B9): 2xx khi đã gửi hoặc lỗi vĩnh viễn (Cloud Tasks không thử lại), 503 khi
+// lỗi tạm thời để Cloud Tasks thử lại theo cấu hình hàng đợi (giãn cách, số lần tối đa).
+func notifyHandler(d *notify.Deliverer, log *slog.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var t notify.Task
+		dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10))
+		dec.DisallowUnknownFields()
+		if err := dec.Decode(&t); err != nil {
+			log.WarnContext(r.Context(), "notify task: bad body", "err", err)
+			w.WriteHeader(http.StatusNoContent) // task hỏng: thử lại cũng vô ích
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
+		defer cancel()
+		retry, err := d.Deliver(ctx, t)
+		attempt := r.Header.Get("X-CloudTasks-TaskRetryCount")
+		if err != nil {
+			log.WarnContext(ctx, "notify task", "event_id", t.EventID, "retry", retry, "attempt", attempt, "err", err)
+		}
+		if retry {
+			http.Error(w, "retry", http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
 }
 
 func runJob(ctx context.Context, name string, cfg config.Config, log *slog.Logger, store *fsstore.Store) error {
@@ -147,8 +242,47 @@ func runJob(ctx context.Context, name string, cfg config.Config, log *slog.Logge
 			return merr
 		}
 		_, err = notify.NewDigestJob(fsstore.NewNotifyStore(store, auth), mailer, log, nil).Run(ctx)
-	case "price-sync", "fx-sync", "cleanup":
-		err = fmt.Errorf("job %s: not implemented yet", name)
+	case "migrate":
+		// A4: đưa dữ liệu mọi người dùng lên phiên bản mới; chạy sau mỗi lần deploy có bước mới.
+		var n int
+		n, err = store.MigrateAll(ctx, log)
+		log.InfoContext(ctx, "migrate done", "users", n, "schema_version", fsstore.SchemaVersion)
+	case "cleanup":
+		var res fsstore.CleanupResult
+		res, err = store.Cleanup(ctx, time.Now(), log)
+		log.InfoContext(ctx, "cleanup done", "events", res.Events)
+	case "fx-sync":
+		var rates []fx.Rate
+		rates, err = fx.Sync(ctx, fx.ERAPI{}, store, time.Now())
+		log.InfoContext(ctx, "fx-sync done", "currencies", len(rates))
+	case "seed-demo":
+		// V5: ghi lịch sử mua mẫu cho tài khoản demo (đăng nhập tài khoản đó một lần trước).
+		// Chỉ chạy khi đặt DEMO_UID, để không ai lỡ tay ghi vào tài khoản thật.
+		uid := os.Getenv("DEMO_UID")
+		if uid == "" {
+			return errors.New("seed-demo: đặt DEMO_UID là uid tài khoản demo")
+		}
+		var rs *receipt.Service
+		// Thiếu WithTaxonomy thì mọi danh mục bị coi là chưa phân loại và không vào tồn kho.
+		if rs, err = receipt.New(nil, store, store, store, store, log, receipt.WithTaxonomy(groupTaxonomy.SpendingKeys())); err == nil {
+			var n int
+			n, err = demo.Seed(ctx, rs, uid, time.Now())
+			log.InfoContext(ctx, "seed-demo done", "receipts", n)
+		}
+	case "price-sync":
+		// ADR-004: bảng giá chung chỉ từ nguồn công khai. Thứ tự nguồn = thứ tự ưu tiên;
+		// nguồn đối tác cắm thêm vào trước Gemini khi có hợp tác.
+		if cfg.GeminiModel == "" {
+			return errors.New("price-sync: thiếu GEMINI_MODEL")
+		}
+		var r *gemini.Reader
+		if r, err = gemini.New(ctx, cfg.ProjectID, cfg.GeminiLocation, cfg.GeminiModel, nil, nil); err == nil {
+			var res market.Result
+			res, err = market.Sync(ctx, store, store, []market.Source{r.NewPriceSearch(store, log)},
+				market.Options{Limit: cfg.PriceSyncLimit, Now: time.Now(), Log: log, FX: store})
+			log.InfoContext(ctx, "price-sync done", "wanted", res.Wanted, "fresh", res.Fresh, "looked", res.Looked,
+				"found", res.Found, "skipped", res.Skipped, "errors", res.Errors)
+		}
 	default:
 		err = fmt.Errorf("unknown job %q", name)
 	}
@@ -205,15 +339,4 @@ func listen(ctx context.Context, log *slog.Logger, port string, h http.Handler) 
 	defer cancel()
 	log.Info("shutting down")
 	return srv.Shutdown(shutdownCtx)
-}
-
-// loadTaxonomy: KHÓA TẠM do khung dự án đặt cho đủ 27 danh mục. Thay bằng taxonomy thật
-// trong gói mimi_taxonomy của spec, nhúng từ taxonomy.json bằng go:embed.
-func loadTaxonomy() []string {
-	return []string{
-		"sua", "do-uong", "tuoi-song", "rau-cu", "trai-cay", "do-kho", "gia-vi", "do-dong-lanh",
-		"banh-keo", "an-vat", "me-be", "hoa-pham", "ve-sinh", "my-pham", "giay", "do-dung-bep",
-		"thu-cung", "thuoc", "van-phong-pham", "dien-gia-dung", "do-choi", "quan-ao", "giat-say",
-		"nha-cua", "the-thao", "dich-vu", "khac",
-	}
 }

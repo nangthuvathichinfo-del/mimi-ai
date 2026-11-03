@@ -56,7 +56,7 @@ func TestBuild(t *testing.T) {
 		}
 		return strings.Join(s, ",")
 	}
-	if got := ids(r.RecentReceipts); got != "e,b,c" {
+	if got := ids(r.RecentReceipts); got != "e,b,c,d,a" { // mọi hóa đơn của tháng, mới nhất trước
 		t.Fatalf("recent %s", got)
 	}
 	if got := ids(r.TopSavingReceipts); got != "c,a,e" {
@@ -92,7 +92,7 @@ func TestService(t *testing.T) {
 		t.Fatalf("bad month err=%v", err)
 	}
 	member := authz.Principal{UID: "u2", Role: authz.RoleMember}
-	if _, err := svc.Get(ctx, member, "2026-01"); !errors.Is(err, apperr.ErrForbidden) {
+	if _, err := svc.Get(ctx, member, "2026-01"); err != nil {
 		t.Fatalf("member err=%v", err)
 	}
 }

@@ -1,4 +1,4 @@
-import { t } from "../i18n";
+import { switchUiLang, t, uiLang } from "../i18n";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useAuth } from "../lib/auth";
 import { API_MODE } from "../lib/firebase";
@@ -19,7 +19,6 @@ export function Welcome() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [emailError, setEmailError] = useState<string | null>(null);
-  const [lang, setLang] = useState<"vi" | "en">("en"); // ngôn ngữ dịch hóa đơn, không phải giao diện
   const emailRef = useRef<HTMLInputElement>(null);
   const ids = { email: useId(), name: useId(), err: useId(), help: useId() };
 
@@ -85,7 +84,7 @@ export function Welcome() {
               {t.welcome.resend}
             </button>
             {API_MODE === "mock" && (
-              <a className="btn btn--primary" href="/?mockLink=1">
+              <a className="btn btn--primary" href="?mockLink=1">
                 {t.welcome.openMockLink}
               </a>
             )}
@@ -165,8 +164,8 @@ export function Welcome() {
         <footer className="welcome__foot">
           <span>{t.welcome.footer}</span>
           <span className="lang" role="group" aria-label={t.welcome.langGroup}>
-            <button type="button" aria-pressed={lang === "vi"} onClick={() => setLang("vi")}>VI</button>
-            <button type="button" aria-pressed={lang === "en"} onClick={() => setLang("en")}>EN</button>
+            <button type="button" aria-pressed={uiLang === "vi"} onClick={() => uiLang !== "vi" && switchUiLang("vi")}>VI</button>
+            <button type="button" aria-pressed={uiLang === "en"} onClick={() => uiLang !== "en" && switchUiLang("en")}>EN</button>
           </span>
         </footer>
       </div>

@@ -12,7 +12,15 @@ import type { ApiErrorBody } from "./types";
  *   Idempotency-Key: <uuid> cho thao tác ghi
  */
 export class ApiError extends Error {
-  constructor(public status: number, public code: string, message: string) {
+  constructor(
+    public status: number,
+    public code: string,
+    message: string,
+    /** Chi tiết theo mã lỗi, ví dụ image_index của ảnh cần chụp lại (1.1). */
+    public fields: Record<string, unknown> = {},
+    /** true: gửi lại đúng yêu cầu này có thể thành công. */
+    public retryable = false,
+  ) {
     super(message);
   }
 }
@@ -53,9 +61,26 @@ async function headers(extra?: Record<string, string>) {
   return h;
 }
 
-async function rawFetch(path: string, init: RequestInit): Promise<Response> {
+/**
+ * Thời gian chờ tối đa phía app (vấn đề 13, 90): mạng chập chờn thì không để vòng quay mãi.
+ * Đặt dài hơn giới hạn của backend (10 s cho thao tác thường, 55 s cho đọc ảnh) để backend
+ * luôn kịp trả lỗi có mã trước khi app tự cắt.
+ */
+export const TIMEOUT_MS = 20_000;
+export const UPLOAD_TIMEOUT_MS = 65_000;
+
+async function rawFetch(path: string, init: RequestInit, timeoutMs = TIMEOUT_MS): Promise<Response> {
   if (API_MODE === "mock") return mockFetch(path, init);
-  return fetch(`/api${path}`, init);
+  try {
+    return await fetch(`/api${path}`, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+  } catch (e) {
+    // Hết giờ: chưa biết backend đã làm xong hay chưa. Báo lỗi riêng, không coi là mất mạng,
+    // để thao tác ghi không bị xếp hàng gửi lại một cách mù quáng.
+    if ((e as { name?: string }).name === "TimeoutError") {
+      throw new ApiError(408, "timeout", t.common.timeout, {}, true);
+    }
+    throw e;
+  }
 }
 
 async function parse<T>(res: Response): Promise<T> {
@@ -65,7 +90,7 @@ async function parse<T>(res: Response): Promise<T> {
   }
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as ApiErrorBody | null;
-    throw new ApiError(res.status, body?.code ?? "unknown", body?.message ?? t.common.genericError);
+    throw new ApiError(res.status, body?.code ?? "unknown", body?.message ?? t.common.genericError, body?.fields ?? {}, !!body?.retryable);
   }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
@@ -76,7 +101,8 @@ export async function apiGet<T>(path: string): Promise<T> {
   let res: Response;
   try {
     res = await rawFetch(path, { headers: h });
-  } catch {
+  } catch (e) {
+    if (e instanceof ApiError) throw e;
     throw new OfflineError("offline");
   }
   return parse<T>(res);
@@ -88,6 +114,7 @@ export async function apiSend<T>(
   path: string,
   body?: unknown,
   idempotencyKey: string = crypto.randomUUID(),
+  timeoutMs: number = TIMEOUT_MS,
 ): Promise<T> {
   const h = await headers({ "Content-Type": "application/json", "Idempotency-Key": idempotencyKey });
   let res: Response;
@@ -96,8 +123,9 @@ export async function apiSend<T>(
       method,
       headers: h,
       body: body === undefined ? undefined : JSON.stringify(body),
-    });
-  } catch {
+    }, timeoutMs);
+  } catch (e) {
+    if (e instanceof ApiError) throw e;
     throw new OfflineError("offline");
   }
   return parse<T>(res);
@@ -111,14 +139,20 @@ export async function apiSendQueued(
   method: QueuedWrite["method"],
   path: string,
   body?: unknown,
+  label?: string,
 ): Promise<"sent" | "queued"> {
   const key = crypto.randomUUID();
+  // Spec 1.5 mục 8: biết chắc mất mạng thì lưu vào hộp thư đi luôn, không chờ lỗi.
+  if (!navigator.onLine) {
+    await enqueue({ key, method, path, body, label });
+    return "queued";
+  }
   try {
     await apiSend(method, path, body, key);
     return "sent";
   } catch (e) {
     if (e instanceof OfflineError) {
-      await enqueue({ key, method, path, body });
+      await enqueue({ key, method, path, body, label });
       return "queued";
     }
     throw e;
@@ -144,8 +178,24 @@ export async function apiUploadReceipt<T>(receiptId: string, images: Blob[], lan
   const h = await headers();
   let res: Response;
   try {
-    res = await rawFetch("/receipts/read", { method: "POST", headers: h, body: form });
-  } catch {
+    res = await rawFetch("/receipts/read", { method: "POST", headers: h, body: form }, UPLOAD_TIMEOUT_MS);
+  } catch (e) {
+    if (e instanceof ApiError) throw e;
+    throw new OfflineError("offline");
+  }
+  return parse<T>(res);
+}
+
+/** Gửi ảnh hàng nhận dạng multipart cho Verify; ảnh đã được nén ở máy và không được lưu. */
+export async function apiUploadImages<T>(path: string, images: Blob[]): Promise<T> {
+  const form = new FormData();
+  images.forEach((b, i) => form.append("images", b, `d${i + 1}.jpg`));
+  const h = await headers();
+  let res: Response;
+  try {
+    res = await rawFetch(path, { method: "POST", headers: h, body: form }, UPLOAD_TIMEOUT_MS);
+  } catch (e) {
+    if (e instanceof ApiError) throw e;
     throw new OfflineError("offline");
   }
   return parse<T>(res);

@@ -8,9 +8,11 @@ import (
 	"mime"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/smartlife-lab/mimi/backend/internal/apperr"
+	"github.com/smartlife-lab/mimi/backend/internal/authz"
 	"github.com/smartlife-lab/mimi/backend/internal/item"
 	"github.com/smartlife-lab/mimi/backend/internal/plan"
 	"github.com/smartlife-lab/mimi/backend/internal/receipt"
@@ -132,7 +134,15 @@ func (s *Server) saveReceipt(w http.ResponseWriter, r *http.Request) {
 	if out.Replayed {
 		status = http.StatusOK
 	}
-	writeJSON(w, status, map[string]any{"receipt_id": out.ReceiptID, "status": "saved", "replayed": out.Replayed})
+	body := map[string]any{"receipt_id": out.ReceiptID, "status": "saved", "replayed": out.Replayed,
+		"plan_done": nonNilStrings(out.PlanDone), "recurring_matched": nonNilStrings(out.Recurring)}
+	if out.Assignment != nil {
+		body["assignment"] = out.Assignment
+	}
+	if out.Split != nil {
+		body["split_plan"] = out.Split
+	}
+	writeJSON(w, status, body)
 }
 
 func (s *Server) listItems(w http.ResponseWriter, r *http.Request) {
@@ -173,6 +183,36 @@ func (s *Server) changeStock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	it, err := s.items.ChangeStock(r.Context(), principalFrom(r.Context()), r.PathValue("key"), c)
+	if err != nil {
+		s.writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, it)
+}
+
+// setQuantity: "SET số lượng thực tế" tạo Confirmed Inventory baseline mới.
+func (s *Server) setQuantity(w http.ResponseWriter, r *http.Request) {
+	var q item.QuantitySet
+	if err := decodeJSON(w, r, &q, maxJSONBody); err != nil {
+		s.writeError(w, r, err)
+		return
+	}
+	it, err := s.items.SetQuantity(r.Context(), principalFrom(r.Context()), r.PathValue("key"), q)
+	if err != nil {
+		s.writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, it)
+}
+
+// correctItem: sửa tên chuẩn hóa hoặc chuyển món sang nhóm đúng (0.1 mục 3.2).
+func (s *Server) correctItem(w http.ResponseWriter, r *http.Request) {
+	var c item.Correction
+	if err := decodeJSON(w, r, &c, maxJSONBody); err != nil {
+		s.writeError(w, r, err)
+		return
+	}
+	it, err := s.items.Correct(r.Context(), principalFrom(r.Context()), r.PathValue("key"), c)
 	if err != nil {
 		s.writeError(w, r, err)
 		return
@@ -236,6 +276,7 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getPlan(w http.ResponseWriter, r *http.Request) {
+	r = withPlan(r)
 	cart, err := s.plan.Get(r.Context(), principalFrom(r.Context()))
 	if err != nil {
 		s.writeError(w, r, err)
@@ -244,9 +285,34 @@ func (s *Server) getPlan(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, cart)
 }
 
-// addPlanItem: PUT không có thân; khóa nhóm nằm trên đường dẫn. Trả giỏ sau khi thêm.
+// addPlanItem: khóa nhóm nằm trên đường dẫn; thân tùy chọn {name, qty, unit, category_key}
+// cho món từ taxonomy hoặc tự nhập (3.1). Trả giỏ sau khi thêm.
 func (s *Server) addPlanItem(w http.ResponseWriter, r *http.Request) {
-	cart, err := s.plan.Add(r.Context(), principalFrom(r.Context()), r.PathValue("key"))
+	r = withPlan(r)
+	var req plan.AddRequest
+	if r.ContentLength > 0 {
+		if err := decodeJSON(w, r, &req, maxJSONBody); err != nil {
+			s.writeError(w, r, err)
+			return
+		}
+	}
+	cart, err := s.plan.AddWith(r.Context(), principalFrom(r.Context()), r.PathValue("key"), req)
+	if err != nil {
+		s.writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, cart)
+}
+
+// patchPlanItem: sửa số lượng, đơn vị, need-by, ưu tiên, lý do của một dòng giỏ.
+func (s *Server) patchPlanItem(w http.ResponseWriter, r *http.Request) {
+	r = withPlan(r)
+	var patch plan.LinePatch
+	if err := decodeJSON(w, r, &patch, maxJSONBody); err != nil {
+		s.writeError(w, r, err)
+		return
+	}
+	cart, err := s.plan.UpdateLine(r.Context(), principalFrom(r.Context()), r.PathValue("key"), patch)
 	if err != nil {
 		s.writeError(w, r, err)
 		return
@@ -255,6 +321,7 @@ func (s *Server) addPlanItem(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) removePlanItem(w http.ResponseWriter, r *http.Request) {
+	r = withPlan(r)
 	if err := s.plan.Remove(r.Context(), principalFrom(r.Context()), r.PathValue("key")); err != nil {
 		s.writeError(w, r, err)
 		return
@@ -263,6 +330,7 @@ func (s *Server) removePlanItem(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) putPlanState(w http.ResponseWriter, r *http.Request) {
+	r = withPlan(r)
 	var st plan.State
 	if err := decodeJSON(w, r, &st, maxJSONBody); err != nil {
 		s.writeError(w, r, err)
@@ -277,6 +345,7 @@ func (s *Server) putPlanState(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getPlanPrices(w http.ResponseWriter, r *http.Request) {
+	r = withPlan(r)
 	pr, err := s.plan.Prices(r.Context(), principalFrom(r.Context()))
 	if err != nil {
 		s.writeError(w, r, err)
@@ -294,6 +363,48 @@ func (s *Server) getNotifications(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, list)
 }
 
+// markNotificationRead: POST /notifications/{id}/read (B9, chỉ sự kiện đã lưu).
+func (s *Server) markNotificationRead(w http.ResponseWriter, r *http.Request) {
+	mr, ok := s.notes.(interface {
+		MarkRead(ctx context.Context, p authz.Principal, id string) error
+	})
+	if !ok {
+		s.writeError(w, r, apperr.ErrNotFound)
+		return
+	}
+	if err := mr.MarkRead(r.Context(), principalFrom(r.Context()), r.PathValue("id")); err != nil {
+		s.writeError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (s *Server) notImplemented(w http.ResponseWriter, r *http.Request) {
 	s.writeError(w, r, apperr.New(apperr.CodeNotImplemented, "Chức năng này chưa có trên máy chủ."))
+}
+
+// reauthWindow: xóa tài khoản chỉ nhận token của lần đăng nhập trong khoảng này (B10).
+// App passwordless nên "nhập lại mật khẩu" là đăng nhập lại bằng Google hoặc link email.
+const reauthWindow = 5 * time.Minute
+
+func (s *Server) deleteMe(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	p := principalFrom(ctx)
+	raw, _ := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+	uid, at, err := s.signIn.SignedInAt(ctx, raw)
+	if err != nil || uid != p.UID {
+		// Token bị thu hồi (đổi mật khẩu, đăng xuất mọi máy) cũng rơi vào đây.
+		s.writeError(w, r, apperr.Wrap(apperr.CodeReauthRequired, "Mẹ đăng nhập lại để xác nhận xóa tài khoản nhé.", err))
+		return
+	}
+	if time.Since(at) > reauthWindow {
+		s.writeError(w, r, apperr.New(apperr.CodeReauthRequired, "Mẹ đăng nhập lại để xác nhận xóa tài khoản nhé."))
+		return
+	}
+	if err := s.accounts.Delete(ctx, p); err != nil {
+		s.writeError(w, r, err)
+		return
+	}
+	s.log.InfoContext(ctx, "account deleted", "uid", p.UID)
+	w.WriteHeader(http.StatusNoContent)
 }
