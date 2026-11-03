@@ -377,7 +377,6 @@ export const vi: Messages = {
     categoryNames: { grocery: "Thực phẩm", household: "Đồ dùng gia đình" },
     tolerance: "Được cao hơn giá quét tốt nhất (%)",
     maxOrder: "Tối đa mỗi đơn (₫, 0 = không giới hạn)",
-    maxDay: "Tối đa mỗi ngày (₫, 0 = không giới hạn)",
     save: "Lưu ủy quyền",
     saved: "Đã lưu",
   },

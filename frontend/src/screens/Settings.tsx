@@ -644,16 +644,10 @@ function MandateForm({ initial }: { initial: Mandate }) {
         {t.mandate.tolerance}
         <input type="number" inputMode="numeric" min={0} max={50} value={m.price_tolerance_pct} onChange={(e) => setM({ ...m, price_tolerance_pct: num(e.target.value, 50) })} />
       </label>
-      <div className="plan-form__row">
-        <label>
-          {t.mandate.maxOrder}
-          <input type="number" inputMode="numeric" min={0} step={10000} value={m.max_order_vnd} onChange={(e) => setM({ ...m, max_order_vnd: num(e.target.value, 100_000_000) })} />
-        </label>
-        <label>
-          {t.mandate.maxDay}
-          <input type="number" inputMode="numeric" min={0} step={10000} value={m.max_day_vnd} onChange={(e) => setM({ ...m, max_day_vnd: num(e.target.value, 100_000_000) })} />
-        </label>
-      </div>
+      <label>
+        {t.mandate.maxOrder}
+        <input type="number" inputMode="numeric" min={0} step={10000} value={m.max_order_vnd} onChange={(e) => setM({ ...m, max_order_vnd: num(e.target.value, 100_000_000) })} />
+      </label>
       {save.isError && <p className="error" role="alert">{t.settings.saveFailed}</p>}
       <button type="submit" className="btn btn--quiet btn--block" aria-disabled={save.isPending || undefined}>
         {save.isPending ? t.confirm.saving : save.isSuccess ? t.mandate.saved : t.mandate.save}

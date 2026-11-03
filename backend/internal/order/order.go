@@ -263,11 +263,7 @@ func (s *Service) Basket(ctx context.Context, p authz.Principal, keys []string) 
 	if err != nil {
 		return Basket{}, err
 	}
-	paid, err := s.paidOn(ctx, p, today)
-	if err != nil {
-		return Basket{}, err
-	}
-	b.Decision = Evaluate(m, b, paid)
+	b.Decision = Evaluate(m, b)
 	return b, nil
 }
 
@@ -336,21 +332,6 @@ func buildBasket(c Catalog, lines []plan.Line, keys []string, today domain.Date)
 		b.Lines = append(b.Lines, l)
 	}
 	return b
-}
-
-func (s *Service) paidOn(ctx context.Context, p authz.Principal, day domain.Date) (int64, error) {
-	orders, err := s.store.ListOrders(ctx, p.UID, 50)
-	if err != nil {
-		return 0, err
-	}
-	loc := domain.Location(p.Timezone)
-	var sum int64
-	for _, o := range orders {
-		if o.PaidAt != nil && domain.Today(*o.PaidAt, loc).Equal(day) {
-			sum += o.TotalVND - o.RefundedVND
-		}
-	}
-	return sum, nil
 }
 
 // ---------- Checkout (PayPal) ----------
@@ -449,9 +430,6 @@ func (s *Service) Capture(ctx context.Context, p authz.Principal, id string) (Or
 	if s.payments == nil {
 		return Order{}, apperr.New(apperr.CodePaymentNotEnabled, "Chưa cấu hình PayPal.")
 	}
-	if err := s.recheckDayBudget(ctx, p, o); err != nil {
-		return Order{}, err
-	}
 	cp, err := s.payments.CaptureOrder(ctx, o.PayPalOrderID, o.ID)
 	if err != nil {
 		return Order{}, paymentErr(err)
@@ -467,35 +445,6 @@ func (s *Service) Capture(ctx context.Context, p authz.Principal, id string) (Or
 		return Order{}, err
 	}
 	return o, nil
-}
-
-// recheckDayBudget kiểm lại trần chi mỗi ngày ngay trước khi thu tiền (lỗi N1): tạo nhiều
-// đơn liền rồi trả lần lượt thì lúc tạo đơn mỗi đơn đều dưới trần, nhưng cộng lại thì vượt.
-// Chỉ cho qua khi người dùng đã duyệt chính ngoại lệ budget_day lúc tạo đơn.
-func (s *Service) recheckDayBudget(ctx context.Context, p authz.Principal, o Order) error {
-	m, err := s.store.Mandate(ctx, p.UID)
-	if err != nil {
-		return err
-	}
-	if m.MaxDayVND <= 0 {
-		return nil
-	}
-	paid, err := s.paidOn(ctx, p, domain.Today(s.now(), domain.Location(p.Timezone)))
-	if err != nil {
-		return err
-	}
-	if paid+o.TotalVND <= m.MaxDayVND {
-		return nil
-	}
-	if o.ApprovedByUser {
-		for _, r := range o.Decision.Reasons {
-			if r.Code == "budget_day" {
-				return nil
-			}
-		}
-	}
-	reason := Reason{Code: "budget_day", Result: Ask, Detail: fmt.Sprintf("Vượt trần %dđ/ngày (đã chi hôm nay %dđ)", m.MaxDayVND, paid)}
-	return apperr.New(apperr.CodeApprovalRequired, "Đơn này làm vượt trần chi trong ngày.").With("reasons", []Reason{reason})
 }
 
 // Advance đẩy đơn sang bước giao hàng tiếp theo (merchant Sandbox giả lập:

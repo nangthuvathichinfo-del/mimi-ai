@@ -536,7 +536,7 @@ const CATALOG: Record<string, Product> = {
   "bot-giat": { name: "Bột giặt 3kg", unit: "túi", pack: 1, snapshot: 155_000, offer: 149_000, eta: 2, category: "household" },
 };
 const VND_PER_USD = 25_000;
-let mandate: Mandate = { enabled: false, categories: ["grocery", "household"], price_tolerance_pct: 10, max_order_vnd: 1_000_000, max_day_vnd: 0 };
+let mandate: Mandate = { enabled: false, categories: ["grocery", "household"], price_tolerance_pct: 10, max_order_vnd: 1_000_000 };
 const orders = new Map<string, Order>();
 const addDays = (n: number) => iso(new Date(today.getTime() + n * 86_400_000));
 const usd = (vnd: number) => (Math.round((vnd / VND_PER_USD) * 100) / 100).toFixed(2);

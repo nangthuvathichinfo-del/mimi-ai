@@ -3574,7 +3574,6 @@ export interface components {
             categories?: ("grocery" | "household")[];
             price_tolerance_pct?: number;
             max_order_vnd?: components["schemas"]["Vnd"];
-            max_day_vnd?: components["schemas"]["Vnd"];
         };
         OrderKeys: {
             keys: components["schemas"]["ClientId"][];
@@ -3585,7 +3584,7 @@ export interface components {
             reasons?: {
                 key?: string;
                 /** @enum {string} */
-                code?: "not_in_plan" | "quantity_guard" | "category" | "price_guard" | "budget_order" | "budget_day" | "delivery_guard" | "mandate_off";
+                code?: "not_in_plan" | "quantity_guard" | "category" | "price_guard" | "budget_order" | "delivery_guard" | "mandate_off";
                 /** @enum {string} */
                 result?: "ALLOW" | "ASK" | "BLOCK";
                 detail?: string;

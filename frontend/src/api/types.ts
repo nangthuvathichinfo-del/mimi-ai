@@ -322,7 +322,6 @@ export type Mandate = {
   categories: MandateCategory[];
   price_tolerance_pct: number;
   max_order_vnd: number;
-  max_day_vnd: number;
 };
 
 export type MandateResult = "ALLOW" | "ASK" | "BLOCK";

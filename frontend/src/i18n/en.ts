@@ -404,7 +404,6 @@ export const en = {
     categoryNames: { grocery: "Groceries", household: "Household essentials" },
     tolerance: "Price tolerance above the best scanned price (%)",
     maxOrder: "Max per order (₫, 0 = no limit)",
-    maxDay: "Max per day (₫, 0 = no limit)",
     save: "Save authorization",
     saved: "Saved",
   },

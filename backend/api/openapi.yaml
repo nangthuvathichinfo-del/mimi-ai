@@ -1410,7 +1410,6 @@ components:
         categories: { type: array, items: { type: string, enum: [grocery, household] } }
         price_tolerance_pct: { type: integer, minimum: 0, maximum: 50 }
         max_order_vnd: { $ref: "#/components/schemas/Vnd" }
-        max_day_vnd: { $ref: "#/components/schemas/Vnd" }
     OrderKeys:
       type: object
       required: [keys]
@@ -1425,7 +1424,7 @@ components:
             type: object
             properties:
               key: { type: string }
-              code: { type: string, enum: [not_in_plan, quantity_guard, category, price_guard, budget_order, budget_day, delivery_guard, mandate_off] }
+              code: { type: string, enum: [not_in_plan, quantity_guard, category, price_guard, budget_order, delivery_guard, mandate_off] }
               result: { type: string, enum: [ALLOW, ASK, BLOCK] }
               detail: { type: string }
     OrderLine:
