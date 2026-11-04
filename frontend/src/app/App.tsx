@@ -1,8 +1,11 @@
 import { lazy, Suspense, useEffect, useRef } from "react";
-import { BrowserRouter, HashRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, HashRouter, MemoryRouter, Navigate, Route, Routes } from "react-router-dom";
 
 // Bản prototype một file (vite.proto.config.ts) dùng HashRouter vì không có máy chủ trả mọi đường dẫn về index.html.
-const Router = import.meta.env.VITE_ROUTER === "hash" ? HashRouter : BrowserRouter;
+// Mở trong khung xem bị cô lập (origin "null", ví dụ trình xem file của app Claude) thì HashRouter
+// không dựng được URL: dùng MemoryRouter, đường dẫn chỉ nằm trong bộ nhớ.
+const Router =
+  import.meta.env.VITE_ROUTER === "hash" ? (typeof window !== "undefined" && window.origin === "null" ? MemoryRouter : HashRouter) : BrowserRouter;
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { configureApi, flushQueue } from "../api/client";
 import { setQueueOwner } from "../lib/offlineQueue";
