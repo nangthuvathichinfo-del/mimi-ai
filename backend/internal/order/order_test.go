@@ -5,11 +5,13 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/smartlife-lab/mimi/backend/internal/apperr"
 	"github.com/smartlife-lab/mimi/backend/internal/authz"
+	"github.com/smartlife-lab/mimi/backend/internal/braintree"
 	"github.com/smartlife-lab/mimi/backend/internal/paypal"
 	"github.com/smartlife-lab/mimi/backend/internal/plan"
 	"github.com/smartlife-lab/mimi/backend/internal/receipt"
@@ -321,5 +323,71 @@ func TestCatalogMatchesTaxonomyKeys(t *testing.T) {
 	}
 	if _, ok := c.Product("bao-cao-su"); ok {
 		t.Error("bao-cao-su must not match")
+	}
+}
+
+// Trả bằng thẻ (Braintree): checkout không tạo PayPal order, PayCard thu tiền bằng nonce,
+// refund đi qua Braintree.
+func TestCardFlow(t *testing.T) {
+	ctx := context.Background()
+	lines := planLines{{Key: "sua-tuoi", Name: "Sữa tươi", Qty: 2, Unit: "hop", CategoryKey: "sua"}}
+	svc, st := setup(t, enabled, lines)
+
+	if b, _ := svc.Basket(ctx, owner, nil); b.CardEnabled {
+		t.Fatal("card must be off without Braintree")
+	}
+	if _, err := svc.Checkout(ctx, owner, CheckoutRequest{Provider: ProviderBraintree}); code(err) != apperr.CodePaymentNotEnabled {
+		t.Fatalf("card disabled: %v", err)
+	}
+	if _, err := svc.Checkout(ctx, owner, CheckoutRequest{Provider: "visa"}); code(err) != apperr.CodeValidation {
+		t.Fatalf("bad provider: %v", err)
+	}
+	svc.WithCards(braintree.NewFake())
+	if b, _ := svc.Basket(ctx, owner, nil); !b.CardEnabled {
+		t.Fatal("card_enabled")
+	}
+	if tok, err := svc.CardToken(ctx, owner); err != nil || tok != braintree.FakeClientToken {
+		t.Fatalf("token %v %q", err, tok)
+	}
+
+	o, err := svc.Checkout(ctx, owner, CheckoutRequest{Provider: ProviderBraintree})
+	if err != nil || o.Provider != ProviderBraintree || o.PayPalOrderID != "" || o.State != StateAwaitingPayment {
+		t.Fatalf("checkout %v %+v", err, o)
+	}
+	if _, err := svc.Capture(ctx, owner, o.ID); code(err) != apperr.CodeInvalidState {
+		t.Fatalf("paypal capture on card order: %v", err)
+	}
+	if _, err := svc.PayCard(ctx, owner, o.ID, ""); code(err) != apperr.CodeValidation {
+		t.Fatalf("empty nonce: %v", err)
+	}
+	if _, err := svc.PayCard(ctx, owner, o.ID, "declined-nonce"); code(err) != apperr.CodePaymentFailed {
+		t.Fatalf("declined: %v", err)
+	}
+	o, err = svc.PayCard(ctx, owner, o.ID, braintree.FakeNonce)
+	if err != nil || o.State != StatePaid || o.ProviderTxnID == "" || st.payments != 1 {
+		t.Fatalf("pay %v %+v", err, o)
+	}
+	again, err := svc.PayCard(ctx, owner, o.ID, braintree.FakeNonce)
+	if err != nil || again.ProviderTxnID != o.ProviderTxnID || st.payments != 1 {
+		t.Fatalf("pay must be idempotent: %v payments=%d", err, st.payments)
+	}
+
+	for range 3 {
+		if o, err = svc.Advance(ctx, owner, o.ID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if o, err = svc.Verify(ctx, owner, o.ID, VerifyRequest{Actual: map[string]float64{"sua-tuoi": 1}}); err != nil {
+		t.Fatal(err)
+	}
+	o, err = svc.Refund(ctx, owner, o.ID, RefundRequest{Reason: "missing"})
+	if err != nil || len(o.Refunds) != 1 || !strings.HasPrefix(o.Refunds[0].ID, "FAKEBTREF-") {
+		t.Fatalf("refund %v %+v", err, o)
+	}
+
+	// PayCard không áp cho đơn PayPal.
+	pp, _ := svc.Checkout(ctx, owner, CheckoutRequest{})
+	if _, err := svc.PayCard(ctx, owner, pp.ID, braintree.FakeNonce); code(err) != apperr.CodeInvalidState {
+		t.Fatalf("card on paypal order: %v", err)
 	}
 }

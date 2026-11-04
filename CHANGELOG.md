@@ -5,6 +5,16 @@ Mới nhất ở trên cùng.
 
 ---
 
+## 2026-11-04 · Trả bằng thẻ qua Braintree, cạnh nút PayPal
+
+Nhánh `feat/braintree` (dựa trên `feat/nen-mua-online`). Màn Mua online có thêm nút "Trả bằng thẻ" ngay dưới nút PayPal.
+
+- Backend: gói `internal/braintree` (GraphQL: client token, thu tiền bằng nonce, hoàn tiền; giao dịch chưa quyết toán mà hoàn hết thì hủy giao dịch) và bản giả lập. Đơn có `provider` paypal | braintree; route mới `POST /orders/card-token`, `POST /orders/{id}/card`; giỏ có `card_enabled`. Hoàn tiền tự đi qua đúng cổng đã thu.
+- App: Drop-in của Braintree dựng ô nhập thẻ, số thẻ không qua server Mimi. Server giả lập (hoặc bản thử) thì bấm là thu luôn. Màn chi tiết đơn ghi "Đã trả qua PayPal" hoặc "Đã trả bằng thẻ".
+- Deploy: `BRAINTREE_MODE` (off | fake | sandbox | live), `BRAINTREE_PUBLIC_KEY`, Private Key lấy từ secret `braintree-private-key`.
+- Kiểm tra: `go test ./...` (thêm `internal/braintree`, `TestCardFlow`), `tsc -b`, bản thử: Mua online → Trả bằng thẻ → sang màn đơn Đã thanh toán.
+- Còn thiếu: chạy thật trên Braintree Sandbox khi có khóa.
+
 ## 2026-11-03 · Nước lấy giá online: Việt Nam và Mỹ
 
 Nhánh `feat/nuoc-vn-us`. Mẹ chốt 03/11: Cài đặt → Quốc gia (giá online) cho chọn Việt Nam và Mỹ; giữ Singapore trong hệ thống vì sau này sẽ thêm nhiều nước.

@@ -358,6 +358,8 @@ export type Basket = {
   rate_as_of?: string;
   snapshot_at: string;
   decision: { result: MandateResult; reasons: MandateReason[] };
+  /** Server đã cấu hình Braintree: hiện thêm nút "Trả bằng thẻ". */
+  card_enabled?: boolean;
 };
 
 export type OrderState = "awaiting_payment" | "paid" | "ordered" | "shipped" | "delivered" | "verified";

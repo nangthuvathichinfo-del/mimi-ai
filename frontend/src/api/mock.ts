@@ -579,7 +579,7 @@ function buildBasket(keys: string[]): Basket {
   if (!mandate.enabled && result === "ALLOW") add({ code: "mandate_off", result: "ASK", detail: "Chưa bật ủy quyền mua online: cần bạn duyệt đơn này" });
   return {
     merchant: "Mimi Mart Sandbox", lines, missing, total_vnd: total, amount_usd: usd(total), vnd_per_usd: VND_PER_USD,
-    snapshot_at: iso(today), decision: { result, reasons },
+    snapshot_at: iso(today), decision: { result, reasons }, card_enabled: true,
   };
 }
 
@@ -600,8 +600,10 @@ function mockOnline(method: string, p: string, init: RequestInit): Response | nu
     return json(buildBasket(k?.length ? k : [...cart])); // rỗng: mọi món, như backend
   }
   if (method === "GET" && p === "/orders") return json({ orders: [...orders.values()].reverse() });
+  if (method === "POST" && p === "/orders/card-token") return json({ client_token: "fake-client-token" });
   if (method === "POST" && p === "/orders") {
-    const b = body() as { keys?: string[]; approve?: boolean };
+    const b = body() as { keys?: string[]; approve?: boolean; provider?: string };
+    const card = b.provider === "braintree";
     const basket = buildBasket(b.keys?.length ? b.keys : [...cart]);
     if (!basket.lines.length) return json({ code: "validation_failed", message: "empty" }, 422);
     if (basket.decision.result === "BLOCK") return json({ code: "mandate_blocked", message: "Blocked" }, 403);
@@ -610,14 +612,15 @@ function mockOnline(method: string, p: string, init: RequestInit): Response | nu
     const o: Order = {
       id, state: "awaiting_payment", merchant: basket.merchant, lines: basket.lines, total_vnd: basket.total_vnd,
       amount_usd: basket.amount_usd, vnd_per_usd: VND_PER_USD, decision: basket.decision, approved_by_user: !!b.approve,
-      paypal_order_id: `FAKE-${basket.amount_usd}-mock`, eta: basket.lines.reduce((a, l) => (l.eta > a ? l.eta : a), ""),
+      provider: card ? "braintree" : "paypal",
+      paypal_order_id: card ? "" : `FAKE-${basket.amount_usd}-mock`, eta: basket.lines.reduce((a, l) => (l.eta > a ? l.eta : a), ""),
       events: [{ state: "awaiting_payment", at: now() }], refunds: [], refunded_vnd: 0, net_vnd: basket.total_vnd,
       suggested_refund_vnd: 0, created_at: now(),
     };
     orders.set(id, o);
     return json(o, 201);
   }
-  const m = p.match(/^\/orders\/(o-[0-9a-f]{16})(\/capture|\/advance|\/delivery\/read|\/verify|\/refund)?$/);
+  const m = p.match(/^\/orders\/(o-[0-9a-f]{16})(\/capture|\/card|\/advance|\/delivery\/read|\/verify|\/refund)?$/);
   if (!m) return null;
   const o = orders.get(m[1]);
   if (!o) return json({ code: "not_found", message: "Order not found" }, 404);
@@ -630,8 +633,14 @@ function mockOnline(method: string, p: string, init: RequestInit): Response | nu
     case "GET":
       return json(o);
     case "POST/capture":
+      if (o.provider === "braintree") return bad();
       if (o.state !== "awaiting_payment") return o.state === "paid" ? json(o) : bad();
       return set({ ...o, state: "paid", paypal_capture_id: "FAKECAP-mock", paid_at: now(), events: [...o.events, { state: "paid", at: now() }] });
+    case "POST/card":
+      if (o.provider !== "braintree") return bad();
+      if (o.state !== "awaiting_payment") return o.state === "paid" ? json(o) : bad();
+      if (body().nonce !== "fake-valid-nonce") return json({ code: "payment_failed", message: "Thẻ bị từ chối." }, 402);
+      return set({ ...o, state: "paid", provider_txn_id: "FAKEBT-mock", paid_at: now(), events: [...o.events, { state: "paid", at: now() }] });
     case "POST/advance": {
       const next = NEXT[o.state];
       if (!next) return bad();

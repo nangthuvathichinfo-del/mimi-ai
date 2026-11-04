@@ -621,9 +621,12 @@ paths:
             schema:
               allOf:
                 - $ref: "#/components/schemas/OrderKeys"
-                - { type: object, properties: { approve: { type: boolean, description: Người dùng duyệt các ngoại lệ ASK } } }
+                - type: object
+                  properties:
+                    approve: { type: boolean, description: Người dùng duyệt các ngoại lệ ASK }
+                    provider: { type: string, enum: [paypal, braintree], description: "Cổng thanh toán; mặc định paypal. braintree: trả bằng thẻ, thu tiền ở /orders/{id}/card" }
       responses:
-        "201": { description: Đơn ở trạng thái awaiting_payment, kèm paypal_order_id và approve_url, content: { application/json: { schema: { $ref: "#/components/schemas/Order" } } } }
+        "201": { description: "Đơn ở trạng thái awaiting_payment; PayPal kèm paypal_order_id và approve_url", content: { application/json: { schema: { $ref: "#/components/schemas/Order" } } } }
         "403": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
@@ -644,6 +647,29 @@ paths:
         "200": { description: Đơn paid, content: { application/json: { schema: { $ref: "#/components/schemas/Order" } } } }
         "402": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
+  /orders/card-token:
+    post:
+      tags: [online]
+      summary: Client token Braintree cho Drop-in UI (trả bằng thẻ). Chế độ giả lập trả "fake-client-token".
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { type: object, required: [client_token], properties: { client_token: { type: string } } } } }
+        "503": { $ref: "#/components/responses/Error" }
+  /orders/{id}/card:
+    post:
+      tags: [online]
+      summary: Thu tiền đơn braintree bằng nonce Drop-in trả về. Gọi lại an toàn. Ghi Spending, không cộng tồn kho.
+      description: Số thẻ không qua server Mimi; Drop-in gửi thẳng cho Braintree và trả nonce dùng một lần.
+      parameters: [{ $ref: "#/components/parameters/OrderId" }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [nonce], properties: { nonce: { type: string, maxLength: 512 } } } } }
+      responses:
+        "200": { description: Đơn paid, content: { application/json: { schema: { $ref: "#/components/schemas/Order" } } } }
+        "402": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
   /orders/{id}/advance:
     post:
       tags: [online]
@@ -1462,6 +1488,7 @@ components:
         rate_as_of: { type: string, format: date, description: Tỷ giá của ngày nào }
         snapshot_at: { type: string, format: date }
         decision: { $ref: "#/components/schemas/Decision" }
+        card_enabled: { type: boolean, description: Server đã cấu hình Braintree; app hiện thêm nút Trả bằng thẻ }
     Order:
       type: object
       properties:

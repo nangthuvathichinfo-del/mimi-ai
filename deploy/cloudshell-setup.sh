@@ -16,19 +16,38 @@ PAYPAL_MODE="${PAYPAL_MODE:-off}" # bản test: PAYPAL_MODE=fake bash deploy/clo
 # Secret cất trước trong Secret Manager tên paypal-client-secret (không bao giờ để trong repo):
 #   gcloud secrets create paypal-client-secret --project mimi-1-5 --data-file=-
 PAYPAL_CLIENT_ID="${PAYPAL_CLIENT_ID:-}"
+# Braintree (nút "Trả bằng thẻ" cạnh PayPal). Thử giả lập: BRAINTREE_MODE=fake (chưa cần khóa).
+# Sandbox: BRAINTREE_MODE=sandbox BRAINTREE_PUBLIC_KEY=<Public Key>; Private Key cất trước:
+#   gcloud secrets create braintree-private-key --project mimi-1-5 --data-file=-
+BRAINTREE_MODE="${BRAINTREE_MODE:-off}"
+BRAINTREE_PUBLIC_KEY="${BRAINTREE_PUBLIC_KEY:-}"
+BRAINTREE_MERCHANT_ACCOUNT_ID="${BRAINTREE_MERCHANT_ACCOUNT_ID:-}" # rỗng: tài khoản mặc định (phải là USD)
 GEMINI_THINKING="${GEMINI_THINKING:-LOW}" # LOW: đã thử đọc bill ổn. MINIMAL thử 02/11 thì AI từ chối mọi bill, đừng dùng
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 say() { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
 
 gcloud config set project "$PROJECT" >/dev/null
-SECRET_FLAGS=()
+SECRETS=()      # tên secret trong Secret Manager mà sa-api cần đọc
+SECRET_ENVS=()  # ENV=secret:latest gắn vào Cloud Run
+need_secret() { # $1 tên secret, $2 biến môi trường
+  gcloud services enable secretmanager.googleapis.com --quiet
+  gcloud secrets describe "$1" >/dev/null 2>&1 ||
+    { echo "Chưa có secret $1. Chạy: gcloud secrets create $1 --project $PROJECT --data-file=-"; exit 1; }
+  SECRETS+=("$1")
+  SECRET_ENVS+=("$2=$1:latest")
+}
 if [ "$PAYPAL_MODE" = sandbox ] || [ "$PAYPAL_MODE" = live ]; then
   [ -n "$PAYPAL_CLIENT_ID" ] || { echo "Thiếu PAYPAL_CLIENT_ID cho PAYPAL_MODE=$PAYPAL_MODE"; exit 1; }
-  gcloud services enable secretmanager.googleapis.com --quiet
-  gcloud secrets describe paypal-client-secret >/dev/null 2>&1 ||
-    { echo "Chưa có secret paypal-client-secret. Chạy: gcloud secrets create paypal-client-secret --project $PROJECT --data-file=-"; exit 1; }
-  SECRET_FLAGS=(--set-secrets "PAYPAL_CLIENT_SECRET=paypal-client-secret:latest")
+  need_secret paypal-client-secret PAYPAL_CLIENT_SECRET
+fi
+if [ "$BRAINTREE_MODE" = sandbox ] || [ "$BRAINTREE_MODE" = live ]; then
+  [ -n "$BRAINTREE_PUBLIC_KEY" ] || { echo "Thiếu BRAINTREE_PUBLIC_KEY cho BRAINTREE_MODE=$BRAINTREE_MODE"; exit 1; }
+  need_secret braintree-private-key BRAINTREE_PRIVATE_KEY
+fi
+SECRET_FLAGS=()
+if [ ${#SECRET_ENVS[@]} -gt 0 ]; then
+  SECRET_FLAGS=(--set-secrets "$(IFS=,; echo "${SECRET_ENVS[*]}")")
 fi
 NUM="$(gcloud projects describe "$PROJECT" --format='value(projectNumber)')"
 
@@ -41,10 +60,10 @@ bind() { gcloud projects add-iam-policy-binding "$PROJECT" --member "serviceAcco
 for r in roles/datastore.user roles/aiplatform.user roles/firebaseauth.admin roles/serviceusage.serviceUsageConsumer; do bind sa-api "$r"; done
 for r in roles/datastore.user roles/firebaseauth.viewer roles/serviceusage.serviceUsageConsumer roles/aiplatform.user; do bind sa-jobs "$r"; done # aiplatform: price-sync tra giá bằng Gemini
 bind sa-scheduler roles/run.invoker
-if [ ${#SECRET_FLAGS[@]} -gt 0 ]; then
-  gcloud secrets add-iam-policy-binding paypal-client-secret --member "serviceAccount:sa-api@$PROJECT.iam.gserviceaccount.com" \
+for sec in "${SECRETS[@]}"; do
+  gcloud secrets add-iam-policy-binding "$sec" --member "serviceAccount:sa-api@$PROJECT.iam.gserviceaccount.com" \
     --role roles/secretmanager.secretAccessor --condition=None >/dev/null
-fi
+done
 # Build từ mã nguồn (Cloud Build) chạy bằng tài khoản Compute mặc định.
 gcloud projects add-iam-policy-binding "$PROJECT" --member "serviceAccount:$NUM-compute@developer.gserviceaccount.com" \
   --role roles/run.builder --condition=None >/dev/null
@@ -58,6 +77,9 @@ except Exception: e=[]
 print(next((x.get("value","") for x in e if x.get("name")=="APP_CHECK_REQUIRED"),"false"))' || echo false)"
 ENV_VARS="GOOGLE_CLOUD_PROJECT=$PROJECT,MIMI_ENV=dev,APP_CHECK_REQUIRED=$APP_CHECK,GEMINI_MODEL=$GEMINI_MODEL,GEMINI_THINKING=$GEMINI_THINKING,GEMINI_LOCATION=global,PAYPAL_MODE=$PAYPAL_MODE"
 [ -n "$PAYPAL_CLIENT_ID" ] && ENV_VARS="$ENV_VARS,PAYPAL_CLIENT_ID=$PAYPAL_CLIENT_ID"
+ENV_VARS="$ENV_VARS,BRAINTREE_MODE=$BRAINTREE_MODE"
+[ -n "$BRAINTREE_PUBLIC_KEY" ] && ENV_VARS="$ENV_VARS,BRAINTREE_PUBLIC_KEY=$BRAINTREE_PUBLIC_KEY"
+[ -n "$BRAINTREE_MERCHANT_ACCOUNT_ID" ] && ENV_VARS="$ENV_VARS,BRAINTREE_MERCHANT_ACCOUNT_ID=$BRAINTREE_MERCHANT_ACCOUNT_ID"
 gcloud run deploy mimi-api --source "$ROOT/backend" --region "$REGION" \
   --service-account "sa-api@$PROJECT.iam.gserviceaccount.com" \
   --set-env-vars "$ENV_VARS" "${SECRET_FLAGS[@]}" --args serve-api \

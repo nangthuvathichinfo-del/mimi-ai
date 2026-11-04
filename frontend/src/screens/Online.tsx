@@ -1,16 +1,17 @@
 import { t, uiLang } from "../i18n";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Camera, PackageCheck, ShieldCheck, Truck } from "lucide-react";
+import { Camera, CreditCard, PackageCheck, ShieldCheck, Truck } from "lucide-react";
 import { ApiError } from "../api/client";
 import {
-  useAdvanceOrder, useBasket, useCaptureOrder, useCheckout, useOrder, useOrders, useReadDelivery, useRefundOrder,
+  useAdvanceOrder, useBasket, useCaptureOrder, useCardToken, useCheckout, usePayCard, useOrder, useOrders, useReadDelivery, useRefundOrder,
   useTaxonomyLabels, useVerifyOrder,
 } from "../api/hooks";
 import type { Basket, DeliveryObservation, Order, OrderLine, RefundReason } from "../api/types";
 import { MainFrame, TopBar } from "../components/AppShell";
 import { compressReceiptImage } from "../lib/image";
 import { loadPayPal, PAYPAL_CLIENT_ID } from "../lib/paypal";
+import { FAKE_CLIENT_TOKEN, FAKE_NONCE, loadDropin, type DropinInstance } from "../lib/braintree";
 import { formatDayMonth, formatVnd } from "../lib/text";
 import { displayCurrency } from "../lib/money";
 import { m15 } from "../i18n/m15";
@@ -124,6 +125,7 @@ function BasketView({ basket }: { basket: Basket }) {
       </section>
 
       {canPay && <PayButton approve={decision.result === "ASK"} />}
+      {canPay && basket.card_enabled && <CardButton approve={decision.result === "ASK"} />}
     </>
   );
 }
@@ -206,6 +208,71 @@ function PayButton({ approve }: { approve: boolean }) {
   );
 }
 
+/**
+ * Trả bằng thẻ qua Braintree, nằm ngay dưới nút PayPal. Bấm lần đầu: lấy client token và
+ * mở Drop-in (ô nhập thẻ do Braintree dựng, số thẻ không qua server Mimi). Bấm lần hai:
+ * Drop-in trả nonce, app tạo đơn provider=braintree rồi gửi nonce để server thu tiền.
+ * Server chạy BRAINTREE_MODE=fake (hoặc bản thử) thì thu luôn bằng nonce thử.
+ */
+function CardButton({ approve }: { approve: boolean }) {
+  const token = useCardToken();
+  const checkout = useCheckout();
+  const pay = usePayCard();
+  const navigate = useNavigate();
+  const box = useRef<HTMLDivElement>(null);
+  const dropin = useRef<DropinInstance | null>(null);
+  // Đơn đã tạo nhưng thẻ bị từ chối: thử lại trên cùng đơn, không tạo đơn chờ mới.
+  const orderId = useRef("");
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState("");
+  const busy = token.isPending || checkout.isPending || pay.isPending;
+
+  useEffect(() => () => void dropin.current?.teardown().catch(() => undefined), []);
+
+  const charge = async (nonce: string) => {
+    if (!orderId.current) {
+      const o = await checkout.mutateAsync({ keys: [], approve, provider: "braintree" });
+      orderId.current = o.id;
+    }
+    const paid = await pay.mutateAsync({ id: orderId.current, nonce });
+    navigate(`/orders/${paid.id}`);
+  };
+
+  const onClick = async () => {
+    if (busy) return;
+    setError("");
+    try {
+      if (dropin.current) {
+        const { nonce } = await dropin.current.requestPaymentMethod();
+        await charge(nonce);
+        return;
+      }
+      const auth = await token.mutateAsync();
+      if (auth === FAKE_CLIENT_TOKEN) {
+        await charge(FAKE_NONCE);
+        return;
+      }
+      setOpen(true);
+      const dropinNs = await loadDropin();
+      if (!box.current) return;
+      dropin.current = await dropinNs.create({ authorization: auth, container: box.current, locale: uiLang === "vi" ? "vi_VN" : "en_US" });
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : t.online.failed);
+    }
+  };
+
+  return (
+    <section className="plan-sec">
+      <p className="hint">{t.online.cardOr}</p>
+      <div ref={box} hidden={!open} />
+      <button type="button" className="btn btn--quiet btn--block" aria-disabled={busy || undefined} onClick={onClick}>
+        <CreditCard size={18} aria-hidden /> {busy ? t.online.paying : open ? t.online.cardConfirm : t.online.payCard}
+      </button>
+      {error && <p className="error" role="alert">{error}</p>}
+    </section>
+  );
+}
+
 // ================= Đơn online: danh sách và chi tiết =================
 
 export function Orders() {
@@ -270,6 +337,7 @@ function OrderView({ order }: { order: Order }) {
           <span>{t.orders.total(displayCurrency() === "USD" ? usdFmt.format(Number(order.amount_usd)) : formatVnd(order.total_vnd))}</span>
           <span className="num">US${order.amount_usd}</span>
         </p>
+        {order.state !== "awaiting_payment" && <p className="hint">{t.orders.paidVia[order.provider ?? "paypal"]}</p>}
         {order.refunded_vnd > 0 && <p className="hint">{t.orders.net(basketMoney(order.net_vnd, order.vnd_per_usd))}</p>}
         {canAdvance && (
           <>
@@ -403,7 +471,7 @@ function VerifyForm({ order }: { order: Order }) {
 
 const REASONS: RefundReason[] = ["missing", "wrong", "damaged", "other"];
 
-/** Refund (Mimi 2.0 mục 18): hoàn qua PayPal Sandbox, giữ giao dịch gốc để audit. */
+/** Refund (Mimi 2.0 mục 18): hoàn qua cổng đã thu tiền (PayPal hoặc thẻ Braintree), giữ giao dịch gốc để audit. */
 function RefundForm({ order }: { order: Order }) {
   const refund = useRefundOrder();
   const [reason, setReason] = useState<RefundReason>("missing");
