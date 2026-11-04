@@ -2,6 +2,9 @@ package braintree
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -130,5 +133,46 @@ func TestFake(t *testing.T) {
 	}
 	if _, err := f.Refund(ctx, tx.ID, "1.00", "r", true); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestParseWebhook(t *testing.T) {
+	c, err := New("", "pub", "priv", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := `<?xml version="1.0" encoding="UTF-8"?>
+<notification>
+  <kind>transaction_settlement_declined</kind>
+  <timestamp type="datetime">2026-11-04T10:00:00Z</timestamp>
+  <subject><transaction><id>txn1</id><status>settlement_declined</status><order-id>ord1</order-id></transaction></subject>
+</notification>`
+	sig, payload := SignWebhook("pub", "priv", body)
+	n, err := c.ParseWebhook("other|00&"+sig, payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n.Kind != KindTransactionSettlementDecl || n.TxnID != "txn1" || n.OrderID != "ord1" || n.Timestamp.IsZero() {
+		t.Fatalf("%+v", n)
+	}
+	// Braintree có thể xuống dòng trong base64; chữ ký tính trên payload + "\n" cũng hợp lệ.
+	key := sha1.Sum([]byte("priv"))
+	m := hmac.New(sha1.New, key[:])
+	m.Write([]byte(payload + "\n"))
+	if _, err := c.ParseWebhook("pub|"+hex.EncodeToString(m.Sum(nil)), payload); err != nil {
+		t.Fatalf("newline variant: %v", err)
+	}
+	for _, bad := range [][2]string{
+		{sig, payload + "AA"}, // payload bị sửa
+		{"pub|zz", payload},   // chữ ký không phải hex
+		{"", payload},         // thiếu chữ ký
+		{sig, ""},             // thiếu payload
+	} {
+		if _, err := c.ParseWebhook(bad[0], bad[1]); !errors.Is(err, ErrBadWebhook) {
+			t.Fatalf("%q: %v", bad[0], err)
+		}
+	}
+	if _, err := NewFake().ParseWebhook(sig, payload); !errors.Is(err, ErrBadWebhook) {
+		t.Fatal("fake must reject real-key signature")
 	}
 }

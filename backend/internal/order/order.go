@@ -131,8 +131,12 @@ type Order struct {
 	RefundedVND        int64      `json:"refunded_vnd"`
 	NetVND             int64      `json:"net_vnd"` // = total - refunded, chỉ có nghĩa sau khi paid
 	SuggestedRefundVND int64      `json:"suggested_refund_vnd"`
-	CreatedAt          time.Time  `json:"created_at"`
-	UpdatedAt          time.Time  `json:"updated_at"`
+	// CardStatus: trạng thái tiền thẻ Braintree báo qua webhook sau khi thu
+	// (settled | settlement_declined | disputed | dispute_won | dispute_lost); rỗng: chưa có tin.
+	CardStatus   string     `json:"card_status,omitempty"`
+	CardStatusAt *time.Time `json:"card_status_at,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
 }
 
 // Phụ thuộc, khai báo ở phía dùng.
@@ -148,6 +152,8 @@ type (
 		Charge(ctx context.Context, nonce, amountUSD, ref string) (braintree.Transaction, error)
 		// Refund: full=true khi hoàn hết số còn lại (giao dịch chưa quyết toán thì hủy).
 		Refund(ctx context.Context, txnID, amountUSD, ref string, full bool) (braintree.Refund, error)
+		// ParseWebhook kiểm chữ ký và đọc thông báo webhook Braintree.
+		ParseWebhook(signature, payload string) (braintree.Notification, error)
 	}
 	PlanLines interface {
 		OpenLines(ctx context.Context, uid string) ([]plan.Line, error)
@@ -171,6 +177,8 @@ type (
 		ApplyDelivery(ctx context.Context, uid string, o Order, tz *time.Location) error
 		// RecordRefund: thêm refund vào đơn và trừ Spending trong một transaction.
 		RecordRefund(ctx context.Context, uid string, o Order, r Refund, tz *time.Location) error
+		// CardOrder tìm chủ đơn theo mã giao dịch Braintree (apperr.ErrNotFound).
+		CardOrder(ctx context.Context, txnID string) (uid, orderID string, err error)
 	}
 )
 
@@ -779,4 +787,64 @@ func cardErr(err error) error {
 		return apperr.Wrap(apperr.CodePaymentFailed, "Thẻ bị từ chối. Kiểm tra lại rồi thử lại.", err)
 	}
 	return apperr.Wrap(apperr.CodePaymentUnavailable, "Cổng thẻ đang bận, thử lại sau ít phút.", err)
+}
+
+// cardStatusOf: kind webhook Braintree → CardStatus; "" là kind Mimi không theo dõi.
+func cardStatusOf(kind string) string {
+	switch kind {
+	case braintree.KindTransactionSettled:
+		return "settled"
+	case braintree.KindTransactionSettlementDecl:
+		return "settlement_declined"
+	case braintree.KindDisputeOpened:
+		return "disputed"
+	case braintree.KindDisputeWon:
+		return "dispute_won"
+	case braintree.KindDisputeLost, braintree.KindDisputeAccepted:
+		return "dispute_lost"
+	}
+	return ""
+}
+
+// CardWebhook áp thông báo Braintree (đã kiểm chữ ký) vào đơn thẻ: chỉ ghi CardStatus, không
+// đổi bước giao hàng hay Spending. Thông báo không khớp đơn nào, kind không theo dõi, hoặc cũ
+// hơn tin đã ghi thì bỏ qua (trả nil để Braintree không gửi lại).
+func (s *Service) CardWebhook(ctx context.Context, signature, payload string) error {
+	if s.cards == nil {
+		return apperr.New(apperr.CodePaymentNotEnabled, "Chưa cấu hình thanh toán thẻ.")
+	}
+	n, err := s.cards.ParseWebhook(signature, payload)
+	if err != nil {
+		return apperr.Wrap(apperr.CodeBadRequest, "Webhook không hợp lệ.", err)
+	}
+	status := cardStatusOf(n.Kind)
+	if status == "" || n.TxnID == "" {
+		return nil
+	}
+	uid, oid, err := s.store.CardOrder(ctx, n.TxnID)
+	if errors.Is(err, apperr.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	o, err := s.store.GetOrder(ctx, uid, oid)
+	if errors.Is(err, apperr.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if ProviderOf(o) != ProviderBraintree || o.ProviderTxnID != n.TxnID {
+		return nil
+	}
+	at := n.Timestamp
+	if at.IsZero() {
+		at = s.now()
+	}
+	if o.CardStatusAt != nil && at.Before(*o.CardStatusAt) {
+		return nil
+	}
+	o.CardStatus, o.CardStatusAt, o.UpdatedAt = status, &at, s.now()
+	return s.store.UpdateOrder(ctx, uid, o, o.State)
 }

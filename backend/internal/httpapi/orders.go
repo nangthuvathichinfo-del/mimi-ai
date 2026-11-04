@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"io"
 	"mime"
@@ -85,6 +86,20 @@ func (s *Server) payCard(w http.ResponseWriter, r *http.Request) {
 	}
 	o, err := s.orders.PayCard(r.Context(), principalFrom(r.Context()), r.PathValue("id"), body.Nonce)
 	s.respond(w, r, http.StatusOK, o, err)
+}
+
+// braintreeWebhook nhận form bt_signature + bt_payload từ Braintree. Trả 200 cả khi thông báo
+// không khớp đơn nào để Braintree không gửi lại; chữ ký sai trả 400.
+func (s *Server) braintreeWebhook(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), s.defaultTimeout)
+	defer cancel()
+	r.Body = http.MaxBytesReader(w, r.Body, maxWebhookBody)
+	if err := r.ParseForm(); err != nil {
+		s.writeError(w, r, apperr.New(apperr.CodeBadRequest, "Webhook không hợp lệ."))
+		return
+	}
+	err := s.orders.CardWebhook(ctx, r.PostForm.Get("bt_signature"), r.PostForm.Get("bt_payload"))
+	s.respond(w, r, http.StatusOK, map[string]bool{"ok": true}, err)
 }
 
 func (s *Server) advanceOrder(w http.ResponseWriter, r *http.Request) {

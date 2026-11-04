@@ -13,7 +13,10 @@ Nhánh `feat/braintree` (dựa trên `feat/nen-mua-online`). Màn Mua online có
 - App: Drop-in của Braintree dựng ô nhập thẻ, số thẻ không qua server Mimi. Server giả lập (hoặc bản thử) thì bấm là thu luôn. Màn chi tiết đơn ghi "Đã trả qua PayPal" hoặc "Đã trả bằng thẻ".
 - Deploy: `BRAINTREE_MODE` (off | fake | sandbox | live), `BRAINTREE_PUBLIC_KEY`, Private Key lấy từ secret `braintree-private-key`.
 - Kiểm tra: `go test ./...` (thêm `internal/braintree`, `TestCardFlow`), `tsc -b`, bản thử: Mua online → Trả bằng thẻ → sang màn đơn Đã thanh toán.
-- Còn thiếu: chạy thật trên Braintree Sandbox khi có khóa.
+- 3D Secure: Drop-in bật `threeDSecure`; app tạo đơn trước rồi mới hỏi thẻ để ngân hàng xác minh đúng số tiền của đơn. Ngân hàng hỗ trợ 3DS mà xác minh không thành thì app không thu, mời dùng thẻ khác hoặc PayPal.
+- Webhook: `POST /webhooks/braintree` (không cần token, tin nhờ chữ ký `bt_signature`). Settle, từ chối quyết toán, khiếu nại ghi vào `card_status` của đơn và hiện ở màn chi tiết đơn; không đổi bước giao hàng hay Spending. Tìm đơn qua sổ `payments` theo `provider_txn_id` (field override mới trong `firestore.indexes.json`).
+- Khi bật sandbox/live: trong Braintree Control Panel → Webhooks, thêm URL `https://<cloud-run-url>/webhooks/braintree` với các kind Transaction Settled, Transaction Settlement Declined, Dispute Opened/Won/Lost/Accepted.
+- Còn thiếu: chạy thật trên Braintree Sandbox khi có khóa; từ chối quyết toán hay thua khiếu nại mới chỉ báo, chưa tự trừ lại Spending.
 
 ## 2026-11-03 · Nước lấy giá online: Việt Nam và Mỹ
 

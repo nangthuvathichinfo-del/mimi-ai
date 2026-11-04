@@ -670,6 +670,21 @@ paths:
         "402": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
+  /webhooks/braintree:
+    post:
+      tags: [online]
+      security: []
+      summary: Webhook Braintree (settle, từ chối quyết toán, khiếu nại). Tin nhờ chữ ký bt_signature, không cần token.
+      description: Chỉ ghi card_status vào đơn thẻ; không đổi bước giao hàng hay Spending. Thông báo không khớp đơn nào vẫn trả 200.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema: { type: object, required: [bt_signature, bt_payload], properties: { bt_signature: { type: string }, bt_payload: { type: string } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: object, properties: { ok: { type: boolean } } } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
   /orders/{id}/advance:
     post:
       tags: [online]
@@ -1528,4 +1543,9 @@ components:
         refunded_vnd: { $ref: "#/components/schemas/Vnd" }
         net_vnd: { $ref: "#/components/schemas/Vnd" }
         suggested_refund_vnd: { $ref: "#/components/schemas/Vnd" }
+        card_status:
+          type: string
+          enum: [settled, settlement_declined, disputed, dispute_won, dispute_lost]
+          description: Chỉ đơn braintree. Trạng thái tiền thẻ Braintree báo qua webhook sau khi thu; không có là chưa có tin.
+        card_status_at: { type: string, format: date-time }
         created_at: { type: string, format: date-time }

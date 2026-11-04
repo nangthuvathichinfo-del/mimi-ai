@@ -2348,6 +2348,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/webhooks/braintree": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Webhook Braintree (settle, từ chối quyết toán, khiếu nại). Tin nhờ chữ ký bt_signature, không cần token.
+         * @description Chỉ ghi card_status vào đơn thẻ; không đổi bước giao hàng hay Spending. Thông báo không khớp đơn nào vẫn trả 200.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/x-www-form-urlencoded": {
+                        bt_signature: string;
+                        bt_payload: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            ok?: boolean;
+                        };
+                    };
+                };
+                400: components["responses"]["Error"];
+                503: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/orders/{id}/advance": {
         parameters: {
             query?: never;
@@ -3784,6 +3834,13 @@ export interface components {
             refunded_vnd?: components["schemas"]["Vnd"];
             net_vnd?: components["schemas"]["Vnd"];
             suggested_refund_vnd?: components["schemas"]["Vnd"];
+            /**
+             * @description Chỉ đơn braintree. Trạng thái tiền thẻ Braintree báo qua webhook sau khi thu; không có là chưa có tin.
+             * @enum {string}
+             */
+            card_status?: "settled" | "settlement_declined" | "disputed" | "dispute_won" | "dispute_lost";
+            /** Format: date-time */
+            card_status_at?: string;
             /** Format: date-time */
             created_at?: string;
         };

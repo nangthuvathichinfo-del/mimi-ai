@@ -297,3 +297,23 @@ func (s *Store) RecordRefund(ctx context.Context, uid string, o order.Order, r o
 		}})
 	})
 }
+
+// CardOrder tìm đơn theo mã giao dịch Braintree (webhook không mang uid): truy vấn
+// collection group payments theo provider_txn_id (field override trong firestore.indexes.json).
+func (s *Store) CardOrder(ctx context.Context, txnID string) (uid, orderID string, err error) {
+	docs, err := s.c.CollectionGroup("payments").Where("provider_txn_id", "==", txnID).Limit(2).Documents(ctx).GetAll()
+	if err != nil {
+		return "", "", fmt.Errorf("card order: %w", err)
+	}
+	for _, d := range docs {
+		if p, _ := d.Data()["provider"].(string); p != order.ProviderBraintree {
+			continue
+		}
+		user := d.Ref.Parent.Parent
+		if user == nil || d.Ref.Parent.ID != "payments" || user.Parent.ID != "users" {
+			continue
+		}
+		return user.ID, d.Ref.ID, nil
+	}
+	return "", "", apperr.ErrNotFound
+}

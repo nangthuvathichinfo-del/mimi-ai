@@ -39,3 +39,13 @@ func short(s string) string {
 	h := sha256.Sum256([]byte(s))
 	return hex.EncodeToString(h[:8])
 }
+
+// Khóa giả lập để ký webhook cho BRAINTREE_MODE=fake và test (không phải khóa thật).
+const (
+	FakePublicKey  = "fake-public-key"
+	FakePrivateKey = "fake-private-key"
+)
+
+func (Fake) ParseWebhook(signature, payload string) (Notification, error) {
+	return parseWebhook(FakePublicKey, FakePrivateKey, signature, payload)
+}

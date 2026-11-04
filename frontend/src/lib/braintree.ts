@@ -9,13 +9,34 @@ export const FAKE_NONCE = "fake-valid-nonce";
 
 const DROPIN_VERSION = "1.47.0";
 
+/** Kết quả Drop-in; liabilityShift* chỉ có khi đã chạy 3D Secure. */
+export type DropinPayload = {
+  nonce: string;
+  liabilityShifted?: boolean;
+  liabilityShiftPossible?: boolean;
+};
 export type DropinInstance = {
-  requestPaymentMethod: () => Promise<{ nonce: string }>;
+  requestPaymentMethod: (opts?: { threeDSecure?: { amount: string } }) => Promise<DropinPayload>;
   teardown: () => Promise<void>;
 };
 type DropinNamespace = {
-  create: (opts: { authorization: string; container: HTMLElement; locale?: string; card?: Record<string, unknown> }) => Promise<DropinInstance>;
+  create: (opts: {
+    authorization: string;
+    container: HTMLElement;
+    locale?: string;
+    card?: Record<string, unknown>;
+    threeDSecure?: boolean;
+  }) => Promise<DropinInstance>;
 };
+
+/**
+ * 3D Secure: ngân hàng phát hành xác minh chủ thẻ (mã OTP hoặc app ngân hàng) trước khi
+ * Mimi thu tiền. Nếu ngân hàng hỗ trợ 3DS mà xác minh không thành (liability không
+ * chuyển sang ngân hàng), app không thu và mời dùng thẻ khác, theo khuyến nghị Braintree.
+ */
+export function threeDSecureRejected(p: DropinPayload): boolean {
+  return p.liabilityShiftPossible === true && p.liabilityShifted === false;
+}
 
 let loading: Promise<DropinNamespace> | null = null;
 

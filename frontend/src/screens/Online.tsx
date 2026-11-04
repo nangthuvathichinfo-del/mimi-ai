@@ -7,11 +7,11 @@ import {
   useAdvanceOrder, useBasket, useCaptureOrder, useCardToken, useCheckout, usePayCard, useOrder, useOrders, useReadDelivery, useRefundOrder,
   useTaxonomyLabels, useVerifyOrder,
 } from "../api/hooks";
-import type { Basket, DeliveryObservation, Order, OrderLine, RefundReason } from "../api/types";
+import type { Basket, CardStatus, DeliveryObservation, Order, OrderLine, RefundReason } from "../api/types";
 import { MainFrame, TopBar } from "../components/AppShell";
 import { compressReceiptImage } from "../lib/image";
 import { loadPayPal, PAYPAL_CLIENT_ID } from "../lib/paypal";
-import { FAKE_CLIENT_TOKEN, FAKE_NONCE, loadDropin, type DropinInstance } from "../lib/braintree";
+import { FAKE_CLIENT_TOKEN, FAKE_NONCE, loadDropin, threeDSecureRejected, type DropinInstance } from "../lib/braintree";
 import { formatDayMonth, formatVnd } from "../lib/text";
 import { displayCurrency } from "../lib/money";
 import { m15 } from "../i18n/m15";
@@ -223,17 +223,23 @@ function CardButton({ approve }: { approve: boolean }) {
   const dropin = useRef<DropinInstance | null>(null);
   // Đơn đã tạo nhưng thẻ bị từ chối: thử lại trên cùng đơn, không tạo đơn chờ mới.
   const orderId = useRef("");
+  const amountUSD = useRef("");
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
   const busy = token.isPending || checkout.isPending || pay.isPending;
 
   useEffect(() => () => void dropin.current?.teardown().catch(() => undefined), []);
 
-  const charge = async (nonce: string) => {
+  // Đơn tạo trước khi hỏi thẻ để 3D Secure xác minh đúng số tiền của đơn.
+  const ensureOrder = async () => {
     if (!orderId.current) {
       const o = await checkout.mutateAsync({ keys: [], approve, provider: "braintree" });
       orderId.current = o.id;
+      amountUSD.current = o.amount_usd;
     }
+  };
+
+  const charge = async (nonce: string) => {
     const paid = await pay.mutateAsync({ id: orderId.current, nonce });
     navigate(`/orders/${paid.id}`);
   };
@@ -243,19 +249,30 @@ function CardButton({ approve }: { approve: boolean }) {
     setError("");
     try {
       if (dropin.current) {
-        const { nonce } = await dropin.current.requestPaymentMethod();
-        await charge(nonce);
+        await ensureOrder();
+        const p = await dropin.current.requestPaymentMethod({ threeDSecure: { amount: amountUSD.current } });
+        if (threeDSecureRejected(p)) {
+          setError(t.online.card3dsFailed);
+          return;
+        }
+        await charge(p.nonce);
         return;
       }
       const auth = await token.mutateAsync();
       if (auth === FAKE_CLIENT_TOKEN) {
+        await ensureOrder();
         await charge(FAKE_NONCE);
         return;
       }
       setOpen(true);
       const dropinNs = await loadDropin();
       if (!box.current) return;
-      dropin.current = await dropinNs.create({ authorization: auth, container: box.current, locale: uiLang === "vi" ? "vi_VN" : "en_US" });
+      dropin.current = await dropinNs.create({
+        authorization: auth,
+        container: box.current,
+        locale: uiLang === "vi" ? "vi_VN" : "en_US",
+        threeDSecure: true,
+      });
     } catch (e) {
       setError(e instanceof ApiError ? e.message : t.online.failed);
     }
@@ -319,6 +336,9 @@ export function OrderDetail() {
   );
 }
 
+/** Tin tiền thẻ cần người dùng chú ý: tiền chưa về hoặc bị khiếu nại. */
+const CARD_ALERT = new Set<CardStatus>(["settlement_declined", "disputed", "dispute_lost"]);
+
 function OrderView({ order }: { order: Order }) {
   const advance = useAdvanceOrder();
   const canAdvance = order.state === "paid" || order.state === "ordered" || order.state === "shipped";
@@ -338,6 +358,11 @@ function OrderView({ order }: { order: Order }) {
           <span className="num">US${order.amount_usd}</span>
         </p>
         {order.state !== "awaiting_payment" && <p className="hint">{t.orders.paidVia[order.provider ?? "paypal"]}</p>}
+        {order.card_status && (
+          <p className={CARD_ALERT.has(order.card_status) ? "error" : "hint"} role={CARD_ALERT.has(order.card_status) ? "alert" : undefined}>
+            {t.orders.cardStatus[order.card_status]}
+          </p>
+        )}
         {order.refunded_vnd > 0 && <p className="hint">{t.orders.net(basketMoney(order.net_vnd, order.vnd_per_usd))}</p>}
         {canAdvance && (
           <>

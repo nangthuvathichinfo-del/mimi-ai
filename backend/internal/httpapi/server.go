@@ -145,6 +145,7 @@ type (
 		Capture(ctx context.Context, p authz.Principal, id string) (order.Order, error)
 		CardToken(ctx context.Context, p authz.Principal) (string, error)
 		PayCard(ctx context.Context, p authz.Principal, id, nonce string) (order.Order, error)
+		CardWebhook(ctx context.Context, signature, payload string) error
 		Advance(ctx context.Context, p authz.Principal, id string) (order.Order, error)
 		ReadDelivery(ctx context.Context, p authz.Principal, id string, imgs []receipt.Image) ([]order.Observed, error)
 		Verify(ctx context.Context, p authz.Principal, id string, req order.VerifyRequest) (order.Order, error)
@@ -362,6 +363,8 @@ func (s *Server) Handler() http.Handler {
 		private("POST /orders/{id}/delivery/read", s.readTimeout, s.readDelivery)
 		private("POST /orders/{id}/verify", s.defaultTimeout, s.verifyOrder)
 		private("POST /orders/{id}/refund", s.readTimeout, s.refundOrder)
+		// Braintree gọi thẳng, không có token người dùng: tin nhờ chữ ký bt_signature.
+		public("POST /webhooks/braintree", s.braintreeWebhook)
 	}
 
 	if s.accounts != nil && s.signIn != nil {
