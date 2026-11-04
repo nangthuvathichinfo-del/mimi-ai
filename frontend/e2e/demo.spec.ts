@@ -50,7 +50,7 @@ test("kịch bản demo: quét bill, Đồ dùng, Sổ chi tiêu, Kế hoạch",
   await expect(page.getByText("Sữa và chế phẩm sữa")).toBeVisible();
   await expect(page.getByText("Khoản chi định kỳ").first()).toBeVisible();
 
-  // Cảnh 3b và 3c: Kế hoạch có gợi ý món sắp hết, ước tính chi, ba cách mua và Mimi đang khóa.
+  // Cảnh 3b và 3c: Kế hoạch có gợi ý món sắp hết, ước tính chi, ba cách mua; Mimi mua online đã mở.
   await home(page);
   await page.getByRole("link", { name: /^Kế hoạch/ }).first().click();
   await page.getByText("Giỏ mua sắm", { exact: true }).first().click();
@@ -58,9 +58,9 @@ test("kịch bản demo: quét bill, Đồ dùng, Sổ chi tiêu, Kế hoạch",
   await expect(page.getByText(/Dự kiến chi/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Tôi", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Gửi cho thành viên" })).toBeVisible();
-  const mimi = page.getByRole("button", { name: /Mimi.*Sắp ra mắt/s });
+  const mimi = page.getByRole("button", { name: /Mimi.*Mua online/s });
   await expect(mimi).toBeVisible();
-  await expect(mimi).toBeDisabled();
+  await expect(mimi).toBeEnabled();
 
   expect(errors).toEqual([]);
 });
