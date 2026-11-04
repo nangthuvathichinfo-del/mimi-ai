@@ -15,9 +15,10 @@ type Mandate struct {
 	MaxOrderVND       int64    `json:"max_order_vnd"`       // trần mỗi đơn; 0: không đặt trần
 }
 
-// DefaultMandate: chưa bật, chỉ cho grocery và household, dung sai giá 10%, tối đa 1 triệu/đơn.
+// DefaultMandate: bật sẵn (người dùng chốt 04/11: mua online là mặc định, không phải vào
+// Cài đặt), chỉ cho grocery và household, dung sai giá 10%, tối đa 1 triệu/đơn.
 func DefaultMandate() Mandate {
-	return Mandate{Categories: []string{CategoryGrocery, CategoryHousehold}, PriceTolerancePct: 10, MaxOrderVND: 1_000_000}
+	return Mandate{Enabled: true, Categories: []string{CategoryGrocery, CategoryHousehold}, PriceTolerancePct: 10, MaxOrderVND: 1_000_000}
 }
 
 func (m Mandate) Validate() error {

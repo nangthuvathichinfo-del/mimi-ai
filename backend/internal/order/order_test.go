@@ -188,7 +188,12 @@ func TestBasketAndMandate(t *testing.T) {
 		if b.Decision.Result != Ask || !codes["budget_order"] || !codes["delivery_guard"] {
 			t.Fatalf("decision %+v", b.Decision)
 		}
-		svc2, _ := setup(t, DefaultMandate(), planLines{{Key: "trung", Name: "Trứng", Qty: 10, Unit: "qua"}})
+		if !DefaultMandate().Enabled {
+			t.Fatal("online buying must be on by default")
+		}
+		off := DefaultMandate()
+		off.Enabled = false
+		svc2, _ := setup(t, off, planLines{{Key: "trung", Name: "Trứng", Qty: 10, Unit: "qua"}})
 		b2, _ := svc2.Basket(ctx, owner, nil)
 		if b2.Decision.Result != Ask || b2.Decision.Reasons[0].Code != "mandate_off" {
 			t.Fatalf("mandate off %+v", b2.Decision)
