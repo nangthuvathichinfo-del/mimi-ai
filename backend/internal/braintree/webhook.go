@@ -29,6 +29,8 @@ const (
 	KindDisputeWon                = "dispute_won"
 	KindDisputeLost               = "dispute_lost"
 	KindDisputeAccepted           = "dispute_accepted"
+	KindDisputeAutoAccepted       = "dispute_auto_accepted"
+	KindDisputeExpired            = "dispute_expired"
 	maxWebhookPayload             = 64 << 10
 )
 

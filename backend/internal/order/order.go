@@ -800,7 +800,7 @@ func cardStatusOf(kind string) string {
 		return "disputed"
 	case braintree.KindDisputeWon:
 		return "dispute_won"
-	case braintree.KindDisputeLost, braintree.KindDisputeAccepted:
+	case braintree.KindDisputeLost, braintree.KindDisputeAccepted, braintree.KindDisputeAutoAccepted, braintree.KindDisputeExpired:
 		return "dispute_lost"
 	}
 	return ""
