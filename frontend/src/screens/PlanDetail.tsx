@@ -222,10 +222,9 @@ function Detail({ id }: { id: string }) {
         {!buyer && <p className="hint" role="status">{m15.plan.needBuyer}</p>}
         {assign.isError && <p className="error" role="alert">{errText(assign.error)}</p>}
         {mimiAsk && sentTo && (
-          <div className="box15 mimi15__ask" role="alertdialog" aria-labelledby="mimi-ask">
-            <p id="mimi-ask">{m15.plan.mimiTakeOver(sentTo.buyer_display_name)}</p>
+          <Sheet title={m15.plan.mimiAskTitle} sub={m15.plan.mimiTakeOver(sentTo.buyer_display_name)} onClose={() => setMimiAsk(false)}>
             {cancel.isError && <p className="error" role="alert">{errText(cancel.error)}</p>}
-            <div className="mimi15__askbtns">
+            <div className="sheet15__btns">
               <button type="button" className="btn btn--outline" onClick={() => setMimiAsk(false)}>{m15.plan.mimiKeep}</button>
               <button
                 type="button"
@@ -236,7 +235,7 @@ function Detail({ id }: { id: string }) {
                 {m15.plan.mimiConfirm}
               </button>
             </div>
-          </div>
+          </Sheet>
         )}
         {confirmDel && <p className="hint" role="status">{sentTo ? m15.plan.deleteAskSent(sentTo.buyer_display_name) : m15.plan.deleteAsk}</p>}
         {(metaAct.remove.isError || clearDefault.isError) && <p className="error" role="alert">{errText(metaAct.remove.error ?? clearDefault.error)}</p>}

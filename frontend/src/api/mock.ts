@@ -205,7 +205,7 @@ export async function mockFetch(path: string, init: RequestInit): Promise<Respon
   const p = url.pathname;
   const extra = mockM1(method, url, init);
   if (extra) return extra;
-  if (p.startsWith("/plan")) return inPlan(url.searchParams.get("plan_id"), () => mockCore(method, url, init));
+  if (p.startsWith("/plan") || p === "/orders" || p === "/orders/basket") return inPlan(url.searchParams.get("plan_id"), () => mockCore(method, url, init));
   return mockCore(method, url, init);
 }
 
@@ -548,7 +548,7 @@ function buildBasket(keys: string[]): Basket {
   for (const k of keys) {
     const ci = c.items.find((x) => x.key === k);
     const pr = CATALOG[k];
-    if (!ci) continue;
+    if (!ci || planLines.get(k)?.line_status === "assigned") continue; // đang nhờ người khác mua
     if (!pr) {
       missing.push(ci.name);
       continue;
@@ -595,11 +595,14 @@ function mockOnline(method: string, p: string, init: RequestInit): Response | nu
       return json(mandate);
     }
   }
-  if (method === "POST" && p === "/orders/basket") return json(buildBasket((body().keys as string[]) ?? [...cart]));
+  if (method === "POST" && p === "/orders/basket") {
+    const k = body().keys as string[] | undefined;
+    return json(buildBasket(k?.length ? k : [...cart])); // rỗng: mọi món, như backend
+  }
   if (method === "GET" && p === "/orders") return json({ orders: [...orders.values()].reverse() });
   if (method === "POST" && p === "/orders") {
     const b = body() as { keys?: string[]; approve?: boolean };
-    const basket = buildBasket(b.keys ?? [...cart]);
+    const basket = buildBasket(b.keys?.length ? b.keys : [...cart]);
     if (!basket.lines.length) return json({ code: "validation_failed", message: "empty" }, 422);
     if (basket.decision.result === "BLOCK") return json({ code: "mandate_blocked", message: "Blocked" }, 403);
     if (basket.decision.result === "ASK" && !b.approve) return json({ code: "approval_required", message: "Approve" }, 409);

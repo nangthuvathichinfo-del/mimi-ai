@@ -263,9 +263,6 @@
 .buyer15 button { min-height: 52px; border-radius: 12px; border: 1.5px solid var(--m15-line); background: #fff; color: var(--m15-blue); font: inherit; font-weight: 600; font-size: var(--fs-sm); cursor: pointer; display: grid; place-items: center; line-height: 1.2; }
 .buyer15 button[aria-pressed="true"] { background: var(--m15-blue); border-color: var(--m15-blue); color: #fff; }
 .buyer15__sub { font-size: 11px; font-weight: 500; }
-.mimi15__ask { display: grid; gap: var(--s2); padding: var(--s3); }
-.mimi15__askbtns { display: flex; gap: var(--s2); }
-.mimi15__askbtns > .btn { flex: 1; }
 .buyer15__soon { color: var(--ink-faint) !important; cursor: not-allowed !important; }
 .buyer15__soon small { font-size: 11px; font-weight: 500; }
 

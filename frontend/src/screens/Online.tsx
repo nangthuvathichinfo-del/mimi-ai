@@ -1,4 +1,4 @@
-import { t } from "../i18n";
+import { t, uiLang } from "../i18n";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Camera, PackageCheck, ShieldCheck, Truck } from "lucide-react";
@@ -22,6 +22,20 @@ const usdFmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "US
  */
 const basketMoney = (vnd: number, rate: number) => (displayCurrency() === "USD" && rate > 0 ? usdFmt.format(Math.round((vnd * 100) / rate) / 100) : formatVnd(vnd));
 const unitLabel = (u: string) => m15.units[u] ?? u;
+
+/** Lý do ASK / BLOCK theo ngôn ngữ app; mã chưa biết thì dùng câu máy chủ gửi. */
+function reasonText(r: Basket["decision"]["reasons"][number], b: Basket): string {
+  const fn = t.online.reason[r.code];
+  if (!fn) return r.detail;
+  const l = b.lines.find((x) => x.key === r.key);
+  const name = l?.name ?? r.key ?? "";
+  if (r.code === "price_guard" && l) {
+    const max = Math.floor((l.snapshot_price_vnd * 110) / 100);
+    return fn(name, basketMoney(l.unit_price_vnd, b.vnd_per_usd), basketMoney(max, b.vnd_per_usd));
+  }
+  if (r.code === "delivery_guard" && l?.need_by) return fn(name, formatDayMonth(l.eta), formatDayMonth(l.need_by));
+  return fn(name, "", "");
+}
 
 /**
  * Mua online (Mimi 2.0 mục 12 đến 15): giỏ online dựng từ Kế hoạch, Household Mandate,
@@ -92,7 +106,7 @@ function BasketView({ basket }: { basket: Basket }) {
           <ul className="list">
             {decision.reasons.map((r, i) => (
               <li key={`${r.code}-${r.key ?? i}`} className={`check ${r.result === "BLOCK" ? "warn" : ""}`}>
-                {r.detail}
+                {reasonText(r, basket)}
               </li>
             ))}
           </ul>
@@ -248,7 +262,7 @@ function OrderView({ order }: { order: Order }) {
         <ol className="list">
           {order.events.map((e) => (
             <li key={`${e.state}-${e.at}`} className="plan-row__sub">
-              {t.orders.states[e.state]} · {new Date(e.at).toLocaleString()}
+              {t.orders.states[e.state]} · {new Date(e.at).toLocaleString(uiLang === "vi" ? "vi-VN" : "en-US", { dateStyle: "short", timeStyle: "short" })}
             </li>
           ))}
         </ol>
