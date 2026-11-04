@@ -226,7 +226,7 @@ export function Orders() {
                   <span className="plan-row__name">{o.merchant} · {formatDayMonth(o.created_at.slice(0, 10))}</span>
                   <span className="plan-row__sub">{t.orders.states[o.state]}</span>
                 </span>
-                <span className="num">{formatVnd(o.state === "awaiting_payment" ? o.total_vnd : o.net_vnd)}</span>
+                <span className="num">{basketMoney(o.state === "awaiting_payment" ? o.total_vnd : o.net_vnd, o.vnd_per_usd)}</span>
               </Link>
             </li>
           ))}
@@ -267,10 +267,10 @@ function OrderView({ order }: { order: Order }) {
           ))}
         </ol>
         <p className="plan-total">
-          <span>{t.orders.total(formatVnd(order.total_vnd))}</span>
+          <span>{t.orders.total(displayCurrency() === "USD" ? usdFmt.format(Number(order.amount_usd)) : formatVnd(order.total_vnd))}</span>
           <span className="num">US${order.amount_usd}</span>
         </p>
-        {order.refunded_vnd > 0 && <p className="hint">{t.orders.net(formatVnd(order.net_vnd))}</p>}
+        {order.refunded_vnd > 0 && <p className="hint">{t.orders.net(basketMoney(order.net_vnd, order.vnd_per_usd))}</p>}
         {canAdvance && (
           <>
             <button
@@ -286,13 +286,13 @@ function OrderView({ order }: { order: Order }) {
         )}
       </section>
 
-      {order.state === "delivered" ? <VerifyForm order={order} /> : <LinesView lines={order.lines} />}
+      {order.state === "delivered" ? <VerifyForm order={order} /> : <LinesView lines={order.lines} rate={order.vnd_per_usd} />}
 
       {order.state === "verified" && (
         <>
           <p className="hint">{t.orders.reconciled}</p>
           {order.refunds.map((r) => (
-            <p key={r.ref} className="check ok">{t.orders.refunded(formatVnd(r.amount_vnd), r.amount_usd)}</p>
+            <p key={r.ref} className="check ok">{t.orders.refunded(basketMoney(r.amount_vnd, order.vnd_per_usd), r.amount_usd)}</p>
           ))}
           {order.suggested_refund_vnd > 0 && <RefundForm order={order} />}
         </>
@@ -301,7 +301,7 @@ function OrderView({ order }: { order: Order }) {
   );
 }
 
-function LinesView({ lines }: { lines: OrderLine[] }) {
+function LinesView({ lines, rate }: { lines: OrderLine[]; rate: number }) {
   return (
     <section className="plan-sec">
       <ul className="list">
@@ -315,7 +315,7 @@ function LinesView({ lines }: { lines: OrderLine[] }) {
                 {l.match && ` · ${t.orders.match[l.match]}`}
               </span>
             </span>
-            <span className="num">{formatVnd(l.total_vnd)}</span>
+            <span className="num">{basketMoney(l.total_vnd, rate)}</span>
           </li>
         ))}
       </ul>
@@ -412,7 +412,7 @@ function RefundForm({ order }: { order: Order }) {
   return (
     <section className="plan-sec">
       <h2>{t.orders.refundTitle}</h2>
-      <p className="hint">{t.orders.refundSuggested(formatVnd(amount))}</p>
+      <p className="hint">{t.orders.refundSuggested(basketMoney(amount, order.vnd_per_usd))}</p>
       <form
         className="plan-form"
         onSubmit={(e) => {
@@ -435,7 +435,7 @@ function RefundForm({ order }: { order: Order }) {
         </label>
         {refund.isError && <p className="error" role="alert">{refund.error instanceof ApiError ? refund.error.message : t.common.genericError}</p>}
         <button type="submit" className="btn btn--primary btn--block" aria-disabled={refund.isPending || undefined}>
-          {t.orders.refund(formatVnd(amount))}
+          {t.orders.refund(basketMoney(amount, order.vnd_per_usd))}
         </button>
       </form>
     </section>
