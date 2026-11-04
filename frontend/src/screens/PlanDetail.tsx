@@ -2,7 +2,7 @@ import { t } from "../i18n";
 import { m15 } from "../i18n/m15";
 import { m1 } from "../i18n/m1";
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { CalendarDays, Check, ChevronLeft, ChevronRight, CirclePlus, House, MapPin, Minus, Pencil, Plus, Send, Trash2 } from "lucide-react";
 import { ApiError } from "../api/client";
 import { LoadState } from "../components/LoadState";
@@ -57,7 +57,8 @@ function Detail({ id }: { id: string }) {
   usePlanDraftVersion();
   const me = useMe();
   const h = useHousehold();
-  const { assign } = useAssignments();
+  const { assign, cancel } = useAssignments();
+  const [mimiAsk, setMimiAsk] = useState(false);
   const delegated = useDelegated();
   const sentTo = (delegated.data?.from_me ?? []).find((a) => a.plan_id === id && (a.status === "assigned" || a.status === "shopping"));
   const buyer: BuyerPick | null = buyerOf(id) ?? (sentTo ? sentTo.buyer_uid : null);
@@ -192,6 +193,7 @@ function Detail({ id }: { id: string }) {
             name={buyerName}
             onMe={() => { setBuyer(id, "me"); changed(); }}
             onMember={() => setMemberSheet(true)}
+            onMimi={() => (sentTo ? setMimiAsk(true) : nav("/plan/online"))}
           />
         )}
 
@@ -219,6 +221,23 @@ function Detail({ id }: { id: string }) {
         </div>
         {!buyer && <p className="hint" role="status">{m15.plan.needBuyer}</p>}
         {assign.isError && <p className="error" role="alert">{errText(assign.error)}</p>}
+        {mimiAsk && sentTo && (
+          <div className="box15 mimi15__ask" role="alertdialog" aria-labelledby="mimi-ask">
+            <p id="mimi-ask">{m15.plan.mimiTakeOver(sentTo.buyer_display_name)}</p>
+            {cancel.isError && <p className="error" role="alert">{errText(cancel.error)}</p>}
+            <div className="mimi15__askbtns">
+              <button type="button" className="btn btn--outline" onClick={() => setMimiAsk(false)}>{m15.plan.mimiKeep}</button>
+              <button
+                type="button"
+                className="btn btn--primary"
+                aria-disabled={cancel.isPending || undefined}
+                onClick={() => !cancel.isPending && cancel.mutate(sentTo.assignment_id, { onSuccess: () => { setMimiAsk(false); nav("/plan/online"); } })}
+              >
+                {m15.plan.mimiConfirm}
+              </button>
+            </div>
+          </div>
+        )}
         {confirmDel && <p className="hint" role="status">{sentTo ? m15.plan.deleteAskSent(sentTo.buyer_display_name) : m15.plan.deleteAsk}</p>}
         {(metaAct.remove.isError || clearDefault.isError) && <p className="error" role="alert">{errText(metaAct.remove.error ?? clearDefault.error)}</p>}
       </div>
@@ -420,7 +439,7 @@ function Forecast({ cart }: { cart: Cart }) {
 }
 
 /* ---------- Người mua ---------- */
-function Buyer({ pick, name, onMe, onMember }: { pick: BuyerPick | null; name: string; onMe: () => void; onMember: () => void }) {
+function Buyer({ pick, name, onMe, onMember, onMimi }: { pick: BuyerPick | null; name: string; onMe: () => void; onMember: () => void; onMimi: () => void }) {
   const member = !!pick && pick !== "me";
   return (
     <section aria-labelledby="pd-buyer">
@@ -430,7 +449,7 @@ function Buyer({ pick, name, onMe, onMember }: { pick: BuyerPick | null; name: s
         <button type="button" aria-pressed={member} onClick={onMember}>
           {member && name ? name : m15.plan.sendMember}
         </button>
-        <Link to="/plan/online" className="buyer15__mimi">{m15.plan.mimi}<small>{m15.plan.mimiOnline}</small></Link>
+        <button type="button" onClick={onMimi}>{m15.plan.mimi}<small className="buyer15__sub">{m15.plan.mimiOnline}</small></button>
       </div>
     </section>
   );

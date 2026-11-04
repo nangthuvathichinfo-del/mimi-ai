@@ -370,6 +370,10 @@ export type RefundReason = "missing" | "wrong" | "damaged" | "other";
 
 export type Order = {
   id: string;
+  plan_id?: string;
+  provider?: "paypal" | "braintree";
+  provider_order_id?: string;
+  provider_txn_id?: string;
   state: OrderState;
   merchant: string;
   lines: OrderLine[];

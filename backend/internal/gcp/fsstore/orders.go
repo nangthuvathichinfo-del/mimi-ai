@@ -212,7 +212,7 @@ func (s *Store) ApplyDelivery(ctx context.Context, uid string, o order.Order, tz
 			if err == nil {
 				t.itemSnap = snap
 			}
-			pref := u.Collection("plan_items").Doc(l.Key)
+			pref := s.planItems(uid, o.PlanID).Doc(l.Key) // đơn cũ không có plan_id: Giỏ mua sắm chính
 			psnap, err := tx.Get(pref)
 			if err != nil && !isNotFound(err) {
 				return err

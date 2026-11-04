@@ -34,6 +34,7 @@ type keysBody struct {
 }
 
 func (s *Server) postBasket(w http.ResponseWriter, r *http.Request) {
+	r = withPlan(r) // ?plan_id=: giỏ online của một Kế hoạch; vắng là Giỏ mua sắm chính
 	var body keysBody
 	if err := decodeJSON(w, r, &body, maxJSONBody); err != nil {
 		s.writeError(w, r, err)
@@ -44,6 +45,7 @@ func (s *Server) postBasket(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) postOrder(w http.ResponseWriter, r *http.Request) {
+	r = withPlan(r)
 	var req order.CheckoutRequest
 	if err := decodeJSON(w, r, &req, maxJSONBody); err != nil {
 		s.writeError(w, r, err)

@@ -2072,7 +2072,9 @@ export interface paths {
         /** Dựng giỏ online từ các dòng Kế hoạch và đánh giá Mandate (ALLOW / ASK / BLOCK). Không tạo giao dịch. */
         post: {
             parameters: {
-                query?: never;
+                query?: {
+                    plan_id?: components["parameters"]["PlanId"];
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -2137,7 +2139,9 @@ export interface paths {
          */
         post: {
             parameters: {
-                query?: never;
+                query?: {
+                    plan_id?: components["parameters"]["PlanId"];
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -3635,6 +3639,12 @@ export interface components {
         };
         Order: {
             id?: string;
+            /** @description Kế hoạch của đơn; kiểm hàng trừ vào Kế hoạch này */
+            plan_id?: string;
+            /** @enum {string} */
+            provider?: "paypal" | "braintree";
+            provider_order_id?: string;
+            provider_txn_id?: string;
             /** @enum {string} */
             state?: "awaiting_payment" | "paid" | "ordered" | "shipped" | "delivered" | "verified";
             merchant?: string;

@@ -312,12 +312,15 @@ export function useSaveMandate() {
 }
 
 /** Giỏ online dựng từ Kế hoạch, kèm kết quả Household Mandate. Chưa tạo giao dịch. */
-export const useBasket = (keys: string[], enabled = true) =>
-  useQuery({
-    queryKey: ["basket", keys] as const,
-    queryFn: () => apiSend<Basket>("POST", "/orders/basket", { keys }),
+/** Giỏ online của Kế hoạch đang xem (Mimi mua các món chưa nhờ ai mua). */
+export function useBasket(keys: string[], enabled = true) {
+  const id = useCurrentPlanId();
+  return useQuery({
+    queryKey: ["basket", id, keys] as const,
+    queryFn: () => apiSend<Basket>("POST", `/orders/basket${planQuery(id)}`, { keys }),
     enabled,
   });
+}
 
 export const useOrders = () =>
   useQuery({ queryKey: qk.orders, queryFn: async () => (await apiGet<{ orders: Order[] }>("/orders")).orders });
@@ -344,7 +347,7 @@ function useOrderAction<V>(fn: (v: V) => Promise<Order>) {
 const orderPath = (id: string) => `/orders/${encodeURIComponent(id)}`;
 
 export const useCheckout = () =>
-  useOrderAction((v: { keys: string[]; approve: boolean }) => apiSend<Order>("POST", "/orders", v));
+  useOrderAction((v: { keys: string[]; approve: boolean }) => apiSend<Order>("POST", `/orders${planQuery(currentPlanId())}`, v));
 export const useCaptureOrder = () => useOrderAction((id: string) => apiSend<Order>("POST", `${orderPath(id)}/capture`));
 export const useAdvanceOrder = () => useOrderAction((id: string) => apiSend<Order>("POST", `${orderPath(id)}/advance`));
 export const useVerifyOrder = () =>

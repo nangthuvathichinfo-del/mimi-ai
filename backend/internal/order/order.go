@@ -111,6 +111,8 @@ type Order struct {
 	RateAsOf       string   `json:"rate_as_of,omitempty"`
 	Decision       Decision `json:"decision"`
 	ApprovedByUser bool     `json:"approved_by_user"` // người dùng duyệt đơn ASK
+	// PlanID là Kế hoạch của đơn ("" là Giỏ mua sắm chính); lúc kiểm hàng, Mimi trừ vào đúng Kế hoạch này.
+	PlanID string `json:"plan_id,omitempty"`
 	// Provider là cổng đã nhận tiền (paypal | braintree). Đơn lưu trước khi có ô này là paypal.
 	Provider        string `json:"provider"`
 	ProviderOrderID string `json:"provider_order_id,omitempty"`
@@ -395,7 +397,7 @@ func (s *Service) Checkout(ctx context.Context, p authz.Principal, req CheckoutR
 	o := Order{
 		ID: newID(), State: StateAwaitingPayment, Merchant: b.Merchant, Lines: b.Lines,
 		TotalVND: b.TotalVND, AmountUSD: b.AmountUSD, VNDPerUSD: b.VNDPerUSD, RateSource: b.RateSource, RateAsOf: b.RateAsOf, Decision: b.Decision,
-		ApprovedByUser: b.Decision.Result == Ask, Refunds: []Refund{}, CreatedAt: now, UpdatedAt: now,
+		ApprovedByUser: b.Decision.Result == Ask, Refunds: []Refund{}, CreatedAt: now, UpdatedAt: now, PlanID: plan.IDFrom(ctx),
 		Events: []Event{{State: StateAwaitingPayment, At: now}},
 	}
 	for _, l := range o.Lines {

@@ -597,6 +597,7 @@ paths:
     post:
       tags: [online]
       summary: Dựng giỏ online từ các dòng Kế hoạch và đánh giá Mandate (ALLOW / ASK / BLOCK). Không tạo giao dịch.
+      parameters: [{ $ref: "#/components/parameters/PlanId" }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/OrderKeys" } } } }
       responses:
         "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Basket" } } } }
@@ -612,6 +613,7 @@ paths:
       tags: [online]
       summary: Checkout, tạo PayPal order (intent CAPTURE, tính bằng USD theo PAYPAL_VND_PER_USD)
       description: BLOCK trả 403 mandate_blocked; ASK chưa có approve=true trả 409 approval_required.
+      parameters: [{ $ref: "#/components/parameters/PlanId" }]
       requestBody:
         required: true
         content:
@@ -1464,6 +1466,10 @@ components:
       type: object
       properties:
         id: { type: string }
+        plan_id: { type: string, description: Kế hoạch của đơn; kiểm hàng trừ vào Kế hoạch này }
+        provider: { type: string, enum: [paypal, braintree] }
+        provider_order_id: { type: string }
+        provider_txn_id: { type: string }
         state: { type: string, enum: [awaiting_payment, paid, ordered, shipped, delivered, verified] }
         merchant: { type: string }
         lines: { type: array, items: { $ref: "#/components/schemas/OrderLine" } }
