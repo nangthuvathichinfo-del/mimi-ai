@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -67,8 +68,8 @@ func Load() (Config, error) {
 		ReceiptDailyLimit: 20,
 		PriceSyncLimit:    200,
 		PayPalMode:        get("PAYPAL_MODE", "fake"),
-		PayPalClientID:    os.Getenv("PAYPAL_CLIENT_ID"),
-		PayPalSecret:      os.Getenv("PAYPAL_CLIENT_SECRET"),
+		PayPalClientID:    strings.TrimSpace(os.Getenv("PAYPAL_CLIENT_ID")),
+		PayPalSecret:      strings.TrimSpace(os.Getenv("PAYPAL_CLIENT_SECRET")), // secret cất bằng --data-file=- thường dính dấu xuống dòng
 		VNDPerUSD:         25_000,
 		VNDRateSource:     get("PAYPAL_RATE_SOURCE", "mac-dinh-cau-hinh"),
 		VNDRateAsOf:       os.Getenv("PAYPAL_RATE_AS_OF"),
