@@ -305,3 +305,16 @@ func TestCheckoutRecordsRateInfo(t *testing.T) {
 		t.Fatalf("rate info %d %q %q", o.VNDPerUSD, o.RateSource, o.RateAsOf)
 	}
 }
+
+// Lỗi N4: món trong Kế hoạch dùng mã của 300 nhóm (dau-goi-nam, trung-ga) phải tìm được hàng.
+func TestCatalogMatchesTaxonomyKeys(t *testing.T) {
+	c := NewSandboxCatalog(time.Now())
+	for k, want := range map[string]string{"dau-goi-nam": "dau-goi", "trung-ga": "trung", "kem-duong-the": "kem-duong", "sua-hat": "sua-hat"} {
+		if p, ok := c.Product(k); !ok || p.Key != want {
+			t.Errorf("Product(%q) = %q %v want %q", k, p.Key, ok, want)
+		}
+	}
+	if _, ok := c.Product("bao-cao-su"); ok {
+		t.Error("bao-cao-su must not match")
+	}
+}

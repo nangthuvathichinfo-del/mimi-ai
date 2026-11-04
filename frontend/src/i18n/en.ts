@@ -363,7 +363,7 @@ export const en = {
     paying: "Processing payment…",
     paid: "Paid. Mimi will track the delivery.",
     blocked: "Change the list or your authorization in Settings.",
-    empty: "Your list is empty.",
+    empty: "Nothing for Mimi to buy online yet. Items someone else is buying are not included.",
     failed: "Payment didn't go through. Try again.",
     viewOrder: "View order",
   },

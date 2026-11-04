@@ -2,7 +2,7 @@ import { t } from "../i18n";
 import { m15 } from "../i18n/m15";
 import { m1 } from "../i18n/m1";
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { CalendarDays, Check, ChevronLeft, ChevronRight, CirclePlus, House, MapPin, Minus, Pencil, Plus, Send, Trash2 } from "lucide-react";
 import { ApiError } from "../api/client";
 import { LoadState } from "../components/LoadState";
@@ -430,9 +430,7 @@ function Buyer({ pick, name, onMe, onMember }: { pick: BuyerPick | null; name: s
         <button type="button" aria-pressed={member} onClick={onMember}>
           {member && name ? name : m15.plan.sendMember}
         </button>
-        <button type="button" disabled aria-disabled="true" className="buyer15__soon">
-          {m15.plan.mimi}<small>{m15.plan.soon}</small>
-        </button>
+        <Link to="/plan/online" className="buyer15__mimi">{m15.plan.mimi}<small>{m15.plan.mimiOnline}</small></Link>
       </div>
     </section>
   );

@@ -336,7 +336,7 @@ export const vi: Messages = {
     paying: "Đang thanh toán…",
     paid: "Đã thanh toán. Mimi sẽ theo dõi giao hàng.",
     blocked: "Sửa Kế hoạch hoặc phạm vi ủy quyền trong Cài đặt.",
-    empty: "Kế hoạch đang trống.",
+    empty: "Chưa có món nào để Mimi mua online. Món đang nhờ người khác mua thì không tính vào đây.",
     failed: "Thanh toán chưa thành công. Thử lại.",
     viewOrder: "Xem đơn",
   },

@@ -90,7 +90,6 @@ export function Settings() {
   const me = useMeData();
   const auth = useAuth();
   const h = useHousehold();
-  const [soon, setSoon] = useState(false);
   const s = me?.settings;
   const name = me?.display_name || auth.session?.email || "";
   return (
@@ -116,13 +115,12 @@ export function Settings() {
 
         <Group title={S.family}>
           <Row to="/settings/members" Icon={UsersRound} label={S.members} sub={h.data ? S.membersSub(h.data.members.length) : undefined} />
-          <Row Icon={Wallet} label={S.mandate} chip={S.off} soon onSoon={() => setSoon(true)} />
+          <MandateRow />
         </Group>
 
         <Group title={S.shopping}>
-          <Row Icon={Package} label={S.orders} chip={S.comingSoon} soon onSoon={() => setSoon(true)} />
+          <Row to="/orders" Icon={Package} label={S.orders} />
         </Group>
-        {soon && <p className="hint hint15" role="status"><Info size={16} aria-hidden /> {S.soonNote}</p>}
 
         <Group title={S.account}>
           <Row to="/settings/privacy" Icon={ShieldCheck} label={S.privacy} />
@@ -309,7 +307,6 @@ export function SettingsMembers() {
   const h = useHousehold();
   const act = useHouseholdActions();
   const [copied, setCopied] = useState(false);
-  const [soon, setSoon] = useState(false);
   const [code, setCode] = useState("");
   const [confirmRenew, setConfirmRenew] = useState(false);
   const { relationOf } = useRelations();
@@ -401,9 +398,8 @@ export function SettingsMembers() {
       </section>
 
       <ul className="box15 set15__list">
-        <Row Icon={Wallet} label={S.mandate} chip={S.off} soon onSoon={() => setSoon(true)} />
+        <MandateRow />
       </ul>
-      {soon && <p className="hint hint15" role="status"><Info size={16} aria-hidden /> {S.soonNote}</p>}
 
       {others.length === 0 && (
         <form
@@ -595,6 +591,20 @@ function DeleteAccount() {
 }
 
 const MANDATE_CATS: MandateCategory[] = ["grocery", "household"];
+
+/** Dòng Ủy quyền mua online ở Cài đặt: hiện đang bật hay tắt, bấm vào để sửa. */
+function MandateRow() {
+  const q = useMandate();
+  return <Row to="/settings/mandate" Icon={Wallet} label={S.mandate} chip={q.data ? (q.data.enabled ? S.on : S.off) : undefined} />;
+}
+
+export function SettingsMandate() {
+  return (
+    <Sub title={S.mandate}>
+      <MandateSection />
+    </Sub>
+  );
+}
 
 /** Household Mandate (Mimi 2.0 mục 13): phạm vi Mimi được tự thanh toán online. Chỉ chủ nhà sửa được. */
 export function MandateSection() {
