@@ -70,6 +70,23 @@ func (s *Server) captureOrder(w http.ResponseWriter, r *http.Request) {
 	s.respond(w, r, http.StatusOK, o, err)
 }
 
+func (s *Server) cardToken(w http.ResponseWriter, r *http.Request) {
+	tok, err := s.orders.CardToken(r.Context(), principalFrom(r.Context()))
+	s.respond(w, r, http.StatusOK, map[string]string{"client_token": tok}, err)
+}
+
+func (s *Server) payCard(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Nonce string `json:"nonce"`
+	}
+	if err := decodeJSON(w, r, &body, maxJSONBody); err != nil {
+		s.writeError(w, r, err)
+		return
+	}
+	o, err := s.orders.PayCard(r.Context(), principalFrom(r.Context()), r.PathValue("id"), body.Nonce)
+	s.respond(w, r, http.StatusOK, o, err)
+}
+
 func (s *Server) advanceOrder(w http.ResponseWriter, r *http.Request) {
 	o, err := s.orders.Advance(r.Context(), principalFrom(r.Context()), r.PathValue("id"))
 	s.respond(w, r, http.StatusOK, o, err)

@@ -45,34 +45,44 @@ type Config struct {
 	// theo tỷ giá nào. PAYPAL_RATE_SOURCE, PAYPAL_RATE_AS_OF (YYYY-MM-DD).
 	VNDRateSource string
 	VNDRateAsOf   string
+
+	// Braintree: lựa chọn "Trả bằng thẻ". BRAINTREE_MODE: sandbox | live | fake | off.
+	BraintreeMode       string
+	BraintreePublicKey  string
+	BraintreePrivateKey string // gắn từ Secret Manager
+	BraintreeMerchantAc string // merchant account USD; rỗng: tài khoản mặc định
 }
 
 func Load() (Config, error) {
 	c := Config{
-		Port:              get("PORT", "8080"),
-		ProjectID:         os.Getenv("GOOGLE_CLOUD_PROJECT"),
-		Region:            get("GOOGLE_CLOUD_REGION", "asia-southeast1"),
-		Env:               get("MIMI_ENV", "dev"),
-		FirestoreDB:       get("FIRESTORE_DATABASE", "(default)"),
-		GeminiModel:       os.Getenv("GEMINI_MODEL"),
-		GeminiThinking:    get("GEMINI_THINKING", "LOW"),    // chép chữ trên bill không cần nghĩ lâu; nghĩ ít thì trả lời nhanh hơn
-		GeminiLocation:    get("GEMINI_LOCATION", "global"), // checklist 48h Gate 1: Vertex AI gọi endpoint global
-		AppCheckRequired:  get("APP_CHECK_REQUIRED", "true") == "true",
-		TasksQueue:        os.Getenv("TASKS_QUEUE"),
-		WorkerURL:         os.Getenv("WORKER_URL"),
-		TasksSAEmail:      os.Getenv("TASKS_SA_EMAIL"),
-		EmailAPIKey:       os.Getenv("EMAIL_API_KEY"),
-		EmailFrom:         get("EMAIL_FROM", "Mimi <hello@mimi.app>"),
-		ReadTimeout:       55 * time.Second,
-		DefaultTimeout:    10 * time.Second,
-		ReceiptDailyLimit: 20,
-		PriceSyncLimit:    200,
-		PayPalMode:        get("PAYPAL_MODE", "fake"),
-		PayPalClientID:    strings.TrimSpace(os.Getenv("PAYPAL_CLIENT_ID")),
-		PayPalSecret:      strings.TrimSpace(os.Getenv("PAYPAL_CLIENT_SECRET")), // secret cất bằng --data-file=- thường dính dấu xuống dòng
-		VNDPerUSD:         25_000,
-		VNDRateSource:     get("PAYPAL_RATE_SOURCE", "mac-dinh-cau-hinh"),
-		VNDRateAsOf:       os.Getenv("PAYPAL_RATE_AS_OF"),
+		Port:                get("PORT", "8080"),
+		ProjectID:           os.Getenv("GOOGLE_CLOUD_PROJECT"),
+		Region:              get("GOOGLE_CLOUD_REGION", "asia-southeast1"),
+		Env:                 get("MIMI_ENV", "dev"),
+		FirestoreDB:         get("FIRESTORE_DATABASE", "(default)"),
+		GeminiModel:         os.Getenv("GEMINI_MODEL"),
+		GeminiThinking:      get("GEMINI_THINKING", "LOW"),    // chép chữ trên bill không cần nghĩ lâu; nghĩ ít thì trả lời nhanh hơn
+		GeminiLocation:      get("GEMINI_LOCATION", "global"), // checklist 48h Gate 1: Vertex AI gọi endpoint global
+		AppCheckRequired:    get("APP_CHECK_REQUIRED", "true") == "true",
+		TasksQueue:          os.Getenv("TASKS_QUEUE"),
+		WorkerURL:           os.Getenv("WORKER_URL"),
+		TasksSAEmail:        os.Getenv("TASKS_SA_EMAIL"),
+		EmailAPIKey:         os.Getenv("EMAIL_API_KEY"),
+		EmailFrom:           get("EMAIL_FROM", "Mimi <hello@mimi.app>"),
+		ReadTimeout:         55 * time.Second,
+		DefaultTimeout:      10 * time.Second,
+		ReceiptDailyLimit:   20,
+		PriceSyncLimit:      200,
+		PayPalMode:          get("PAYPAL_MODE", "fake"),
+		PayPalClientID:      strings.TrimSpace(os.Getenv("PAYPAL_CLIENT_ID")),
+		PayPalSecret:        strings.TrimSpace(os.Getenv("PAYPAL_CLIENT_SECRET")), // secret cất bằng --data-file=- thường dính dấu xuống dòng
+		VNDPerUSD:           25_000,
+		VNDRateSource:       get("PAYPAL_RATE_SOURCE", "mac-dinh-cau-hinh"),
+		VNDRateAsOf:         os.Getenv("PAYPAL_RATE_AS_OF"),
+		BraintreeMode:       get("BRAINTREE_MODE", "off"),
+		BraintreePublicKey:  strings.TrimSpace(os.Getenv("BRAINTREE_PUBLIC_KEY")),
+		BraintreePrivateKey: strings.TrimSpace(os.Getenv("BRAINTREE_PRIVATE_KEY")),
+		BraintreeMerchantAc: strings.TrimSpace(os.Getenv("BRAINTREE_MERCHANT_ACCOUNT_ID")),
 	}
 	var errs []error
 	if c.ProjectID == "" {
@@ -116,6 +126,15 @@ func Load() (Config, error) {
 		}
 	default:
 		errs = append(errs, fmt.Errorf("PAYPAL_MODE invalid: %q (sandbox | live | fake | off)", c.PayPalMode))
+	}
+	switch c.BraintreeMode {
+	case "fake", "off":
+	case "sandbox", "live":
+		if c.BraintreePublicKey == "" || c.BraintreePrivateKey == "" {
+			errs = append(errs, errors.New("BRAINTREE_PUBLIC_KEY and BRAINTREE_PRIVATE_KEY are required for BRAINTREE_MODE="+c.BraintreeMode))
+		}
+	default:
+		errs = append(errs, fmt.Errorf("BRAINTREE_MODE invalid: %q (sandbox | live | fake | off)", c.BraintreeMode))
 	}
 	if c.Env == "prod" && !c.AppCheckRequired {
 		errs = append(errs, errors.New("APP_CHECK_REQUIRED must be true in prod"))
