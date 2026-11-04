@@ -12,12 +12,24 @@ PROJECT="${1:?Cách dùng: bash deploy/cloudshell-setup.sh <project-id>}"
 REGION="asia-southeast1"
 GEMINI_MODEL="${GEMINI_MODEL:-gemini-3.8-flash}" # dòng 2.5 đã bị Google tắt ngày 20/10/2026
 PAYPAL_MODE="${PAYPAL_MODE:-off}" # bản test: PAYPAL_MODE=fake bash deploy/cloudshell-setup.sh mimi-1-5 (thanh toán giả, chưa cần khóa)
+# PayPal Sandbox: PAYPAL_MODE=sandbox PAYPAL_CLIENT_ID=<Client ID> bash deploy/cloudshell-setup.sh mimi-1-5
+# Secret cất trước trong Secret Manager tên paypal-client-secret (không bao giờ để trong repo):
+#   gcloud secrets create paypal-client-secret --project mimi-1-5 --data-file=-
+PAYPAL_CLIENT_ID="${PAYPAL_CLIENT_ID:-}"
 GEMINI_THINKING="${GEMINI_THINKING:-LOW}" # LOW: đã thử đọc bill ổn. MINIMAL thử 02/11 thì AI từ chối mọi bill, đừng dùng
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 say() { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
 
 gcloud config set project "$PROJECT" >/dev/null
+SECRET_FLAGS=()
+if [ "$PAYPAL_MODE" = sandbox ] || [ "$PAYPAL_MODE" = live ]; then
+  [ -n "$PAYPAL_CLIENT_ID" ] || { echo "Thiếu PAYPAL_CLIENT_ID cho PAYPAL_MODE=$PAYPAL_MODE"; exit 1; }
+  gcloud services enable secretmanager.googleapis.com --quiet
+  gcloud secrets describe paypal-client-secret >/dev/null 2>&1 ||
+    { echo "Chưa có secret paypal-client-secret. Chạy: gcloud secrets create paypal-client-secret --project $PROJECT --data-file=-"; exit 1; }
+  SECRET_FLAGS=(--set-secrets "PAYPAL_CLIENT_SECRET=paypal-client-secret:latest")
+fi
 NUM="$(gcloud projects describe "$PROJECT" --format='value(projectNumber)')"
 
 say "1/7 Tài khoản dịch vụ và quyền"
@@ -29,6 +41,10 @@ bind() { gcloud projects add-iam-policy-binding "$PROJECT" --member "serviceAcco
 for r in roles/datastore.user roles/aiplatform.user roles/firebaseauth.admin roles/serviceusage.serviceUsageConsumer; do bind sa-api "$r"; done
 for r in roles/datastore.user roles/firebaseauth.viewer roles/serviceusage.serviceUsageConsumer roles/aiplatform.user; do bind sa-jobs "$r"; done # aiplatform: price-sync tra giá bằng Gemini
 bind sa-scheduler roles/run.invoker
+if [ ${#SECRET_FLAGS[@]} -gt 0 ]; then
+  gcloud secrets add-iam-policy-binding paypal-client-secret --member "serviceAccount:sa-api@$PROJECT.iam.gserviceaccount.com" \
+    --role roles/secretmanager.secretAccessor --condition=None >/dev/null
+fi
 # Build từ mã nguồn (Cloud Build) chạy bằng tài khoản Compute mặc định.
 gcloud projects add-iam-policy-binding "$PROJECT" --member "serviceAccount:$NUM-compute@developer.gserviceaccount.com" \
   --role roles/run.builder --condition=None >/dev/null
@@ -41,9 +57,10 @@ try: e=json.load(sys.stdin)["spec"]["template"]["spec"]["containers"][0].get("en
 except Exception: e=[]
 print(next((x.get("value","") for x in e if x.get("name")=="APP_CHECK_REQUIRED"),"false"))' || echo false)"
 ENV_VARS="GOOGLE_CLOUD_PROJECT=$PROJECT,MIMI_ENV=dev,APP_CHECK_REQUIRED=$APP_CHECK,GEMINI_MODEL=$GEMINI_MODEL,GEMINI_THINKING=$GEMINI_THINKING,GEMINI_LOCATION=global,PAYPAL_MODE=$PAYPAL_MODE"
+[ -n "$PAYPAL_CLIENT_ID" ] && ENV_VARS="$ENV_VARS,PAYPAL_CLIENT_ID=$PAYPAL_CLIENT_ID"
 gcloud run deploy mimi-api --source "$ROOT/backend" --region "$REGION" \
   --service-account "sa-api@$PROJECT.iam.gserviceaccount.com" \
-  --set-env-vars "$ENV_VARS" --args serve-api \
+  --set-env-vars "$ENV_VARS" "${SECRET_FLAGS[@]}" --args serve-api \
   --allow-unauthenticated --min-instances 0 --max-instances 3 --memory 512Mi --timeout 60 --quiet
 IMAGE="$(gcloud run services describe mimi-api --region "$REGION" --format='value(spec.template.spec.containers[0].image)')"
 
@@ -90,6 +107,7 @@ print("VITE_FIREBASE_APP_ID="+c["appId"])
 print("VITE_USE_EMULATORS=false")' > "$ROOT/frontend/.env.production"
 KEY="$(gcloud recaptcha keys list --filter="displayName=mimi-web" --format='value(name)' 2>/dev/null | head -1)"
 [ -n "$KEY" ] && echo "VITE_RECAPTCHA_ENTERPRISE_KEY=${KEY##*/}" >> "$ROOT/frontend/.env.production"
+[ -n "$PAYPAL_CLIENT_ID" ] && echo "VITE_PAYPAL_CLIENT_ID=$PAYPAL_CLIENT_ID" >> "$ROOT/frontend/.env.production"
 echo "  đã ghi frontend/.env.production"
 
 say "6/7 Build frontend"
