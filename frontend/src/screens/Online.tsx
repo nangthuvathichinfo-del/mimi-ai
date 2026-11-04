@@ -5,13 +5,23 @@ import { Camera, PackageCheck, ShieldCheck, Truck } from "lucide-react";
 import { ApiError } from "../api/client";
 import {
   useAdvanceOrder, useBasket, useCaptureOrder, useCheckout, useOrder, useOrders, useReadDelivery, useRefundOrder,
-  useVerifyOrder,
+  useTaxonomyLabels, useVerifyOrder,
 } from "../api/hooks";
 import type { Basket, DeliveryObservation, Order, OrderLine, RefundReason } from "../api/types";
 import { MainFrame, TopBar } from "../components/AppShell";
 import { compressReceiptImage } from "../lib/image";
 import { loadPayPal, PAYPAL_CLIENT_ID } from "../lib/paypal";
 import { formatDayMonth, formatVnd } from "../lib/text";
+import { displayCurrency } from "../lib/money";
+import { m15 } from "../i18n/m15";
+
+const usdFmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+/**
+ * Số tiền trong giỏ online: người xem chọn USD thì quy đổi theo đúng tỷ giá của đơn
+ * (cùng tỷ giá PayPal sẽ thu), để tổng trên màn khớp số tiền thanh toán.
+ */
+const basketMoney = (vnd: number, rate: number) => (displayCurrency() === "USD" && rate > 0 ? usdFmt.format(Math.round((vnd * 100) / rate) / 100) : formatVnd(vnd));
+const unitLabel = (u: string) => m15.units[u] ?? u;
 
 /**
  * Mua online (Mimi 2.0 mục 12 đến 15): giỏ online dựng từ Kế hoạch, Household Mandate,
@@ -42,6 +52,9 @@ function BasketView({ basket }: { basket: Basket }) {
   const [approve, setApprove] = useState(false);
   const decision = basket.decision;
   const canPay = decision.result === "ALLOW" || (decision.result === "ASK" && approve);
+  const label = useTaxonomyLabels();
+  const rate = basket.vnd_per_usd;
+  const usd = displayCurrency() === "USD";
   return (
     <>
       <section className="plan-sec">
@@ -49,24 +62,24 @@ function BasketView({ basket }: { basket: Basket }) {
         <p className="hint">{t.online.snapshot(formatDayMonth(basket.snapshot_at.slice(0, 10)))}</p>
         <ul className="list">
           {basket.lines.map((l) => (
-            <li key={l.key} className="plan-row">
+            <li key={l.key} className="plan-row plan-row--online">
               <span className="plan-row__text">
                 <span className="plan-row__name">{l.product_name}</span>
                 <span className="plan-row__sub">
-                  {t.online.packs(l.qty, l.unit, l.pack_qty)} · {t.online.eta(formatDayMonth(l.eta))}
+                  {t.online.packs(l.qty, unitLabel(l.unit), l.pack_qty)} · {t.online.eta(formatDayMonth(l.eta))}
                 </span>
                 <span className="plan-row__sub">
-                  {t.online.priceVsSnapshot(formatVnd(l.unit_price_vnd), formatVnd(l.snapshot_price_vnd))}
+                  {t.online.priceVsSnapshot(basketMoney(l.unit_price_vnd, rate), basketMoney(l.snapshot_price_vnd, rate))}
                 </span>
               </span>
-              <span className="num">{formatVnd(l.total_vnd)}</span>
+              <span className="num">{basketMoney(l.total_vnd, rate)}</span>
             </li>
           ))}
         </ul>
-        {basket.missing.length > 0 && <p className="hint">{t.online.missing(basket.missing.join(", "))}</p>}
+        {basket.missing.length > 0 && <p className="hint">{t.online.missing(basket.missing.map((k) => label(k) || k).join(", "))}</p>}
         <p className="plan-total">
           <span>{t.online.total}</span>
-          <span className="num">{formatVnd(basket.total_vnd)}</span>
+          <span className="num">{usd ? usdFmt.format(Number(basket.amount_usd)) : formatVnd(basket.total_vnd)}</span>
         </p>
         <p className="hint">{t.online.usd(basket.amount_usd, basket.vnd_per_usd)}</p>
       </section>
@@ -279,7 +292,7 @@ function LinesView({ lines }: { lines: OrderLine[] }) {
     <section className="plan-sec">
       <ul className="list">
         {lines.map((l) => (
-          <li key={l.key} className="plan-row">
+          <li key={l.key} className="plan-row plan-row--online">
             <span className="plan-row__text">
               <span className="plan-row__name">{l.product_name}</span>
               <span className="plan-row__sub">
