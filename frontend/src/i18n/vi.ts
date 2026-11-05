@@ -369,6 +369,7 @@ export const vi: Messages = {
       dispute_won: "Khiếu nại đã xong, giao dịch giữ nguyên.",
       dispute_lost: "Khiếu nại kết thúc, ngân hàng đã trả lại tiền cho chủ thẻ.",
     },
+    done: "Xong, về Kế hoạch",
     paidVia: { paypal: "Đã trả qua PayPal", braintree: "Đã trả bằng thẻ (Braintree)" },
     advance: "Giả lập bước giao hàng tiếp theo",
     sandboxNote: "Cửa hàng sandbox: các bước giao hàng là giả lập.",

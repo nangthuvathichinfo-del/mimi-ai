@@ -396,6 +396,7 @@ export const en = {
       dispute_won: "The dispute is closed and the payment stands.",
       dispute_lost: "The dispute is closed and the bank returned the money to the cardholder.",
     },
+    done: "Done, back to Plans",
     paidVia: { paypal: "Paid with PayPal", braintree: "Paid by card (Braintree)" },
     advance: "Simulate next delivery step",
     sandboxNote: "Sandbox store: delivery steps are simulated.",

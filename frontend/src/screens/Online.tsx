@@ -388,6 +388,10 @@ function OrderView({ order }: { order: Order }) {
             <p key={r.ref} className="check ok">{t.orders.refunded(basketMoney(r.amount_vnd, order.vnd_per_usd), r.amount_usd)}</p>
           ))}
           {order.suggested_refund_vnd > 0 && <RefundForm order={order} />}
+          {/* Đơn đã kiểm xong: một nút để rời màn đơn, món thiếu vẫn nằm trong Kế hoạch. */}
+          <Link to="/plan" className={`btn btn--block ${order.suggested_refund_vnd > 0 ? "btn--quiet" : "btn--primary"}`}>
+            {t.orders.done}
+          </Link>
         </>
       )}
     </>
