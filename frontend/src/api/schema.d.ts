@@ -2993,6 +2993,123 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/households/shopping-assignments/{id}/settle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Người nhờ trả lại tiền cho người đi mua hộ: Venmo qua PayPal Payouts, hoặc đánh dấu đã trả tiền mặt
+         * @description Số tiền là settlement.owed_vnd (phần món của người nhờ trong hóa đơn của vòng). Venmo chỉ nhận
+         *     tiền USD tới người nhận ở Mỹ: Mimi quy đổi theo tỷ giá cấu hình và khóa vào settlement.
+         *     Đã trả hoặc đang chờ thì trả về vòng hiện tại, không chi lần hai. Payouts xử lý chậm nên
+         *     kết quả thường là pending; gọi /settle/refresh để kiểm tra lại.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        method: "venmo" | "cash";
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Assignment"];
+                    };
+                };
+                /** @description payment_failed: PayPal từ chối lệnh chi */
+                402: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description invalid_state: vòng không có khoản cần trả, hoặc vừa đổi trạng thái */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description method sai, hoặc người đi mua chưa lưu ví (fields.field = payout_wallet) */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description payment_unavailable hoặc payment_not_enabled (VENMO_MODE=off) */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/households/shopping-assignments/{id}/settle/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Kiểm tra lại khoản Venmo đang chờ (GET Payouts batch); chưa có webhook */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Assignment"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/households/needs": {
         parameters: {
             query?: never;
@@ -3153,6 +3270,12 @@ export interface components {
             /** @description Tên gọi người nhà theo uid, riêng từng tài khoản. PUT chỉ gửi phần đổi; "" là xóa */
             relations?: {
                 [key: string]: "anh" | "chi" | "em" | "bo" | "me" | "con" | "ong" | "ba" | "khac" | "";
+            };
+            /** @description Ví nhận tiền khi người nhà trả lại tiền mua hộ. Venmo: số điện thoại Mỹ 10 số (lưu không có +1) hoặc email; PayPal: email. receiver rỗng là xóa. Chỉ chủ tài khoản đọc được */
+            payout_wallet?: {
+                /** @enum {string} */
+                kind?: "venmo" | "paypal";
+                receiver?: string;
             };
         };
         Profile: {
@@ -3630,6 +3753,11 @@ export interface components {
              * @description B5: lần cuối người nhờ gửi bản cập nhật; không có khi chưa cập nhật
              */
             updated_at?: string;
+            /**
+             * Format: date-time
+             * @description Lúc vòng kết thúc (hóa đơn, hủy, từ chối)
+             */
+            closed_at?: string;
             /** @description Ngày, giờ, nơi mua của Kế hoạch lúc gửi; plan_name rỗng là Kế hoạch chính */
             trip?: {
                 plan_name?: string;
@@ -3647,10 +3775,39 @@ export interface components {
                 /** @enum {string} */
                 status?: "assigned" | "done" | "returned";
             }[];
+            settlement?: components["schemas"]["Settlement"];
+        };
+        /** @description Trả lại tiền mua hộ. Có khi vòng kết thúc bằng hóa đơn và phần món của người nhờ lớn hơn 0 */
+        Settlement: {
+            /** @description Phần món của người nhờ trong hóa đơn (B4) */
+            owed_vnd?: number;
+            /** @enum {string} */
+            status?: "unpaid" | "pending" | "paid" | "failed";
+            /** @enum {string} */
+            method?: "venmo" | "cash";
+            /** @description Số USD đã chi qua Venmo, ví dụ 5.20 */
+            amount_usd?: string;
+            vnd_per_usd?: number;
+            rate_source?: string;
+            /** Format: date */
+            rate_as_of?: string;
+            /** @description Ví nhận đã che bớt, ví dụ •••1234 */
+            receiver?: string;
+            sender_batch_id?: string;
+            payout_batch_id?: string;
+            attempt?: number;
+            /** @description Lỗi lần gần nhất: declined, unavailable, hoặc mã PayPal (UNCLAIMED khi số Venmo chưa có tài khoản) */
+            error?: string;
+            /** Format: date-time */
+            paid_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
         };
         Delegated: {
             to_me?: components["schemas"]["Assignment"][];
             from_me?: components["schemas"]["Assignment"][];
+            /** @description Máy chủ đã bật trả lại tiền qua Venmo (VENMO_MODE khác off) */
+            payouts_enabled?: boolean;
         };
         PlanState: {
             /** @description YYYY-MM-DD hoặc chuỗi rỗng; từ 7 ngày trước đến 1 năm tới */

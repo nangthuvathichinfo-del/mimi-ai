@@ -282,7 +282,7 @@ export function useSaveSettings() {
       // khôi phục từ máy, ghép phần vừa đổi vào đó sẽ làm ô khác (tiền tệ) trông như mới mà sai.
       qc.setQueryData<Me>(qk.me, (old) => {
         if (!old) return old;
-        const { display_name, relations: _rel, ...rest } = patch;
+        const { display_name, relations: _rel, payout_wallet: _pw, ...rest } = patch;
         const { display_name: savedName, ...savedSettings } = (saved ?? {}) as Partial<Me["settings"]> & { display_name?: string };
         return {
           ...old,
@@ -571,6 +571,17 @@ export function useAssignments() {
     cancel: useMutation({
       mutationFn: (id: string) => apiSend<Assignment>("POST", `/households/shopping-assignments/${encodeURIComponent(id)}/cancel`),
       onSettled: done,
+    }),
+    /** Trả lại tiền cho người đi mua: Venmo (PayPal Payouts) hoặc đánh dấu đã trả tiền mặt. */
+    settle: useMutation({
+      mutationFn: (v: { id: string; method: "venmo" | "cash" }) =>
+        apiSend<Assignment>("POST", `/households/shopping-assignments/${encodeURIComponent(v.id)}/settle`, { method: v.method }),
+      onSettled: () => qc.invalidateQueries({ queryKey: qk.delegated }),
+    }),
+    /** Venmo xử lý chậm: hỏi lại PayPal xem tiền đã tới ví chưa. */
+    refreshSettle: useMutation({
+      mutationFn: (id: string) => apiSend<Assignment>("POST", `/households/shopping-assignments/${encodeURIComponent(id)}/settle/refresh`),
+      onSettled: () => qc.invalidateQueries({ queryKey: qk.delegated }),
     }),
   };
 }

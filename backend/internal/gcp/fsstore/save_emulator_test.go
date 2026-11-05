@@ -10,6 +10,7 @@ import (
 	"cloud.google.com/go/firestore"
 
 	"github.com/smartlife-lab/mimi/backend/internal/domain"
+	"github.com/smartlife-lab/mimi/backend/internal/household"
 	"github.com/smartlife-lab/mimi/backend/internal/receipt"
 	"github.com/smartlife-lab/mimi/backend/internal/recurring"
 )
@@ -161,6 +162,35 @@ func TestSaveReceiptAssignmentEmulator(t *testing.T) {
 	}
 	if st := get(t, ou.Collection("plan_items").Doc("gao"))["status"]; st != "open" {
 		t.Fatalf("returned item %v", st)
+	}
+
+	// Trả lại tiền mua hộ: Owner nợ Buyer đúng phần món của mình.
+	a, err := s.Assignment(ctx, hid, "a1")
+	if err != nil || a.Settlement == nil || a.Settlement.OwedVND != 70_000 || a.Settlement.Status != household.SettleUnpaid {
+		t.Fatalf("settlement %+v, %v", a.Settlement, err)
+	}
+	paid := time.Now()
+	a, err = s.SetSettlement(ctx, hid, "a1", []string{household.SettleUnpaid}, household.Settlement{
+		OwedVND: 1, Status: household.SettlePaid, Method: "cash", PaidAt: &paid,
+	})
+	if err != nil || a.Settlement.OwedVND != 70_000 || a.Settlement.Status != household.SettlePaid {
+		t.Fatalf("set settlement %+v, %v", a.Settlement, err)
+	}
+	if again, _ := s.Assignment(ctx, hid, "a1"); again.Settlement.Method != "cash" || again.Settlement.OwedVND != 70_000 || again.Settlement.PaidAt == nil {
+		t.Fatalf("stored settlement %+v", again.Settlement)
+	}
+	// Trạng thái đã đổi thì lần ghi giữ chỗ cũ bị chặn.
+	if _, err := s.SetSettlement(ctx, hid, "a1", []string{household.SettleUnpaid}, household.Settlement{Status: household.SettlePending}); err == nil {
+		t.Fatal("set settlement must check the current status")
+	}
+
+	// Ví nhận tiền đọc từ settings.
+	mustSet(t, bu, map[string]any{"household_id": hid, "settings": map[string]any{"payout_wallet": map[string]any{"kind": "venmo", "receiver": "4085551234"}}})
+	if w, err := s.PayoutWallet(ctx, buyer); err != nil || w.Kind != "venmo" || w.Receiver != "4085551234" {
+		t.Fatalf("wallet %+v, %v", w, err)
+	}
+	if w, err := s.PayoutWallet(ctx, owner); err != nil || w.Receiver != "" {
+		t.Fatalf("no wallet %+v, %v", w, err)
 	}
 }
 

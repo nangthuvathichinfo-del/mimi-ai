@@ -12,6 +12,7 @@ import { isDraft, usePlanDraftVersion } from "../lib/planDraft";
 import { formatDayMonth, formatVnd } from "../lib/text";
 import { t } from "../i18n";
 import { LoadState } from "../components/LoadState";
+import { SettleCard, settleOpen } from "../components/SettleCard";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -72,6 +73,7 @@ function Mine() {
   return (
     <>
       {typeof saved === "string" && <p className="sent15" role="status">{saved}</p>}
+      <SettleList />
       {list.length === 0 && <p className="hint">{m15.plan.mineEmpty}</p>}
       <ul className="plans15">
         {/* B6: kế hoạch "Đã mua xong" xuống cuối danh sách và mờ đi. */}
@@ -130,6 +132,18 @@ function Mine() {
       </button>
       <p className="hint hint15"><Info size={16} aria-hidden /> {m15.plan.note}</p>
     </>
+  );
+}
+
+/** Người đi mua hộ đã quét hóa đơn: mẹ trả lại tiền (Venmo hoặc tiền mặt). */
+function SettleList() {
+  const d = useDelegated().data;
+  const open = (d?.from_me ?? []).filter(settleOpen);
+  if (open.length === 0) return null;
+  return (
+    <div className="settles15">
+      {open.map((a) => <SettleCard key={a.assignment_id} a={a} payoutsEnabled={!!d?.payouts_enabled} />)}
+    </div>
   );
 }
 

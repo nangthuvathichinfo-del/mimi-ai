@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartlife-lab/mimi/backend/internal/apperr"
 	"github.com/smartlife-lab/mimi/backend/internal/domain"
+	"github.com/smartlife-lab/mimi/backend/internal/household"
 	"github.com/smartlife-lab/mimi/backend/internal/item"
 	"github.com/smartlife-lab/mimi/backend/internal/notify"
 	"github.com/smartlife-lab/mimi/backend/internal/plan"
@@ -354,10 +355,17 @@ func (s *Store) SaveReceipt(ctx context.Context, uid string, r receipt.Receipt, 
 			if len(res.Returned) > 0 {
 				res.Status = "closed_partial"
 			}
-			if err := tx.Update(asg.ref, []firestore.Update{
+			asgUpd := []firestore.Update{
 				{Path: "items", Value: items}, {Path: "status", Value: res.Status},
 				{Path: "closed_at", Value: now}, {Path: "matched_receipt_id", Value: r.ID},
-			}); err != nil {
+			}
+			// Người nhờ nợ người đi mua đúng phần món của mình (B4): chỗ để trả lại qua Venmo.
+			if owed := ownerVND[asg.ownerID]; owed > 0 {
+				asgUpd = append(asgUpd, firestore.Update{Path: "settlement", Value: settlementDoc(household.Settlement{
+					OwedVND: owed, Status: household.SettleUnpaid, UpdatedAt: &now,
+				})})
+			}
+			if err := tx.Update(asg.ref, asgUpd); err != nil {
 				return err
 			}
 			for _, g := range sortedKeys(returned) {

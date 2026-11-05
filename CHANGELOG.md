@@ -5,6 +5,19 @@ Mới nhất ở trên cùng.
 
 ---
 
+## 2026-11-05 · Trả lại tiền mua hộ qua Venmo (PayPal Payouts)
+
+Nhánh `feat/venmo-tra-lai` (dựa trên `feat/nen-mua-online`). Người đi mua hộ quét hóa đơn xong thì mẹ thấy thẻ "Trả lại Minh 130.000đ" ở Kế hoạch, bấm "Trả qua Venmo" hoặc "Đã trả tiền mặt".
+
+- Backend: `internal/paypal/payouts.go` (Payouts API v1: tạo batch một người nhận, đọc trạng thái) và bản giả lập; dùng chung app PayPal với Checkout. Chống chi hai lần bằng `sender_batch_id` = `mimi-<mã vòng>-<lần thử>`; lần trước lỗi mạng thì dùng lại đúng mã đó.
+- Lưu hóa đơn của vòng mua hộ ghi `settlement.owed_vnd` = phần món của người nhờ (B4) và `status: unpaid`. Trả: `unpaid → pending → paid | failed`; tỷ giá, số USD, ví nhận (đã che) khóa vào `settlement`.
+- Route mới `POST /households/shopping-assignments/{id}/settle` (`method: venmo | cash`) và `.../settle/refresh` (nút "Kiểm tra lại", vì Payouts xử lý chậm và chưa có webhook). Chỉ người nhờ trả được. `GET /plan/delegated` có thêm `payouts_enabled`.
+- Người đi mua lưu số Venmo (số Mỹ 10 số hoặc email) ở Cài đặt → Hồ sơ cá nhân: `settings.payout_wallet`, chỉ chủ tài khoản đọc (`GET /me`). Số Việt Nam bị từ chối vì Venmo chỉ có ở Mỹ. Firestore rules đã chặn mọi truy cập trực tiếp nên không phải sửa.
+- App: thẻ "Trả lại …" trên danh sách Kế hoạch (khoản chưa xong) và trong chi tiết Kế hoạch (cả khi đã trả). Số tiền theo tiền tệ mẹ chọn (VND hoặc USD).
+- Deploy: `VENMO_MODE` (off | fake | sandbox | live). sandbox, live cần `PAYPAL_CLIENT_ID` và secret `paypal-client-secret`, và app PayPal phải bật Payouts.
+- Kiểm tra: `go test ./...` (thêm `TestPayoutFlow`, `TestSettle*`, `TestNormalizeWallet`; emulator: settlement trong `TestSaveReceiptAssignmentEmulator`), `tsc -b`, bản thử: Kế hoạch → Trả qua Venmo → Kiểm tra lại → Đã trả.
+- Còn thiếu: chạy thật trên PayPal Sandbox (người nhận phải là tài khoản Mỹ); webhook Payouts; báo cho người đi mua khi đã nhận tiền; khoản đã trả chưa ghi vào Sổ chi tiêu của người đi mua.
+
 ## 2026-11-04 · Trả bằng thẻ qua Braintree, cạnh nút PayPal
 
 Nhánh `feat/braintree` (dựa trên `feat/nen-mua-online`). Màn Mua online có thêm nút "Trả bằng thẻ" ngay dưới nút PayPal.

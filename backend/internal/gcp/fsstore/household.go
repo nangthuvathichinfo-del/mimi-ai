@@ -228,6 +228,7 @@ func decodeAssignment(d *firestore.DocumentSnapshot) household.Assignment {
 		a.ClosedAt = &t
 	}
 	a.MatchedReceiptID, _ = m["matched_receipt_id"].(string)
+	a.Settlement = decodeSettlement(m["settlement"])
 	items, _ := m["items"].(map[string]any)
 	for k, v := range items {
 		mm, _ := v.(map[string]any)

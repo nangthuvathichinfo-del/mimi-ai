@@ -467,3 +467,13 @@
 .hgrid__bar { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); }
 .hgrid__bar > .btn { flex: none; }
 .hgrid__table { width: 100%; overflow-x: auto; }
+
+/* Trả lại tiền mua hộ (Venmo qua PayPal Payouts, hoặc tiền mặt) */
+.settle15 { border-color: var(--m15-blue); }
+.settle15__amount { font-size: var(--fs-lg); font-weight: 800; margin: 0; }
+.settle15__line { display: flex; gap: var(--s2); align-items: center; margin: 0; font-weight: 700; }
+.settle15--done { background: #e3f6e6; border-color: #bfe6c7; color: #1f7a3a; }
+.settle15__confirm { display: grid; gap: var(--s2); }
+.settle15__confirm p { margin: 0; font-weight: 600; }
+.settle15__row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s2); }
+.settles15 { display: grid; gap: var(--s3); margin: 0 0 var(--s3); }

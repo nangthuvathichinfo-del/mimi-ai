@@ -22,6 +22,9 @@ PAYPAL_CLIENT_ID="${PAYPAL_CLIENT_ID:-}"
 BRAINTREE_MODE="${BRAINTREE_MODE:-off}"
 BRAINTREE_PUBLIC_KEY="${BRAINTREE_PUBLIC_KEY:-}"
 BRAINTREE_MERCHANT_ACCOUNT_ID="${BRAINTREE_MERCHANT_ACCOUNT_ID:-}" # rỗng: tài khoản mặc định (phải là USD)
+# Venmo (mẹ trả lại tiền mua hộ qua PayPal Payouts). Thử giả lập: VENMO_MODE=fake.
+# Sandbox: VENMO_MODE=sandbox, dùng chung PAYPAL_CLIENT_ID và secret paypal-client-secret.
+VENMO_MODE="${VENMO_MODE:-off}"
 GEMINI_THINKING="${GEMINI_THINKING:-LOW}" # LOW: đã thử đọc bill ổn. MINIMAL thử 02/11 thì AI từ chối mọi bill, đừng dùng
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
@@ -44,6 +47,14 @@ fi
 if [ "$BRAINTREE_MODE" = sandbox ] || [ "$BRAINTREE_MODE" = live ]; then
   [ -n "$BRAINTREE_PUBLIC_KEY" ] || { echo "Thiếu BRAINTREE_PUBLIC_KEY cho BRAINTREE_MODE=$BRAINTREE_MODE"; exit 1; }
   need_secret braintree-private-key BRAINTREE_PRIVATE_KEY
+fi
+# Venmo dùng chung app PayPal (Client ID, secret paypal-client-secret); app phải bật Payouts.
+if [ "$VENMO_MODE" = sandbox ] || [ "$VENMO_MODE" = live ]; then
+  [ -n "$PAYPAL_CLIENT_ID" ] || { echo "Thiếu PAYPAL_CLIENT_ID cho VENMO_MODE=$VENMO_MODE"; exit 1; }
+  case " ${SECRETS[*]} " in
+    *" paypal-client-secret "*) ;;
+    *) need_secret paypal-client-secret PAYPAL_CLIENT_SECRET ;;
+  esac
 fi
 SECRET_FLAGS=()
 if [ ${#SECRET_ENVS[@]} -gt 0 ]; then
@@ -77,7 +88,7 @@ except Exception: e=[]
 print(next((x.get("value","") for x in e if x.get("name")=="APP_CHECK_REQUIRED"),"false"))' || echo false)"
 ENV_VARS="GOOGLE_CLOUD_PROJECT=$PROJECT,MIMI_ENV=dev,APP_CHECK_REQUIRED=$APP_CHECK,GEMINI_MODEL=$GEMINI_MODEL,GEMINI_THINKING=$GEMINI_THINKING,GEMINI_LOCATION=global,PAYPAL_MODE=$PAYPAL_MODE"
 [ -n "$PAYPAL_CLIENT_ID" ] && ENV_VARS="$ENV_VARS,PAYPAL_CLIENT_ID=$PAYPAL_CLIENT_ID"
-ENV_VARS="$ENV_VARS,BRAINTREE_MODE=$BRAINTREE_MODE"
+ENV_VARS="$ENV_VARS,BRAINTREE_MODE=$BRAINTREE_MODE,VENMO_MODE=$VENMO_MODE"
 [ -n "$BRAINTREE_PUBLIC_KEY" ] && ENV_VARS="$ENV_VARS,BRAINTREE_PUBLIC_KEY=$BRAINTREE_PUBLIC_KEY"
 [ -n "$BRAINTREE_MERCHANT_ACCOUNT_ID" ] && ENV_VARS="$ENV_VARS,BRAINTREE_MERCHANT_ACCOUNT_ID=$BRAINTREE_MERCHANT_ACCOUNT_ID"
 gcloud run deploy mimi-api --source "$ROOT/backend" --region "$REGION" \

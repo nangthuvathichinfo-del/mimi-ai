@@ -146,6 +146,14 @@ func serveAPI(ctx context.Context, cfg config.Config, log *slog.Logger, store *f
 	if cards != nil {
 		orders.WithCards(cards)
 	}
+	households := household.New(store, store, nil).WithReceipts(receipts)
+	payouts, err := newPayouts(cfg)
+	if err != nil {
+		return err
+	}
+	if payouts != nil {
+		households.WithPayouts(payouts, store, household.Rate{VNDPerUSD: cfg.VNDPerUSD, Source: cfg.VNDRateSource, AsOf: cfg.VNDRateAsOf})
+	}
 	api, err := httpapi.New(httpapi.Deps{
 		Log: log, Tokens: auth, AppCheck: appCheck, Principals: store, Profiles: store,
 		Receipts: receipts, Items: items, Ready: store,
@@ -157,7 +165,7 @@ func serveAPI(ctx context.Context, cfg config.Config, log *slog.Logger, store *f
 		Orders:   orders,
 		// Bộ spec Mimi 1.0: khoản định kỳ + dự báo (2.1), nhà + mua hộ (4.1), lịch sử giá (8.1).
 		Recurring:  recurring.NewService(store, store, store, nil),
-		Households: household.New(store, store, nil).WithReceipts(receipts),
+		Households: households,
 		Pricing:    pricing.New(store, store, nil),
 		Market:     store, // bảng giá chung, job price-sync ghi mỗi đêm
 		// Nút "Cập nhật giá": tra lại giá món trong một kế hoạch, cùng nguồn công khai với job.
@@ -185,6 +193,23 @@ func newPayments(cfg config.Config) (order.Payments, error) {
 	case "fake":
 		if cfg.Env == "prod" {
 			return nil, errors.New("PAYPAL_MODE=fake is not allowed in prod")
+		}
+		return paypal.NewFake(), nil
+	}
+	return nil, nil
+}
+
+// newPayouts chọn PayPal Payouts (trả lại tiền mua hộ qua Venmo) theo VENMO_MODE; off trả nil
+// và app chỉ hiện "Đã trả tiền mặt".
+func newPayouts(cfg config.Config) (household.Payouts, error) {
+	switch cfg.VenmoMode {
+	case "sandbox":
+		return paypal.New(paypal.SandboxBaseURL, cfg.PayPalClientID, cfg.PayPalSecret)
+	case "live":
+		return paypal.New(paypal.LiveBaseURL, cfg.PayPalClientID, cfg.PayPalSecret)
+	case "fake":
+		if cfg.Env == "prod" {
+			return nil, errors.New("VENMO_MODE=fake is not allowed in prod")
 		}
 		return paypal.NewFake(), nil
 	}

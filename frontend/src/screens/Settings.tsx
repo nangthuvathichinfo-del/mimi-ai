@@ -184,7 +184,50 @@ export function SettingsProfile() {
         </label>
         <SaveBar dirty={dirty} pending={save.isPending} ok={save.isSuccess} err={save.isError} />
       </form>
+      {me && <VenmoForm me={me} />}
     </Sub>
+  );
+}
+
+/**
+ * Ví Venmo nhận tiền khi người nhà trả lại tiền mua hộ (PayPal Payouts). Chỉ chủ tài khoản thấy;
+ * máy chủ chuẩn hóa số Mỹ về 10 chữ số. Venmo chỉ có ở Mỹ.
+ */
+function VenmoForm({ me }: { me: Me }) {
+  const W = m15.wallet;
+  const saved = me.settings.payout_wallet?.receiver ?? "";
+  const save = useSaveSettings();
+  const [v, setV] = useState<string | null>(null);
+  const cur = v ?? saved;
+  const dirty = v != null && v.trim() !== saved;
+  const submit = (receiver: string) => {
+    if (save.isPending) return;
+    const kind = "venmo" as const;
+    save.mutate({ payout_wallet: { kind, receiver } }, { onSuccess: () => setV(null) });
+  };
+  return (
+    <form
+      className="box15 set15__form"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (dirty) submit(cur.trim());
+      }}
+    >
+      <h2><Wallet size={20} aria-hidden /> {W.title}</h2>
+      <p className="hint">{W.hint}</p>
+      <label className="field15">
+        <span>{W.label}</span>
+        <input value={cur} maxLength={254} inputMode="email" autoComplete="tel" placeholder={W.placeholder} onChange={(e) => setV(e.target.value)} />
+      </label>
+      {save.isError && <p className="error" role="alert">{errText(save.error)}</p>}
+      {save.isSuccess && !dirty && <p className="hint" role="status">{S.saved}</p>}
+      <button type="submit" className="btn btn--primary btn--block btn--lg" aria-disabled={!dirty || save.isPending || undefined}>
+        {save.isPending ? t.confirm.saving : S.save}
+      </button>
+      {saved && !dirty && (
+        <button type="button" className="btn btn--quiet btn--block" onClick={() => submit("")}>{W.remove}</button>
+      )}
+    </form>
   );
 }
 

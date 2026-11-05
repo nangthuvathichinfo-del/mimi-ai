@@ -5,6 +5,7 @@ import taxonomyGroups from "./taxonomy-groups.json";
  * Quy tắc trạng thái ở đây chỉ mô phỏng; bản thật do API Go tính (internal/domain).
  */
 import type {
+  Settlement,
   Basket, CanonicalUnit, Cart, CartItem, HomeSummary, Item, Mandate, MandateReason, Me, Notification, Order, OrderLine, OrderState,
   PlanLinePatch, PlanPrices, PlanState, PlanStop, ReceiptDetail, ReceiptDetailLine, ReceiptDraft, RefundReason, SpendingReport, StockStatus,
 } from "./types";
@@ -229,6 +230,7 @@ async function mockCore(method: string, url: URL, init: RequestInit): Promise<Re
       receipt_count: receiptCount,
       settings: { lead_days: mockSettings.lead_days, lang: mockSettings.lang, timezone: mockSettings.timezone,
         remind_enabled: mockSettings.remind_enabled, digest_time: mockSettings.digest_time, relations: mockSettings.relations ?? {},
+        ...(mockSettings.payout_wallet?.receiver ? { payout_wallet: mockSettings.payout_wallet } : {}),
         ...(mockSettings.country ? { country: mockSettings.country } : {}),
         // Bản thử không có máy chủ: tiền tệ hiển thị nhớ theo máy.
         currency: mockSettings.currency ?? (localStorage.getItem("mimi.currency") === "USD" ? "USD" : "VND") },
@@ -754,7 +756,8 @@ let household: { id: string; name: string; members: { uid: string; display_name:
 };
 const mockEventRead = new Set<string>();
 type MockAssignment = { assignment_id: string; owner_uid: string; owner_display_name: string; buyer_uid: string; buyer_display_name: string; plan_id: string; status: string; items: { consumption_group_key: string; name_display: string; status: string; qty?: number; unit?: string; unit_price?: number; category_key?: string }[]; created_at: string; updated_at?: string; note?: string;
-  trip?: { plan_name: string; buy_date?: string; buy_hour?: number; buy_minute?: number; trip_note?: string } };
+  trip?: { plan_name: string; buy_date?: string; buy_hour?: number; buy_minute?: number; trip_note?: string };
+  closed_at?: string; settlement?: Settlement };
 // Spec 1.5 mục 2: một lần nhờ Minh mua đang dở, để thấy màn mẹ xem kết quả (tiến độ, ghi chú).
 const assignments: MockAssignment[] = [{
   assignment_id: "trip-be", owner_uid: ME, owner_display_name: "Lan", buyer_uid: "mock-minh", buyer_display_name: "Minh", plan_id: "p-be",
@@ -764,7 +767,18 @@ const assignments: MockAssignment[] = [{
     { consumption_group_key: "giay-ve-sinh", name_display: L ? "Toilet paper" : "Giấy vệ sinh", status: "done" },
     { consumption_group_key: "nuoc-mam", name_display: L ? "Fish sauce" : "Nước mắm", status: "assigned" },
   ],
+}, {
+  // Venmo: Minh đã quét hóa đơn lần mua hộ trước, mẹ còn nợ 130.000đ (thẻ "Trả lại Minh").
+  assignment_id: "trip-truoc", owner_uid: ME, owner_display_name: "Lan", buyer_uid: "mock-minh", buyer_display_name: "Minh", plan_id: "default",
+  status: "completed", created_at: iso(new Date(today.getTime() - 86_400_000)), closed_at: iso(new Date(today.getTime() - 86_400_000)),
+  items: [
+    { consumption_group_key: "sua-tuoi", name_display: L ? "Fresh milk" : "Sữa tươi", status: "done" },
+    { consumption_group_key: "trung-ga", name_display: L ? "Chicken eggs" : "Trứng gà", status: "done" },
+  ],
+  settlement: { owed_vnd: 130_000, status: "unpaid" },
 }];
+// Bản thử: Venmo chạy giả lập như VENMO_MODE=fake, tỷ giá như PAYPAL_VND_PER_USD mặc định.
+const MOCK_VND_PER_USD = 25_000;
 // Một lời nhờ mẫu từ người nhà, để thấy luồng Buyer.
 const incoming: MockAssignment = {
   assignment_id: "trip-mau", owner_uid: "mock-minh", owner_display_name: "Minh", buyer_uid: ME, buyer_display_name: "Lan", plan_id: "default",
@@ -1092,7 +1106,32 @@ function mockM1(method: string, url: URL, init: RequestInit): Response | null {
     return json(incoming);
   }
   if (p === "/plan/delegated" && method === "GET") {
-    return json({ to_me: incoming.status === "assigned" ? [incoming] : [], from_me: assignments });
+    return json({ to_me: incoming.status === "assigned" ? [incoming] : [], from_me: assignments, payouts_enabled: true });
+  }
+  const settleM = p.match(/^\/households\/shopping-assignments\/([^/]+)\/settle(\/refresh)?$/);
+  if (settleM && method === "POST") {
+    const a = assignments.find((x) => x.assignment_id === decodeURIComponent(settleM[1]));
+    const st = a?.settlement;
+    if (!a || !st) return json({ error: { code: "invalid_state", message: L ? "Nothing to pay back." : "Lần mua hộ này không có khoản cần trả lại." } }, 409);
+    const now = new Date().toISOString();
+    if (settleM[2]) {
+      // Kiểm tra lại: giả lập Venmo đã nhận tiền.
+      if (st.status === "pending") a.settlement = { ...st, status: "paid", paid_at: now, updated_at: now };
+      return json(a);
+    }
+    if (st.status === "paid" || st.status === "pending") return json(a);
+    const { method: how } = body() as { method?: string };
+    if (how === "cash") {
+      a.settlement = { ...st, status: "paid", method: "cash", paid_at: now, updated_at: now };
+      return json(a);
+    }
+    const w = mockSettings.payout_wallet?.receiver ?? "4085551234"; // ví Venmo mẫu của Minh
+    const cents = Math.round((st.owed_vnd * 100) / MOCK_VND_PER_USD);
+    a.settlement = {
+      ...st, status: "pending", method: "venmo", amount_usd: (cents / 100).toFixed(2), vnd_per_usd: MOCK_VND_PER_USD,
+      receiver: `•••${w.slice(-4)}`, payout_batch_id: "FAKEPAYOUT-1", updated_at: now,
+    };
+    return json(a);
   }
   if (method === "POST" && p === "/receipts") {
     const b = body() as { assignment_id?: string };
