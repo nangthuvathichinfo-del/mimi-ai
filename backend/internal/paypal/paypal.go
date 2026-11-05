@@ -197,18 +197,26 @@ func (c *Client) do(ctx context.Context, method, path, requestID string, body, o
 	if err != nil {
 		return err
 	}
-	b, err := json.Marshal(body)
-	if err != nil {
-		return err
+	var rd io.Reader
+	if body != nil {
+		b, err := json.Marshal(body)
+		if err != nil {
+			return err
+		}
+		rd = bytes.NewReader(b)
 	}
-	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, bytes.NewReader(b))
+	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, rd)
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Authorization", "Bearer "+tok)
-	req.Header.Set("Content-Type", "application/json")
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	req.Header.Set("Prefer", "return=representation")
-	req.Header.Set("PayPal-Request-Id", requestID)
+	if requestID != "" {
+		req.Header.Set("PayPal-Request-Id", requestID)
+	}
 	res, err := c.http.Do(req)
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrUnavailable, err)
@@ -236,6 +244,11 @@ func (c *Client) do(ctx context.Context, method, path, requestID string, body, o
 		return fmt.Errorf("%w: decode: %v", ErrUnavailable, err)
 	}
 	return nil
+}
+
+// get gọi GET không thân, không PayPal-Request-Id (đọc thì không cần chống trùng).
+func (c *Client) get(ctx context.Context, path string, out any) error {
+	return c.do(ctx, http.MethodGet, path, "", nil, out)
 }
 
 func classify(status int) error {

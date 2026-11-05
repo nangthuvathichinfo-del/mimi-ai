@@ -51,6 +51,11 @@ type Config struct {
 	BraintreePublicKey  string
 	BraintreePrivateKey string // gắn từ Secret Manager
 	BraintreeMerchantAc string // merchant account USD; rỗng: tài khoản mặc định
+
+	// Venmo: mẹ trả lại tiền cho người đi mua hộ qua PayPal Payouts. VENMO_MODE: sandbox | live |
+	// fake | off. sandbox, live dùng chung PAYPAL_CLIENT_ID và secret của PayPal; app PayPal
+	// phải bật tính năng Payouts. Venmo chỉ nhận người nhận ở Mỹ, tiền USD.
+	VenmoMode string
 }
 
 func Load() (Config, error) {
@@ -83,6 +88,7 @@ func Load() (Config, error) {
 		BraintreePublicKey:  strings.TrimSpace(os.Getenv("BRAINTREE_PUBLIC_KEY")),
 		BraintreePrivateKey: strings.TrimSpace(os.Getenv("BRAINTREE_PRIVATE_KEY")),
 		BraintreeMerchantAc: strings.TrimSpace(os.Getenv("BRAINTREE_MERCHANT_ACCOUNT_ID")),
+		VenmoMode:           get("VENMO_MODE", "off"),
 	}
 	var errs []error
 	if c.ProjectID == "" {
@@ -135,6 +141,18 @@ func Load() (Config, error) {
 		}
 	default:
 		errs = append(errs, fmt.Errorf("BRAINTREE_MODE invalid: %q (sandbox | live | fake | off)", c.BraintreeMode))
+	}
+	switch c.VenmoMode {
+	case "fake", "off":
+	case "sandbox", "live":
+		if c.PayPalClientID == "" || c.PayPalSecret == "" {
+			errs = append(errs, errors.New("PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET are required for VENMO_MODE="+c.VenmoMode))
+		}
+		if c.VenmoMode == "live" && (os.Getenv("PAYPAL_VND_PER_USD") == "" || c.VNDRateAsOf == "") {
+			errs = append(errs, errors.New("PAYPAL_VND_PER_USD and PAYPAL_RATE_AS_OF are required for VENMO_MODE=live"))
+		}
+	default:
+		errs = append(errs, fmt.Errorf("VENMO_MODE invalid: %q (sandbox | live | fake | off)", c.VenmoMode))
 	}
 	if c.Env == "prod" && !c.AppCheckRequired {
 		errs = append(errs, errors.New("APP_CHECK_REQUIRED must be true in prod"))

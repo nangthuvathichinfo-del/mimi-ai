@@ -77,6 +77,9 @@ type Assignment struct {
 	// Trip: tên, thời gian, ghi chú của Plan gốc, đọc mới mỗi lần (3.1 mục 3B.4, 3B.5:
 	// người nhận luôn thấy bản mới nhất, không phải bản sao). Chỉ có ở danh sách to_me.
 	Trip *Trip `json:"trip,omitempty"`
+	// Settlement: người nhờ trả lại tiền cho người đi mua hộ (Venmo hoặc tiền mặt). Có khi vòng
+	// đã kết thúc bằng hóa đơn và phần món của người nhờ lớn hơn 0.
+	Settlement *Settlement `json:"settlement,omitempty"`
 }
 
 // Trip là phần thông tin chuyến mua của Plan mà người được nhờ cần biết.
@@ -119,6 +122,9 @@ type Store interface {
 	Assignment(ctx context.Context, hid, id string) (Assignment, error) // apperr.ErrNotFound
 	// Assignments trả các vòng có field (buyer_uid | owner_uid) = uid, mới nhất trước.
 	Assignments(ctx context.Context, hid, field, uid string, limit int) ([]Assignment, error)
+	// SetSettlement ghi khối quyết toán của một vòng trong transaction, chỉ khi trạng thái quyết
+	// toán hiện tại nằm trong from; khác thì trả apperr.CodeInvalidState.
+	SetSettlement(ctx context.Context, hid, id string, from []string, st Settlement) (Assignment, error)
 }
 
 // Plans là phần Kế hoạch mà vòng mua hộ cần: tên, số lượng của các dòng đang mở.
@@ -135,6 +141,9 @@ type Service struct {
 	store    Store
 	plans    Plans
 	receipts ReceiptSaver // nil: chưa bật báo xong việc mua hộ
+	payouts  Payouts      // nil: chưa bật trả lại tiền qua Venmo (tiền mặt vẫn đánh dấu được)
+	wallets  Wallets
+	rate     Rate
 	now      func() time.Time
 }
 
@@ -457,10 +466,12 @@ func (s *Service) Cancel(ctx context.Context, p authz.Principal, id string) (Ass
 type Delegated struct {
 	ToMe   []Assignment `json:"to_me"`
 	FromMe []Assignment `json:"from_me"`
+	// PayoutsEnabled: máy chủ đã bật trả lại tiền qua Venmo; tắt thì app chỉ hiện "Đã trả tiền mặt".
+	PayoutsEnabled bool `json:"payouts_enabled"`
 }
 
 func (s *Service) Delegated(ctx context.Context, p authz.Principal) (Delegated, error) {
-	out := Delegated{ToMe: []Assignment{}, FromMe: []Assignment{}}
+	out := Delegated{ToMe: []Assignment{}, FromMe: []Assignment{}, PayoutsEnabled: s.payouts != nil}
 	if err := authz.Can(p, authz.ActionReadPlan); err != nil {
 		return out, err
 	}

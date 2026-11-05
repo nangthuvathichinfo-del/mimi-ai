@@ -22,8 +22,12 @@ export type Me = {
     remind_enabled?: boolean;
     digest_time?: string;      // HH:MM
     relations?: Record<string, string>; // tên gọi người nhà theo uid, lưu trên máy chủ
+    payout_wallet?: PayoutWallet;       // ví nhận tiền mua hộ (Venmo), chỉ mình thấy
   };
 };
+
+/** Ví nhận tiền khi người nhà trả lại tiền mua hộ: Venmo (số Mỹ 10 số hoặc email) hoặc email PayPal. */
+export type PayoutWallet = { kind: "venmo" | "paypal"; receiver: string };
 
 export type HomeSummary = {
   spent_this_month: number | null;   // null khi tháng chưa có hóa đơn
@@ -308,6 +312,8 @@ export type SettingsPatch = Partial<{
   currency: "VND" | "USD";
   /** Chỉ gửi phần đổi; "" là xóa tên gọi của uid đó. */
   relations: Record<string, string>;
+  /** receiver rỗng là xóa ví. */
+  payout_wallet: PayoutWallet;
 }>;
 
 export type ApiErrorBody = { code: string; message: string; fields?: Record<string, unknown>; retryable?: boolean };
@@ -451,8 +457,16 @@ export type Assignment = {
   items: AssignmentItem[]; created_at: string; updated_at?: string;
   /** Tên, thời gian, ghi chú của Plan gốc, luôn là bản mới nhất (3.1 mục 3B.4). */
   trip?: { plan_name: string; buy_date?: string; buy_hour?: number; buy_minute?: number; trip_note?: string };
+  closed_at?: string;
+  /** Trả lại tiền cho người đi mua (Venmo qua PayPal Payouts, hoặc tiền mặt). */
+  settlement?: Settlement;
 };
-export type Delegated = { to_me: Assignment[]; from_me: Assignment[] };
+export type Settlement = {
+  owed_vnd: number; status: "unpaid" | "pending" | "paid" | "failed"; method?: "venmo" | "cash";
+  amount_usd?: string; vnd_per_usd?: number; rate_as_of?: string; receiver?: string;
+  payout_batch_id?: string; error?: string; paid_at?: string; updated_at?: string;
+};
+export type Delegated = { to_me: Assignment[]; from_me: Assignment[]; payouts_enabled?: boolean };
 
 /** 8.1: lịch sử giá theo đơn giá chuẩn hóa. */
 export type PriceObservation = {

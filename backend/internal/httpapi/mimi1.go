@@ -355,6 +355,23 @@ func (s *Server) declineAssignment(w http.ResponseWriter, r *http.Request) {
 	s.reply(w, r, http.StatusOK, out, err)
 }
 
+// Trả lại tiền cho người đi mua hộ (Venmo qua PayPal Payouts, hoặc tiền mặt).
+func (s *Server) settleAssignment(w http.ResponseWriter, r *http.Request) {
+	var req household.SettleRequest
+	if err := decodeJSON(w, r, &req, maxJSONBody); err != nil {
+		s.writeError(w, r, err)
+		return
+	}
+	out, err := s.households.Settle(r.Context(), principalFrom(r.Context()), r.PathValue("id"), req)
+	s.reply(w, r, http.StatusOK, out, err)
+}
+
+// Kiểm tra lại khoản Venmo đang chờ (Payouts xử lý chậm, chưa có webhook).
+func (s *Server) refreshSettlement(w http.ResponseWriter, r *http.Request) {
+	out, err := s.households.RefreshSettlement(r.Context(), principalFrom(r.Context()), r.PathValue("id"))
+	s.reply(w, r, http.StatusOK, out, err)
+}
+
 func (s *Server) getDelegated(w http.ResponseWriter, r *http.Request) {
 	out, err := s.households.Delegated(r.Context(), principalFrom(r.Context()))
 	s.reply(w, r, http.StatusOK, out, err)

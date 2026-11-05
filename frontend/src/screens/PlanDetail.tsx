@@ -22,6 +22,7 @@ import { Sheet } from "../components/Sheet15";
 import { useRelations } from "../lib/relation";
 import { buyerOf, clearDraft, markDraft, setBuyer, usePlanDraftVersion, type BuyerPick } from "../lib/planDraft";
 import { AddToCalendar } from "../components/AddToCalendar";
+import { SettleCard, owes } from "../components/SettleCard";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const errText = (e: unknown) => (e instanceof ApiError ? e.message : t.common.genericError);
@@ -61,6 +62,7 @@ function Detail({ id }: { id: string }) {
   const [mimiAsk, setMimiAsk] = useState(false);
   const delegated = useDelegated();
   const sentTo = (delegated.data?.from_me ?? []).find((a) => a.plan_id === id && (a.status === "assigned" || a.status === "shopping"));
+  const settleRun = (delegated.data?.from_me ?? []).find((a) => a.plan_id === id && owes(a));
   const buyer: BuyerPick | null = buyerOf(id) ?? (sentTo ? sentTo.buyer_uid : null);
   const buyerName = buyer && buyer !== "me" && buyer !== me.data?.uid ? (h.data?.members.find((m) => m.uid === buyer)?.display_name ?? sentTo?.buyer_display_name ?? "") : "";
 
@@ -184,6 +186,7 @@ function Detail({ id }: { id: string }) {
         </section>
 
         {sentTo && <Progress a={sentTo} />}
+        {!sentTo && settleRun && <SettleCard a={settleRun} payoutsEnabled={!!delegated.data?.payouts_enabled} />}
         {cart && <Lines cart={cart} onChange={changed} done={new Set((sentTo?.items ?? []).filter((i) => i.status === "done").map((i) => i.consumption_group_key))} />}
         {cart && <Suggestions cart={cart} onChange={changed} />}
         {cart && <Forecast cart={cart} />}

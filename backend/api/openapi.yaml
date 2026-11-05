@@ -850,6 +850,33 @@ paths:
       summary: "Spec 1.5 câu 5: người được nhờ từ chối; mọi món trả về Kế hoạch của người nhờ (status declined)"
       parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
       responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Assignment" } } } } }
+  /households/shopping-assignments/{id}/settle:
+    post:
+      tags: [household]
+      summary: "Người nhờ trả lại tiền cho người đi mua hộ: Venmo qua PayPal Payouts, hoặc đánh dấu đã trả tiền mặt"
+      description: |
+        Số tiền là settlement.owed_vnd (phần món của người nhờ trong hóa đơn của vòng). Venmo chỉ nhận
+        tiền USD tới người nhận ở Mỹ: Mimi quy đổi theo tỷ giá cấu hình và khóa vào settlement.
+        Đã trả hoặc đang chờ thì trả về vòng hiện tại, không chi lần hai. Payouts xử lý chậm nên
+        kết quả thường là pending; gọi /settle/refresh để kiểm tra lại.
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [method], properties: { method: { type: string, enum: [venmo, cash] } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Assignment" } } } }
+        "422": { description: "method sai, hoặc người đi mua chưa lưu ví (fields.field = payout_wallet)" }
+        "409": { description: "invalid_state: vòng không có khoản cần trả, hoặc vừa đổi trạng thái" }
+        "402": { description: "payment_failed: PayPal từ chối lệnh chi" }
+        "503": { description: "payment_unavailable hoặc payment_not_enabled (VENMO_MODE=off)" }
+  /households/shopping-assignments/{id}/settle/refresh:
+    post:
+      tags: [household]
+      summary: "Kiểm tra lại khoản Venmo đang chờ (GET Payouts batch); chưa có webhook"
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Assignment" } } } } }
   /households/needs:
     get:
       tags: [household]
@@ -939,6 +966,12 @@ components:
           maxProperties: 50
           description: "Tên gọi người nhà theo uid, riêng từng tài khoản. PUT chỉ gửi phần đổi; \"\" là xóa"
           additionalProperties: { type: string, enum: [anh, chi, em, bo, me, con, ong, ba, khac, ""] }
+        payout_wallet:
+          type: object
+          description: "Ví nhận tiền khi người nhà trả lại tiền mua hộ. Venmo: số điện thoại Mỹ 10 số (lưu không có +1) hoặc email; PayPal: email. receiver rỗng là xóa. Chỉ chủ tài khoản đọc được"
+          properties:
+            kind: { type: string, enum: [venmo, paypal] }
+            receiver: { type: string, maxLength: 254 }
     Profile:
       type: object
       properties:
@@ -1366,6 +1399,7 @@ components:
         note: { type: string }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time, description: "B5: lần cuối người nhờ gửi bản cập nhật; không có khi chưa cập nhật" }
+        closed_at: { type: string, format: date-time, description: "Lúc vòng kết thúc (hóa đơn, hủy, từ chối)" }
         trip:
           type: object
           description: "Ngày, giờ, nơi mua của Kế hoạch lúc gửi; plan_name rỗng là Kế hoạch chính"
@@ -1378,11 +1412,31 @@ components:
         items:
           type: array
           items: { type: object, properties: { consumption_group_key: { type: string }, name_display: { type: string }, qty: { type: number }, unit: { type: string }, status: { type: string, enum: [assigned, done, returned] } } }
+        settlement: { $ref: "#/components/schemas/Settlement" }
+    Settlement:
+      type: object
+      description: "Trả lại tiền mua hộ. Có khi vòng kết thúc bằng hóa đơn và phần món của người nhờ lớn hơn 0"
+      properties:
+        owed_vnd: { type: integer, description: "Phần món của người nhờ trong hóa đơn (B4)" }
+        status: { type: string, enum: [unpaid, pending, paid, failed] }
+        method: { type: string, enum: [venmo, cash] }
+        amount_usd: { type: string, description: "Số USD đã chi qua Venmo, ví dụ 5.20" }
+        vnd_per_usd: { type: integer }
+        rate_source: { type: string }
+        rate_as_of: { type: string, format: date }
+        receiver: { type: string, description: "Ví nhận đã che bớt, ví dụ •••1234" }
+        sender_batch_id: { type: string }
+        payout_batch_id: { type: string }
+        attempt: { type: integer }
+        error: { type: string, description: "Lỗi lần gần nhất: declined, unavailable, hoặc mã PayPal (UNCLAIMED khi số Venmo chưa có tài khoản)" }
+        paid_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
     Delegated:
       type: object
       properties:
         to_me: { type: array, items: { $ref: "#/components/schemas/Assignment" } }
         from_me: { type: array, items: { $ref: "#/components/schemas/Assignment" } }
+        payouts_enabled: { type: boolean, description: "Máy chủ đã bật trả lại tiền qua Venmo (VENMO_MODE khác off)" }
     PlanState:
       type: object
       additionalProperties: false

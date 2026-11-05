@@ -34,6 +34,53 @@ type SettingsPatch struct {
 	// Relations: tên gọi người nhà mà người này đặt, theo uid (Anh, Chị, Bố...). Chỉ gửi
 	// phần thay đổi; giá trị "" xóa tên gọi của uid đó. Mỗi tài khoản giữ bản riêng.
 	Relations map[string]string `json:"relations"`
+	// PayoutWallet: ví nhận tiền khi người nhà trả lại tiền mua hộ (Venmo qua PayPal Payouts).
+	// Chỉ chủ tài khoản đọc được (GET /me); máy chủ dùng khi chi tiền. Receiver rỗng thì xóa ví.
+	PayoutWallet *PayoutWallet `json:"payout_wallet"`
+}
+
+// PayoutWallet: Kind "venmo" (số điện thoại Mỹ hoặc email Venmo) hoặc "paypal" (email PayPal).
+type PayoutWallet struct {
+	Kind     string `json:"kind"`
+	Receiver string `json:"receiver"`
+}
+
+var emailRe = regexp.MustCompile(`^[^@\s]{1,64}@[^@\s]{1,190}\.[A-Za-z]{2,}$`)
+
+// NormalizeWallet kiểm tra và chuẩn hóa ví nhận tiền. Số Venmo phải là số Mỹ (Venmo chỉ có ở
+// Mỹ): 10 số, có thể kèm +1; lưu dạng 10 chữ số như PayPal Payouts cần. Email viết thường.
+func NormalizeWallet(w PayoutWallet) (PayoutWallet, bool) {
+	r := strings.TrimSpace(w.Receiver)
+	if r == "" {
+		return PayoutWallet{}, true
+	}
+	if strings.Contains(r, "@") {
+		if len(r) > 254 || !emailRe.MatchString(r) || (w.Kind != "venmo" && w.Kind != "paypal") {
+			return PayoutWallet{}, false
+		}
+		return PayoutWallet{Kind: w.Kind, Receiver: strings.ToLower(r)}, true
+	}
+	if w.Kind != "venmo" {
+		return PayoutWallet{}, false
+	}
+	var digits strings.Builder
+	for _, c := range r {
+		switch {
+		case c >= '0' && c <= '9':
+			digits.WriteRune(c)
+		case c == '+' || c == ' ' || c == '-' || c == '(' || c == ')' || c == '.':
+		default:
+			return PayoutWallet{}, false
+		}
+	}
+	d := digits.String()
+	if len(d) == 11 && d[0] == '1' {
+		d = d[1:]
+	}
+	if len(d) != 10 || d[0] == '0' || d[0] == '1' {
+		return PayoutWallet{}, false
+	}
+	return PayoutWallet{Kind: "venmo", Receiver: d}, true
 }
 
 // Relations là bộ tên gọi người nhà chung của app; app hiển thị theo ngôn ngữ đang dùng.
@@ -128,13 +175,19 @@ func (p SettingsPatch) Validate() error {
 			return bad("relations", "Tên gọi người nhà không hợp lệ.")
 		}
 	}
+	if p.PayoutWallet != nil {
+		if _, ok := NormalizeWallet(*p.PayoutWallet); !ok {
+			return bad("payout_wallet", "Số Venmo là số điện thoại Mỹ 10 số hoặc email; ví PayPal là email.")
+		}
+	}
 	return nil
 }
 
 func (p SettingsPatch) empty() bool {
 	return p.DisplayName == nil && p.LeadDays == nil && p.RemindEnabled == nil && p.RemindFreq == nil &&
 		p.DigestTime == nil && p.Timezone == nil && p.Channels == nil && p.ReplacementEnabled == nil &&
-		p.SaleEnabled == nil && p.Lang == nil && p.Country == nil && p.Currency == nil && len(p.Relations) == 0
+		p.SaleEnabled == nil && p.Lang == nil && p.Country == nil && p.Currency == nil && len(p.Relations) == 0 &&
+		p.PayoutWallet == nil
 }
 
 // Apply gộp bản vá vào cài đặt hiện tại và tính lại lịch gửi bản tin khi cần.
@@ -184,6 +237,13 @@ func (p SettingsPatch) Apply(cur Stored, now time.Time) Stored {
 	}
 	if p.Currency != nil {
 		set("currency", *p.Currency)
+	}
+	if p.PayoutWallet != nil {
+		if w, ok := NormalizeWallet(*p.PayoutWallet); ok && w.Receiver != "" {
+			set("payout_wallet", map[string]any{"kind": w.Kind, "receiver": w.Receiver})
+		} else {
+			delete(next.Settings, "payout_wallet")
+		}
 	}
 	if len(p.Relations) > 0 {
 		rels := map[string]any{}

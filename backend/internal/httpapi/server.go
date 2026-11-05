@@ -107,6 +107,8 @@ type (
 		Complete(ctx context.Context, p authz.Principal, id string, req household.CompleteRequest) (household.Assignment, error)
 		Decline(ctx context.Context, p authz.Principal, id string) (household.Assignment, error)
 		Delegated(ctx context.Context, p authz.Principal) (household.Delegated, error)
+		Settle(ctx context.Context, p authz.Principal, id string, req household.SettleRequest) (household.Assignment, error)
+		RefreshSettlement(ctx context.Context, p authz.Principal, id string) (household.Assignment, error)
 	}
 	// Pricing là lịch sử giá dùng chung cho Đồ dùng và Kế hoạch (8.1).
 	History interface {
@@ -329,6 +331,9 @@ func (s *Server) Handler() http.Handler {
 		private("POST /households/shopping-assignments/{id}/cancel", s.defaultTimeout, s.cancelAssignment)
 		private("POST /households/shopping-assignments/{id}/complete", s.defaultTimeout, s.completeAssignment)
 		private("POST /households/shopping-assignments/{id}/decline", s.defaultTimeout, s.declineAssignment)
+		// Trả lại tiền mua hộ: Venmo qua PayPal Payouts, hoặc đánh dấu đã trả tiền mặt.
+		private("POST /households/shopping-assignments/{id}/settle", s.readTimeout, s.settleAssignment)
+		private("POST /households/shopping-assignments/{id}/settle/refresh", s.defaultTimeout, s.refreshSettlement)
 		private("GET /plan/delegated", s.defaultTimeout, s.getDelegated)
 	}
 	if s.history != nil {
