@@ -23,6 +23,7 @@ import (
 	"cloud.google.com/go/firestore"
 
 	"github.com/smartlife-lab/mimi/backend/internal/account"
+	"github.com/smartlife-lab/mimi/backend/internal/braintree"
 	"github.com/smartlife-lab/mimi/backend/internal/config"
 	"github.com/smartlife-lab/mimi/backend/internal/demo"
 	"github.com/smartlife-lab/mimi/backend/internal/fx"
@@ -138,6 +139,13 @@ func serveAPI(ctx context.Context, cfg config.Config, log *slog.Logger, store *f
 		return err
 	}
 	orders.WithRateInfo(cfg.VNDRateSource, cfg.VNDRateAsOf)
+	cards, err := newCards(cfg)
+	if err != nil {
+		return err
+	}
+	if cards != nil {
+		orders.WithCards(cards)
+	}
 	api, err := httpapi.New(httpapi.Deps{
 		Log: log, Tokens: auth, AppCheck: appCheck, Principals: store, Profiles: store,
 		Receipts: receipts, Items: items, Ready: store,
@@ -179,6 +187,22 @@ func newPayments(cfg config.Config) (order.Payments, error) {
 			return nil, errors.New("PAYPAL_MODE=fake is not allowed in prod")
 		}
 		return paypal.NewFake(), nil
+	}
+	return nil, nil
+}
+
+// newCards chọn Braintree theo BRAINTREE_MODE; off trả nil và app ẩn nút thẻ.
+func newCards(cfg config.Config) (order.Cards, error) {
+	switch cfg.BraintreeMode {
+	case "sandbox":
+		return braintree.New(braintree.SandboxURL, cfg.BraintreePublicKey, cfg.BraintreePrivateKey, cfg.BraintreeMerchantAc)
+	case "live":
+		return braintree.New(braintree.LiveURL, cfg.BraintreePublicKey, cfg.BraintreePrivateKey, cfg.BraintreeMerchantAc)
+	case "fake":
+		if cfg.Env == "prod" {
+			return nil, errors.New("BRAINTREE_MODE=fake is not allowed in prod")
+		}
+		return braintree.NewFake(), nil
 	}
 	return nil, nil
 }

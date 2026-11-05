@@ -143,6 +143,9 @@ type (
 		Basket(ctx context.Context, p authz.Principal, keys []string) (order.Basket, error)
 		Checkout(ctx context.Context, p authz.Principal, req order.CheckoutRequest) (order.Order, error)
 		Capture(ctx context.Context, p authz.Principal, id string) (order.Order, error)
+		CardToken(ctx context.Context, p authz.Principal) (string, error)
+		PayCard(ctx context.Context, p authz.Principal, id, nonce string) (order.Order, error)
+		CardWebhook(ctx context.Context, signature, payload string) error
 		Advance(ctx context.Context, p authz.Principal, id string) (order.Order, error)
 		ReadDelivery(ctx context.Context, p authz.Principal, id string, imgs []receipt.Image) ([]order.Observed, error)
 		Verify(ctx context.Context, p authz.Principal, id string, req order.VerifyRequest) (order.Order, error)
@@ -354,10 +357,14 @@ func (s *Server) Handler() http.Handler {
 		private("GET /orders", s.defaultTimeout, s.listOrders)
 		private("GET /orders/{id}", s.defaultTimeout, s.getOrder)
 		private("POST /orders/{id}/capture", s.readTimeout, s.captureOrder)
+		private("POST /orders/card-token", s.defaultTimeout, s.cardToken)
+		private("POST /orders/{id}/card", s.readTimeout, s.payCard)
 		private("POST /orders/{id}/advance", s.defaultTimeout, s.advanceOrder)
 		private("POST /orders/{id}/delivery/read", s.readTimeout, s.readDelivery)
 		private("POST /orders/{id}/verify", s.defaultTimeout, s.verifyOrder)
 		private("POST /orders/{id}/refund", s.readTimeout, s.refundOrder)
+		// Braintree gọi thẳng, không có token người dùng: tin nhờ chữ ký bt_signature.
+		public("POST /webhooks/braintree", s.braintreeWebhook)
 	}
 
 	if s.accounts != nil && s.signIn != nil {

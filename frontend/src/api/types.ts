@@ -327,6 +327,9 @@ export type Mandate = {
 export type MandateResult = "ALLOW" | "ASK" | "BLOCK";
 export type MandateReason = { key?: string; code: string; result: MandateResult; detail: string };
 
+/** Trạng thái tiền thẻ Braintree báo qua webhook sau khi thu (chỉ đơn braintree). */
+export type CardStatus = "settled" | "settlement_declined" | "disputed" | "dispute_won" | "dispute_lost";
+
 export type OrderLine = {
   key: string;
   name: string;
@@ -358,6 +361,8 @@ export type Basket = {
   rate_as_of?: string;
   snapshot_at: string;
   decision: { result: MandateResult; reasons: MandateReason[] };
+  /** Server đã cấu hình Braintree: hiện thêm nút "Trả bằng thẻ". */
+  card_enabled?: boolean;
 };
 
 export type OrderState = "awaiting_payment" | "paid" | "ordered" | "shipped" | "delivered" | "verified";
@@ -374,6 +379,8 @@ export type Order = {
   provider?: "paypal" | "braintree";
   provider_order_id?: string;
   provider_txn_id?: string;
+  card_status?: CardStatus;
+  card_status_at?: string;
   state: OrderState;
   merchant: string;
   lines: OrderLine[];

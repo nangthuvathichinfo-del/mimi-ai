@@ -347,7 +347,14 @@ function useOrderAction<V>(fn: (v: V) => Promise<Order>) {
 const orderPath = (id: string) => `/orders/${encodeURIComponent(id)}`;
 
 export const useCheckout = () =>
-  useOrderAction((v: { keys: string[]; approve: boolean }) => apiSend<Order>("POST", `/orders${planQuery(currentPlanId())}`, v));
+  useOrderAction((v: { keys: string[]; approve: boolean; provider?: "paypal" | "braintree" }) =>
+    apiSend<Order>("POST", `/orders${planQuery(currentPlanId())}`, v));
+/** Client token cho Drop-in Braintree (trả bằng thẻ). */
+export const useCardToken = () =>
+  useMutation({ mutationFn: async () => (await apiSend<{ client_token: string }>("POST", "/orders/card-token")).client_token });
+/** Thu tiền đơn braintree bằng nonce Drop-in trả về. */
+export const usePayCard = () =>
+  useOrderAction((v: { id: string; nonce: string }) => apiSend<Order>("POST", `${orderPath(v.id)}/card`, { nonce: v.nonce }));
 export const useCaptureOrder = () => useOrderAction((id: string) => apiSend<Order>("POST", `${orderPath(id)}/capture`));
 export const useAdvanceOrder = () => useOrderAction((id: string) => apiSend<Order>("POST", `${orderPath(id)}/advance`));
 export const useVerifyOrder = () =>

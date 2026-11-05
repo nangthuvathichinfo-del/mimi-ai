@@ -2151,11 +2151,16 @@ export interface paths {
                     "application/json": components["schemas"]["OrderKeys"] & {
                         /** @description Người dùng duyệt các ngoại lệ ASK */
                         approve?: boolean;
+                        /**
+                         * @description Cổng thanh toán; mặc định paypal. braintree: trả bằng thẻ, thu tiền ở /orders/{id}/card
+                         * @enum {string}
+                         */
+                        provider?: "paypal" | "braintree";
                     };
                 };
             };
             responses: {
-                /** @description Đơn ở trạng thái awaiting_payment */
+                /** @description Đơn ở trạng thái awaiting_payment; PayPal kèm paypal_order_id và approve_url */
                 201: {
                     headers: {
                         [name: string]: unknown;
@@ -2246,6 +2251,145 @@ export interface paths {
                 };
                 402: components["responses"]["Error"];
                 409: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/card-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Client token Braintree cho Drop-in UI (trả bằng thẻ). Chế độ giả lập trả "fake-client-token". */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            client_token: string;
+                        };
+                    };
+                };
+                503: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/card": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Thu tiền đơn braintree bằng nonce Drop-in trả về. Gọi lại an toàn. Ghi Spending, không cộng tồn kho.
+         * @description Số thẻ không qua server Mimi; Drop-in gửi thẳng cho Braintree và trả nonce dùng một lần.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["OrderId"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        nonce: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Đơn paid */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Order"];
+                    };
+                };
+                402: components["responses"]["Error"];
+                409: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/webhooks/braintree": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Webhook Braintree (settle, từ chối quyết toán, khiếu nại). Tin nhờ chữ ký bt_signature, không cần token.
+         * @description Chỉ ghi card_status vào đơn thẻ; không đổi bước giao hàng hay Spending. Thông báo không khớp đơn nào vẫn trả 200.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/x-www-form-urlencoded": {
+                        bt_signature: string;
+                        bt_payload: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            ok?: boolean;
+                        };
+                    };
+                };
+                400: components["responses"]["Error"];
+                503: components["responses"]["Error"];
             };
         };
         delete?: never;
@@ -3636,6 +3780,8 @@ export interface components {
             /** Format: date */
             snapshot_at?: string;
             decision?: components["schemas"]["Decision"];
+            /** @description Server đã cấu hình Braintree; app hiện thêm nút Trả bằng thẻ */
+            card_enabled?: boolean;
         };
         Order: {
             id?: string;
@@ -3688,6 +3834,13 @@ export interface components {
             refunded_vnd?: components["schemas"]["Vnd"];
             net_vnd?: components["schemas"]["Vnd"];
             suggested_refund_vnd?: components["schemas"]["Vnd"];
+            /**
+             * @description Chỉ đơn braintree. Trạng thái tiền thẻ Braintree báo qua webhook sau khi thu; không có là chưa có tin.
+             * @enum {string}
+             */
+            card_status?: "settled" | "settlement_declined" | "disputed" | "dispute_won" | "dispute_lost";
+            /** Format: date-time */
+            card_status_at?: string;
             /** Format: date-time */
             created_at?: string;
         };
