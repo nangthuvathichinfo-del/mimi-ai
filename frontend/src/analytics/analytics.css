@@ -51,3 +51,39 @@
 .ana-flash { animation: ana-flash 1.6s ease-out; border-radius: 20px; }
 @keyframes ana-flash { 0%, 40% { box-shadow: 0 0 0 4px var(--orange); } 100% { box-shadow: 0 0 0 4px transparent; } }
 @media (prefers-reduced-motion: reduce) { .ana-flash { animation: none; outline: 3px solid var(--orange); } }
+
+/* Widget Lịch chi tiêu */
+.cal { height: 100%; display: flex; gap: var(--s4); font-family: var(--font); color: var(--ink); container-type: inline-size; overflow: auto; }
+.cal__main { flex: 1 1 60%; min-width: 0; display: flex; flex-direction: column; gap: var(--s2); }
+.cal__head { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
+.cal__head strong { font-size: var(--fs-sm); min-width: 7.5em; text-align: center; }
+.cal__nav { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--sky-line); background: var(--paper); color: var(--blue); font-size: 20px; line-height: 1; cursor: pointer; }
+.cal__total { margin-left: auto; font-size: var(--fs-xs); color: var(--ink-soft); }
+.cal__total b { color: #c5221f; }
+.cal__grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.cal__wd { text-align: center; font-size: var(--fs-xs); font-weight: 700; color: var(--ink-soft); padding: 2px 0; }
+.cal__wd--sat { color: #b4530a; }
+.cal__wd--sun { color: #c5221f; }
+.cal__cell { min-height: 48px; padding: 4px 2px; border-radius: 10px; border: 1px solid transparent; background: #f5f8ff; color: var(--ink); font: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px; }
+.cal__cell--empty { background: transparent; cursor: default; }
+.cal__cell--today .cal__num { color: var(--blue); text-decoration: underline; }
+.cal__cell--sel { border-color: var(--blue); box-shadow: 0 0 0 2px var(--blue) inset; }
+.cal__cell:focus-visible { outline: 3px solid var(--orange); outline-offset: 1px; }
+.cal__num { font-size: var(--fs-sm); font-weight: 600; }
+.cal__amt { font-size: 11px; font-weight: 700; color: #a3181a; white-space: nowrap; }
+.cal__side { flex: 1 1 40%; min-width: 0; border-left: 1px solid var(--sky-line); padding-left: var(--s4); }
+.cal__dayhead { display: flex; justify-content: space-between; gap: var(--s2); font-size: var(--fs-sm); margin-bottom: var(--s2); }
+.cal__dayhead span { color: #c5221f; }
+.cal__list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s1); font-size: var(--fs-sm); }
+.cal__list li { display: flex; justify-content: space-between; gap: var(--s2); padding: var(--s2) var(--s3); border-radius: 10px; background: #f5f8ff; }
+.cal__list li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal__list li b { color: #c5221f; white-space: nowrap; }
+.cal__hint { margin: 0; color: var(--ink-soft); font-size: var(--fs-sm); }
+/* Widget hẹp (điện thoại): danh sách của ngày xuống dưới lịch */
+@container (max-width: 560px) {
+  .cal { flex-direction: column; }
+  .cal__main { flex: none; }
+  .cal__side { border-left: 0; padding-left: 0; border-top: 1px solid var(--sky-line); padding-top: var(--s3); }
+  .cal__cell { min-height: 42px; }
+  .cal__amt { font-size: 10px; }
+}

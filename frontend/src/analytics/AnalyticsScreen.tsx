@@ -37,7 +37,7 @@ const toolDisplay = Object.fromEntries(
 ) as never;
 
 // Máy tính và điện thoại nhớ bảng riêng, vì bố cục hai bên khác nhau.
-const storeKey = (phone: boolean) => (phone ? "mimi.analytics.report.phone.v1" : "mimi.analytics.report.v1");
+const storeKey = (phone: boolean) => (phone ? "mimi.analytics.report.phone.v2" : "mimi.analytics.report.v2");
 const LICENSE = import.meta.env.VITE_AG_STUDIO_LICENSE as string | undefined;
 const PHONE_QUERY = `(max-width: ${PHONE_MAX_WIDTH}px)`;
 

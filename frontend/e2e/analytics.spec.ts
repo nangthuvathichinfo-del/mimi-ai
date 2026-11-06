@@ -64,6 +64,10 @@ test.describe("trên điện thoại", () => {
     // Câu gợi ý: bấm "Mua ở đâu rẻ hơn?" là sang trang So sánh giá.
     await page.getByRole("button", { name: "Mua ở đâu rẻ hơn?" }).click();
     await expect(page.getByText("Giá đang bán của từng món, rẻ nhất trước")).toBeVisible();
+    // Lịch chi tiêu: chạm vào ngày có chi thì hiện các khoản của ngày đó.
+    await page.getByRole("button", { name: "Lịch chi tiêu theo ngày" }).click();
+    await page.locator(".cal__cell:has(.cal__amt)").first().click();
+    await expect(page.locator(".cal__list li").first()).toBeVisible();
     await page.getByRole("button", { name: "Tổng quan" }).click();
 
     // Widget nằm gọn trong bề ngang màn hình.

@@ -139,6 +139,11 @@ const receipts: AgPageState = {
       dataMapping: { value: [{ id: "receipts.kind" }] },
       format: { ...title(at.f.kind), style: { selection: { type: "multiple" }, dimensions: { height: 30, minWidth: 64 } } },
     },
+    calendar: {
+      type: "mimi-spending-calendar",
+      dataMapping: { date: [{ id: "receipts.date" }], amount: [sum("receipts.total")], detail: [{ id: "receipts.store" }] },
+      format: title(at.cal.title),
+    } as never,
     "receipts-grid": {
       type: "grid",
       dataMapping: {
@@ -156,8 +161,9 @@ const receipts: AgPageState = {
   widgetLayout: {
     period: pos(0, 0, 14, 8),
     kind: pos(14, 0, 10, 8),
-    "receipts-grid": pos(0, 8, 24, 22),
-    "lines-pivot": pos(0, 30, 24, 22),
+    calendar: pos(0, 8, 24, 30),
+    "receipts-grid": pos(0, 38, 24, 22),
+    "lines-pivot": pos(0, 60, 24, 22),
   },
 };
 
@@ -220,7 +226,7 @@ export function toPhoneReport(report: AgReportState): AgReportState {
           half = null;
         }
         // Bộ lọc nút trên màn hẹp xuống hàng nên cần cao hơn một chút; bảng cần chỗ để cuộn.
-        const ySpan = w?.type === "button-filter" ? Math.max(h, 10) : w?.type === "grid" || w?.type === "pivot-grid" ? Math.max(h, 26) : h;
+        const ySpan = w?.type === "button-filter" ? Math.max(h, 10) : w?.type === "grid" || w?.type === "pivot-grid" ? Math.max(h, 26) : w?.type === "mimi-spending-calendar" ? Math.max(h, 46) : h;
         out[id] = pos(0, y, 24, ySpan);
         y += ySpan;
       }

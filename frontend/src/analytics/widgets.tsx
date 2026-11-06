@@ -1,8 +1,9 @@
 /**
- * Hai widget riêng của Mimi cho AG Studio:
+ * Ba widget riêng của Mimi cho AG Studio:
  * - Run-out Radar: mỗi món đồ dùng là một chấm trên radar, càng gần tâm càng sắp hết.
  * - Tiết kiệm được: tiền đã tiết kiệm nhờ giảm giá, và còn rẻ hơn bao nhiêu nếu mua ở nơi rẻ nhất.
- * Cả hai lấy dữ liệu qua widgetApi.getData, nên nhận bộ lọc trang, bộ lọc chéo và đổi trường như
+ * - Lịch chi tiêu: lịch tháng, mỗi ngày ghi số đã chi; chạm vào ngày để xem các khoản của ngày đó.
+ * Cả ba lấy dữ liệu qua widgetApi.getData, nên nhận bộ lọc trang, bộ lọc chéo và đổi trường như
  * widget có sẵn của Studio.
  */
 import { useEffect, useState } from "react";
@@ -139,6 +140,136 @@ export function MoneySaved(params: AnyParams) {
   );
 }
 
+// ---------------- Lịch chi tiêu ----------------
+
+type CalState = { dataMapping: { date?: AgWidgetField[]; amount?: AgWidgetField[]; detail?: AgWidgetField[] }; format: Record<string, unknown> };
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+/** Ngày từ dữ liệu Studio (chuỗi ISO, Date hoặc số mili giây) thành YYYY-MM-DD. */
+function dayKey(v: unknown): string | null {
+  if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0, 10);
+  const d = v instanceof Date ? v : typeof v === "number" ? new Date(v) : null;
+  if (!d || Number.isNaN(d.getTime())) return null;
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+/** Số tiền gọn cho ô lịch hẹp: 84K, 1,2Tr (hoặc 1.2M). */
+function compact(v: number) {
+  const vi = at.cal.week[0] === "T2";
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(v >= 10_000_000 ? 0 : 1).replace(".", vi ? "," : ".")}${vi ? "Tr" : "M"}`;
+  if (v >= 1000) return `${Math.round(v / 1000)}K`;
+  return String(Math.round(v));
+}
+
+export function SpendingCalendar(params: AnyParams) {
+  const dm = params.dataMapping as CalState["dataMapping"];
+  const date = dm.date?.[0];
+  const amount = dm.amount?.[0];
+  const detail = dm.detail?.[0];
+  const rows = useWidgetRows(params, date && amount ? [date, ...(detail ? [detail] : []), amount] : [], "calendar");
+  const byDay = new Map<string, { total: number; parts: { name: string; amount: number }[] }>();
+  for (const r of rows ?? []) {
+    const k = date ? dayKey(r[date.key]) : null;
+    const v = amount ? num(r[amount.key]) : null;
+    if (!k || v == null) continue;
+    const e = byDay.get(k) ?? { total: 0, parts: [] };
+    e.total += v;
+    e.parts.push({ name: detail ? String(r[detail.key] ?? "") : "", amount: v });
+    byDay.set(k, e);
+  }
+  const days = [...byDay.keys()].sort();
+  const latest = days.at(-1);
+  const [month, setMonth] = useState<string | null>(null); // YYYY-MM đang xem
+  const [picked, setPicked] = useState<string | null>(null);
+  const ym = month ?? latest?.slice(0, 7) ?? new Date().toISOString().slice(0, 7);
+  // Dữ liệu đổi (lọc tháng khác) mà tháng đang xem không còn ngày nào thì về tháng mới nhất.
+  useEffect(() => {
+    if (month && latest && !days.some((d) => d.startsWith(month))) setMonth(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [latest, days.length]);
+  if (!rows || !date || !amount) return null;
+
+  const [y, m] = ym.split("-").map(Number);
+  const first = new Date(y, m - 1, 1);
+  const lead = (first.getDay() + 6) % 7; // thứ Hai đầu tuần
+  const count = new Date(y, m, 0).getDate();
+  const cells: (string | null)[] = [...Array(lead).fill(null), ...Array.from({ length: count }, (_, i) => `${ym}-${pad2(i + 1)}`)];
+  while (cells.length % 7) cells.push(null);
+  const inMonth = days.filter((d) => d.startsWith(ym));
+  const monthTotal = inMonth.reduce((a, d) => a + byDay.get(d)!.total, 0);
+  const max = Math.max(1, ...inMonth.map((d) => byDay.get(d)!.total));
+  const shift = (n: number) => {
+    const d = new Date(y, m - 1 + n, 1);
+    setMonth(`${d.getFullYear()}-${pad2(d.getMonth() + 1)}`);
+    setPicked(null);
+  };
+  const sel = picked && picked.startsWith(ym) ? picked : null;
+  const selDay = sel ? byDay.get(sel) : undefined;
+  const parts = selDay ? [...selDay.parts].sort((a, b) => b.amount - a.amount) : [];
+  const today = dayKey(new Date());
+
+  return (
+    <div className="cal">
+      <div className="cal__main">
+        <div className="cal__head">
+          <button type="button" className="cal__nav" onClick={() => shift(-1)} aria-label={at.cal.prev}>‹</button>
+          <strong>{at.cal.month(y, m)}</strong>
+          <button type="button" className="cal__nav" onClick={() => shift(1)} aria-label={at.cal.next}>›</button>
+          <span className="cal__total">{at.cal.total}: <b>-{formatVnd(Math.round(monthTotal))}</b></span>
+        </div>
+        <div className="cal__grid" role="grid" aria-label={at.cal.month(y, m)}>
+          {at.cal.week.map((w, i) => (
+            <span key={w} className={`cal__wd${i === 5 ? " cal__wd--sat" : i === 6 ? " cal__wd--sun" : ""}`} role="columnheader">{w}</span>
+          ))}
+          {cells.map((d, i) => {
+            if (!d) return <span key={`e${i}`} className="cal__cell cal__cell--empty" />;
+            const e = byDay.get(d);
+            const heat = e ? 0.12 + 0.5 * (e.total / max) : 0;
+            return (
+              <button
+                key={d}
+                type="button"
+                role="gridcell"
+                className={`cal__cell${d === sel ? " cal__cell--sel" : ""}${d === today ? " cal__cell--today" : ""}`}
+                style={e ? { background: `rgba(210, 63, 63, ${heat.toFixed(2)})` } : undefined}
+                aria-label={`${at.cal.day(d)}${e ? `: ${formatVnd(Math.round(e.total))}` : ""}`}
+                aria-pressed={d === sel}
+                onClick={() => setPicked(d === sel ? null : d)}
+              >
+                <span className="cal__num">{Number(d.slice(8))}</span>
+                {e && <span className="cal__amt">-{compact(e.total)}</span>}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div className="cal__side" aria-live="polite">
+        {sel ? (
+          <>
+            <strong className="cal__dayhead">
+              {at.cal.day(sel)}
+              {selDay && <span>-{formatVnd(Math.round(selDay.total))}</span>}
+            </strong>
+            {parts.length ? (
+              <ul className="cal__list">
+                {parts.map((p, i) => (
+                  <li key={`${p.name}-${i}`}>
+                    <span>{p.name || at.cal.amount}</span>
+                    <b>-{formatVnd(Math.round(p.amount))}</b>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="cal__hint">{at.cal.none}</p>
+            )}
+          </>
+        ) : (
+          <p className="cal__hint">{at.cal.pick}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ---------------- Đăng ký với Studio ----------------
 
 const radarIcon =
@@ -186,13 +317,37 @@ const savedDef: AgWidgetDefinition<"mimi-money-saved"> = {
   ai: { label: at.saved.label, description: at.saved.aiDesc, usage: at.saved.aiUse },
 };
 
-export const MIMI_WIDGETS = [radarDef, savedDef];
+const calIcon =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><rect x="7" y="13" width="3" height="3" fill="currentColor" stroke="none"/></svg>';
+
+const calDef: AgWidgetDefinition<"mimi-spending-calendar"> = {
+  id: "mimi-spending-calendar",
+  label: at.cal.label,
+  icon: calIcon,
+  dataMapping: {
+    date: { type: "field", supportedRoles: ["temporal", "category"], required: true, intent: "category", aiDescription: "The day of each payment, e.g. receipts.date." },
+    amount: { type: "field", supportedRoles: ["numeric"], required: true, intent: "value", aiDescription: "Money spent, e.g. receipts.total (sum)." },
+    detail: { type: "field", supportedRoles: ["category"], intent: "category", aiDescription: "What each payment was, shown when a day is tapped, e.g. receipts.store." },
+  },
+  form: ({ createDefaults }) =>
+    createDefaults({ dataMappingItems: [{ key: "date", label: at.cal.date }, { key: "amount", label: at.cal.amount }, { key: "detail", label: at.cal.detail }] }),
+  defaultState: {
+    dataMapping: { date: [{ id: "receipts.date" }], amount: [{ id: "receipts.total", aggregation: "sum" }], detail: [{ id: "receipts.store" }] },
+    format: { title: { enabled: true, text: at.cal.title } },
+  } as never,
+  comp: SpendingCalendar as never,
+  defaultSize: { width: 24, height: 30 },
+  minSize: { width: 8, height: 22 },
+  ai: { label: at.cal.label, description: at.cal.aiDesc, usage: at.cal.aiUse },
+};
+
+export const MIMI_WIDGETS = [radarDef, savedDef, calDef];
 
 /** Widget mặc định của Studio cộng hai widget Mimi, đặt trong nhóm "Mimi" đầu menu. */
 export const mimiWidgets = createWidgets({
   additionalTypes: MIMI_WIDGETS as never,
   menu: [
-    { label: "Mimi", widgetIds: ["mimi-runout-radar", "mimi-money-saved"] as never },
+    { label: "Mimi", widgetIds: ["mimi-runout-radar", "mimi-money-saved", "mimi-spending-calendar"] as never },
     { label: "Charts", widgetIds: ["column-chart-grouped", "bar-chart-grouped", "line-chart", "area-chart", "donut-chart", "pie-chart", "treemap-chart", "sunburst-chart", "combo-chart-grouped-column-line"] as never },
     { label: "Tables", widgetIds: ["grid", "pivot-grid"] as never },
     { label: "KPIs", widgetIds: ["value", "radial-gauge"] as never },
