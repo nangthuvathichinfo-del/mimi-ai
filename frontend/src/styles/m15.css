@@ -467,3 +467,4 @@
 .hgrid__bar { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); }
 .hgrid__bar > .btn { flex: none; }
 .hgrid__table { width: 100%; overflow-x: auto; }
+.ana-entry small { display: block; font-weight: 400; font-size: var(--fs-xs); color: var(--ink-soft); }

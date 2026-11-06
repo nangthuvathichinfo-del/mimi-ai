@@ -1745,6 +1745,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ai/turn": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hỏi Mimi (màn Phân tích chi tiêu, AG Studio): một lượt Gemini
+         * @description App giữ vòng lặp agent của AG Studio và tự chạy mọi tool; máy chủ chỉ gọi Gemini (Vertex AI) một lượt với hội thoại và khai báo tool app gửi lên, rồi trả lời văn bản hoặc lời đề nghị gọi tool. Dạng tin nhắn theo REST của Gemini. Giới hạn lượt mỗi người mỗi ngày (AI_DAILY_LIMIT).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AiTurnRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AiTurnResponse"];
+                    };
+                };
+                413: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+                429: components["responses"]["Error"];
+                503: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/plan/delegated": {
         parameters: {
             query?: never;
@@ -3107,6 +3154,61 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description Một phần tin nhắn. Có đúng một trong text, functionCall, functionResponse. */
+        AiPart: {
+            text?: string;
+            /** @description Chữ ký Gemini 3 (base64) của lượt gọi tool, gửi trả nguyên vẹn */
+            thoughtSignature?: string;
+            functionCall?: {
+                id?: string;
+                name: string;
+                args?: {
+                    [key: string]: unknown;
+                };
+            };
+            functionResponse?: {
+                id?: string;
+                name: string;
+                response: {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        AiTurnRequest: {
+            system?: string;
+            contents: {
+                /** @enum {string} */
+                role: "user" | "model";
+                parts: components["schemas"]["AiPart"][];
+            }[];
+            tools?: {
+                name: string;
+                description: string;
+                /** @description JSON Schema */
+                parameters?: {
+                    [key: string]: unknown;
+                };
+            }[];
+            /** @enum {string} */
+            tool_mode?: "AUTO" | "ANY" | "NONE";
+            allowed_tools?: string[];
+            json_schema?: {
+                [key: string]: unknown;
+            };
+            /** @description Bỏ qua: máy chủ dùng model đã cấu hình */
+            model?: string;
+        };
+        AiTurnResponse: {
+            id: string;
+            model?: string;
+            parts: components["schemas"]["AiPart"][];
+            finish_reason?: string;
+            usage?: {
+                input_tokens?: number;
+                output_tokens?: number;
+                total_tokens?: number;
+            };
+        };
         ClientId: string;
         /**
          * Format: int64
