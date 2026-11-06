@@ -119,6 +119,9 @@ function Dashboard({ rows, note, phone }: { rows: AnalyticsRows; note?: string; 
   });
   const [pageId, setPageId] = useState(initialState.selectedPageId);
   const [pages, setPages] = useState(() => initialState.pages.map((p) => p.id));
+  // Widget còn trên bảng (người dùng có thể đã xóa): câu gợi ý chỉ trỏ tới widget còn đó.
+  const idsOf = (st: AgReportState) => new Set(st.pages.flatMap((p) => Object.keys(p.widgets ?? {}).map((w) => `${p.id}/${w}`)));
+  const [widgetIds, setWidgetIds] = useState(() => idsOf(initialState));
   const data = useMemo(() => studioData(rows), [rows]);
   // `ai` chỉ được đọc một lần lúc tạo Studio; tool đọc dữ liệu mới nhất qua rowsRef.
   const ai = useMemo(() => buildAskMimi(() => rowsRef.current), []);
@@ -133,6 +136,36 @@ function Dashboard({ rows, note, phone }: { rows: AnalyticsRows; note?: string; 
   };
   // Khung chat của Studio chỉ có ở chế độ chỉnh: "Hỏi Mimi" mở chế độ chỉnh với khung chat mở,
   // các khung khác thu gọn để bảng vẫn rộng.
+  /**
+   * Câu gợi ý: mở đúng trang rồi cuộn tới widget và nháy viền một lúc. Studio không gắn mã widget
+   * lên DOM, nên tìm widget theo vị trí của nó trong bố cục (widgetLayout, lưới 24 cột).
+   */
+  const show = (page: string, widget: string) => {
+    const api = apiRef.current;
+    if (!api) return;
+    if (api.getState().selectedPageId !== page) go(page);
+    window.setTimeout(() => {
+      // Thứ tự widget trên màn (trên xuống, trái sang) trùng thứ tự trong widgetLayout.
+      const layout = api.getState().pages.find((p) => p.id === page)?.widgetLayout ?? {};
+      const order = Object.entries(layout)
+        .filter(([, l]) => l)
+        .sort(([, a], [, b]) => a!.yTrack - b!.yTrack || a!.xTrack - b!.xTrack)
+        .map(([id]) => id);
+      const canvas = studioRef.current?.querySelector<HTMLElement>(".ag-studio-layout-canvas");
+      if (!canvas) return;
+      const els = [...canvas.querySelectorAll<HTMLElement>(".ag-studio-layout-widget")]
+        .map((el) => ({ el, r: el.getBoundingClientRect() }))
+        .sort((a, b) => Math.round(a.r.top - b.r.top) || a.r.left - b.r.left);
+      const best = els.length === order.length ? els[order.indexOf(widget)]?.el : undefined;
+      if (!best) return;
+      best.scrollIntoView({ block: "start", behavior: "smooth" });
+      best.classList.remove("ana-flash");
+      void best.offsetWidth;
+      best.classList.add("ana-flash");
+      const el = best;
+      window.setTimeout(() => el.classList.remove("ana-flash"), 2000);
+    }, 120);
+  };
   const askMimi = () => {
     const api = apiRef.current;
     if (!api) return;
@@ -175,6 +208,17 @@ function Dashboard({ rows, note, phone }: { rows: AnalyticsRows; note?: string; 
         ))}
         {note && <span className="ana__note">{note}</span>}
       </nav>
+      {mode === "view" && (
+        <nav className="ana__guide" aria-label={at.guide.title}>
+          <span className="ana__guide-title">{at.guide.title}</span>
+          {at.guide.items
+            .filter((g) => widgetIds.has(`${g.page}/${g.widget}`))
+            .map((g) => (
+              <button key={`${g.page}/${g.widget}`} type="button" onClick={() => show(g.page, g.widget)}>{g.label}</button>
+            ))}
+          <button type="button" className="ana__guide-ask" onClick={askMimi}><Sparkles size={16} aria-hidden /> {at.guide.ask}</button>
+        </nav>
+      )}
       <div className="ana__studio" ref={studioRef}>
         <AgStudioProvider licenseKey={LICENSE} modules={[AgStudioAiModule]}>
           <AgStudio
@@ -196,6 +240,10 @@ function Dashboard({ rows, note, phone }: { rows: AnalyticsRows; note?: string; 
             onStateUpdated={(e) => {
               setPageId(e.state.selectedPageId);
               setPages(e.state.pages.map((p) => p.id));
+              setWidgetIds((prev) => {
+                const next = idsOf(e.state);
+                return next.size === prev.size && [...next].every((k) => prev.has(k)) ? prev : next;
+              });
               window.clearTimeout(saveTimer.current);
               saveTimer.current = window.setTimeout(() => save(phone, e.state), 600);
             }}

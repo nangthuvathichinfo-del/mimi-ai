@@ -40,3 +40,14 @@
 
 /* Biểu đồ trong khung chat Hỏi Mimi */
 .chatchart { width: 100%; min-width: 220px; margin: var(--s1) 0 var(--s2); border-radius: 12px; background: #fff; border: 1px solid var(--sky-line); }
+
+/* Câu gợi ý: cho người dùng biết bảng có những gì, bấm là tới đúng biểu đồ */
+.ana__guide { display: flex; align-items: center; gap: var(--s2); padding: var(--s2) var(--s4); background: var(--paper); border-bottom: 1px solid var(--sky-line); overflow-x: auto; scrollbar-width: none; }
+.ana__guide::-webkit-scrollbar { display: none; }
+.ana__guide-title { flex: none; font-size: var(--fs-xs); font-weight: 700; color: var(--ink-soft); }
+.ana__guide button { flex: none; min-height: 36px; padding: 0 var(--s3); border-radius: var(--r-pill); border: 1px dashed var(--blue); background: #f5f8ff; color: var(--blue); font: inherit; font-size: var(--fs-sm); font-weight: 600; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: var(--s1); }
+.ana__guide button:focus-visible { outline: 3px solid var(--orange); outline-offset: 2px; }
+.ana__guide .ana__guide-ask { border-style: solid; background: var(--blue); color: #fff; }
+.ana-flash { animation: ana-flash 1.6s ease-out; border-radius: 20px; }
+@keyframes ana-flash { 0%, 40% { box-shadow: 0 0 0 4px var(--orange); } 100% { box-shadow: 0 0 0 4px transparent; } }
+@media (prefers-reduced-motion: reduce) { .ana-flash { animation: none; outline: 3px solid var(--orange); } }

@@ -61,6 +61,11 @@ test.describe("trên điện thoại", () => {
     await page.goto("/spending/analytics");
     await expect(page.getByText("Sắp hết trước")).toBeVisible({ timeout: 20_000 });
 
+    // Câu gợi ý: bấm "Mua ở đâu rẻ hơn?" là sang trang So sánh giá.
+    await page.getByRole("button", { name: "Mua ở đâu rẻ hơn?" }).click();
+    await expect(page.getByText("Giá đang bán của từng món, rẻ nhất trước")).toBeVisible();
+    await page.getByRole("button", { name: "Tổng quan" }).click();
+
     // Widget nằm gọn trong bề ngang màn hình.
     const box = await page.locator(".radar").boundingBox();
     expect(box && box.x + box.width).toBeLessThanOrEqual(390);
