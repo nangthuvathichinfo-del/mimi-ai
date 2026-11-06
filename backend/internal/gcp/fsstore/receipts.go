@@ -84,14 +84,27 @@ func (s *Store) PutPage(ctx context.Context, uid, hash string, p receipt.Page) e
 // ---------- Tỷ giá ----------
 
 // Rate lấy tỷ giá gần nhất không sau ngày mua, do job fx-sync ghi (có nguồn và thời điểm).
+// Hóa đơn mua trước ngày fx-sync chạy lần đầu (vd. bill du lịch cũ) chưa có tỷ giá nào
+// không sau ngày mua: khi đó dùng tỷ giá sớm nhất đã có sau ngày mua, thay vì để cả hóa
+// đơn thành 0đ. FX vẫn ghi nguồn và thời điểm của tỷ giá thật đã dùng.
 func (s *Store) Rate(ctx context.Context, currency string, on domain.Date) (receipt.FX, bool, error) {
 	docs, err := s.c.Collection("fx_rates").
 		Where("currency", "==", currency).
 		Where("on", "<=", on.String()).
 		OrderBy("on", firestore.Desc).Limit(1).
 		Documents(ctx).GetAll()
-	if err != nil || len(docs) == 0 {
+	if err != nil {
 		return receipt.FX{}, false, err
+	}
+	if len(docs) == 0 {
+		docs, err = s.c.Collection("fx_rates").
+			Where("currency", "==", currency).
+			Where("on", ">", on.String()).
+			OrderBy("on", firestore.Asc).Limit(1).
+			Documents(ctx).GetAll()
+		if err != nil || len(docs) == 0 {
+			return receipt.FX{}, false, err
+		}
 	}
 	var v struct {
 		Rate      string    `firestore:"rate"`

@@ -5,6 +5,16 @@ Mới nhất ở trên cùng.
 
 ---
 
+## 2026-11-06 · Sửa tổng bill ngoại tệ hiện 0đ sau khi quét
+
+Nhánh `fix/tong-bill-ngoai-te`. Lỗi: quét bill Don Don Donki (SGD, tổng 78.37, ngày 12/10) thì từng món hiện "chưa quy đổi sang VND", dòng đối chiếu ghi "Khớp tổng in trên hóa đơn: 0đ" và màn Đã lưu ghi Tổng 0đ.
+
+- Nguyên nhân: `fsstore.Rate` chỉ tìm tỷ giá có ngày không sau ngày mua. fx-sync mới chạy từ đầu tháng 11 nên bill ngày 12/10 không có tỷ giá nào, `fx_missing` bật, mọi dòng mất `amount_vnd`, tổng VND = 0 và `total_mismatch` vẫn false nên app báo "khớp".
+- Backend: không có tỷ giá trước ngày mua thì dùng tỷ giá sớm nhất đã có sau ngày mua (vẫn ghi nguồn, thời điểm). Thêm index `fx_rates (currency, on tăng dần)`.
+- App: nếu vẫn chưa có tỷ giá, tổng và đối chiếu tính theo tiền gốc ("78.37 SGD"), không hiện "khớp: 0đ", kèm dòng báo chưa có tỷ giá. `parseAmount` đọc đúng "1,234.50".
+- Kiểm tra: `TestRateBeforeFirstSyncUsesEarliestEmulator` (emulator), `go test ./internal/receipt ./internal/fx`, `tsc -b`.
+- Cần deploy lại backend và chạy `firebase deploy --only firestore:indexes`.
+
 ## 2026-11-03 · Nước lấy giá online: Việt Nam và Mỹ
 
 Nhánh `feat/nuoc-vn-us`. Mẹ chốt 03/11: Cài đặt → Quốc gia (giá online) cho chọn Việt Nam và Mỹ; giữ Singapore trong hệ thống vì sau này sẽ thêm nhiều nước.

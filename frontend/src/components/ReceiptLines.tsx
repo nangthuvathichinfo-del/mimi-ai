@@ -14,8 +14,20 @@ export type EditLine = ReceiptDraftLine & { removed?: boolean };
 export function parseAmount(s: string, currency: string): number | null {
   const v = s.trim();
   if (!v) return null;
-  const n = currency === "VND" ? Number(v.replace(/[.,\s]/g, "")) : Number(v.replace(/,/g, "."));
+  if (currency === "VND") {
+    const n = Number(v.replace(/[.,\s]/g, ""));
+    return Number.isFinite(n) ? n : null;
+  }
+  // Ngoại tệ: "1,234.50" (phẩy phân cách nghìn) hoặc "12,50" (phẩy thập phân).
+  const s2 = v.replace(/[\s$€£¥₩]/g, "");
+  const n = Number(s2.includes(".") ? s2.replace(/,/g, "") : s2.replace(/,/g, "."));
   return Number.isFinite(n) ? n : null;
+}
+
+/** Tổng tiền theo đơn vị gốc của hóa đơn, khi chưa quy đổi được sang VND: "78.37 SGD". */
+export function formatForeign(amount: number, currency: string): string {
+  const n = new Intl.NumberFormat(t.locale, { maximumFractionDigits: 2 }).format(Math.round(amount * 100) / 100);
+  return `${n} ${currency}`;
 }
 
 /**
