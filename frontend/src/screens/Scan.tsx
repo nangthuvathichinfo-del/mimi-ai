@@ -14,7 +14,7 @@ import { ApiError, OfflineError, apiUploadReceipt } from "../api/client";
 import { compressReceiptImage, grabFrame } from "../lib/image";
 import { formatDayMonth, formatVnd } from "../lib/text";
 import { MimiMark } from "../components/MimiMark";
-import { type EditLine, ReceiptLines, parseAmount } from "../components/ReceiptLines";
+import { type EditLine, ReceiptLines, formatForeign, parseAmount } from "../components/ReceiptLines";
 
 const MAX_PHOTOS = 10; // BUG-05 mục 6: tối đa 10 ảnh / hóa đơn, khớp giới hạn backend
 
@@ -475,7 +475,18 @@ function Confirm({ draft, onDone, onNext, onContinue }: {
   const sum = edited ? kept.reduce((a, l) => a + (l.amount_vnd ?? 0), 0) : draft.sum_vnd;
   const printed = draft.total_printed ? parseAmount(draft.total_printed, draft.currency) : null;
   // Tổng lệch chỉ là cảnh báo, không chặn lưu (BUG-06 mục 5.1).
-  const mismatch = edited && draft.currency === "VND" && printed != null ? Math.abs(printed - sum) > 1000 : draft.total_mismatch;
+  // Hóa đơn ngoại tệ chưa có tỷ giá: các dòng không có amount_vnd nên tổng VND bằng 0.
+  // Khi đó tổng và đối chiếu tính theo tiền gốc của hóa đơn, không hiện "khớp: 0đ".
+  const unconverted = draft.currency !== "VND" &&
+    kept.some((l) => !l.discount && l.amount.trim() !== "" && l.amount_vnd == null);
+  const foreignSum = kept.reduce((a, l) => {
+    const v = parseAmount(l.amount, draft.currency);
+    return v == null ? a : a + (l.discount ? -Math.abs(v) : v);
+  }, 0);
+  const sumText = unconverted ? formatForeign(foreignSum, draft.currency) : formatVnd(sum);
+  const mismatch = unconverted
+    ? printed != null && Math.abs(printed - foreignSum) > 0.05
+    : edited && draft.currency === "VND" && printed != null ? Math.abs(printed - sum) > 1000 : draft.total_mismatch;
   const matches = !!draft.total_printed && !mismatch;
   const alloc = allocate(kept.map((l) => ({ id: l.line_id, key: l.group_key, qty: l.qty })), planNeeds(plans, carts, planName));
   const planLine = (l: EditLine) => {
@@ -550,7 +561,7 @@ function Confirm({ draft, onDone, onNext, onContinue }: {
             <dt>{t.confirm.date}</dt>
             <dd>{formatDayMonth(purchasedOn)}</dd>
             <dt>{t.confirm.total}</dt>
-            <dd className="num">{formatVnd(sum)}</dd>
+            <dd className="num">{sumText}</dd>
           </dl>
           {/* Cùng quy cách với nút "Lưu hóa đơn": nút chính rộng hết khung, nút phụ viền nhạt bên dưới */}
           <div className="actions">
@@ -614,11 +625,12 @@ function Confirm({ draft, onDone, onNext, onContinue }: {
         <ReceiptLines lines={lines} currency={draft.currency} badLine={badLine} onChange={change} extra={planLine} />
         <p className={`check ${matches ? "ok" : "warn"}`}>
           {!draft.total_printed
-            ? t.confirm.noTotal(formatVnd(sum))
+            ? t.confirm.noTotal(sumText)
             : matches
-              ? t.confirm.matches(formatVnd(sum))
-              : t.confirm.mismatch(formatVnd(sum), draft.total_printed)}
+              ? t.confirm.matches(sumText)
+              : t.confirm.mismatch(sumText, draft.total_printed)}
         </p>
+        {unconverted && <p className="check warn">{t.confirm.noRate(draft.currency)}</p>}
         {review > 0 && <p className="check warn">{m1.scan.reviewHint(review)}</p>}
         {noPrice > 0 && <p className="check">{t.confirm.noPriceCount(noPrice)}</p>}
         {toMe.length > 0 && (

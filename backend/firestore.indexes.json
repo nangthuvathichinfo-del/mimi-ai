@@ -143,6 +143,20 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "fx_rates",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "currency",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "on",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": [

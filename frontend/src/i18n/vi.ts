@@ -163,6 +163,7 @@ export const vi: Messages = {
     saveAnyway: "Vẫn lưu",
     checkDetails: "Kiểm tra lại ngày và số tiền rồi thử lại.",
     notConverted: "chưa quy đổi sang VND",
+    noRate: (currency) => `Chưa có tỷ giá ${currency} nên hóa đơn này chưa được tính vào chi tiêu bằng VND.`,
     noPrice: "Chưa rõ giá",
     noPriceNote: "chưa rõ giá, không tính vào tổng",
     noPriceCount: (n: number) => `${n} món chưa rõ giá, không tính vào tổng`,

@@ -184,6 +184,7 @@ export const en = {
     saveAnyway: "Save anyway",
     checkDetails: "Check the date and amounts, then try again.",
     notConverted: "not converted to VND",
+    noRate: (currency: string) => `No exchange rate for ${currency} yet, so this receipt isn't counted in VND spending.`,
     noPrice: "Price unknown",
     noPriceNote: "price unknown, not counted in the total",
     noPriceCount: (n: number) => `${plural(n, "item", "items")} with unknown price, not counted in the total`,

@@ -29,6 +29,30 @@ func TestSaveRatesThenRateEmulator(t *testing.T) {
 	}
 }
 
+// Hóa đơn mua trước ngày fx-sync chạy lần đầu: không có tỷ giá nào không sau ngày mua,
+// Rate dùng tỷ giá sớm nhất đã có sau ngày mua thay vì báo thiếu (hóa đơn thành 0đ).
+func TestRateBeforeFirstSyncUsesEarliestEmulator(t *testing.T) {
+	s, _, _ := emulator(t)
+	ctx := context.Background()
+	d1, _ := domain.ParseDate("2031-04-10")
+	d2, _ := domain.ParseDate("2031-04-12")
+	now := time.Now()
+	if err := s.SaveRates(ctx, []fx.Rate{
+		{Currency: "XTE", On: d1, VNDPerOne: "300", Source: "early", FetchedAt: now},
+		{Currency: "XTE", On: d2, VNDPerOne: "301", Source: "later", FetchedAt: now},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	on, _ := domain.ParseDate("2031-03-01")
+	r, ok, err := s.Rate(ctx, "XTE", on)
+	if err != nil || !ok || r.Rate != "300" || r.Source != "early" {
+		t.Fatalf("%+v %v %v", r, ok, err)
+	}
+	if _, ok, err := s.Rate(ctx, "XTZ", on); err != nil || ok {
+		t.Fatalf("no rate at all must stay missing: %v %v", ok, err)
+	}
+}
+
 // Chạy fx-sync lần hai trong cùng ngày không ghi đè tỷ giá đã chốt (FX1, FX4).
 func TestSaveRatesKeepsFirstOfDayEmulator(t *testing.T) {
 	s, _, _ := emulator(t)
