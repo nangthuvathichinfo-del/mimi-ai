@@ -1,5 +1,6 @@
 import { uiLang } from "../i18n";
 import taxonomyGroups from "./taxonomy-groups.json";
+import { mockAiTurn } from "./mockAi";
 /**
  * Backend giả cho chế độ VITE_API_MODE=mock. Dữ liệu mẫu, không phải dữ liệu thật.
  * Quy tắc trạng thái ở đây chỉ mô phỏng; bản thật do API Go tính (internal/domain).
@@ -203,6 +204,7 @@ export async function mockFetch(path: string, init: RequestInit): Promise<Respon
   const url = new URL(path, "http://mock");
   const method = (init.method ?? "GET").toUpperCase();
   const p = url.pathname;
+  if (method === "POST" && p === "/ai/turn") return json(mockAiTurn(JSON.parse(String(init.body ?? "{}"))));
   const extra = mockM1(method, url, init);
   if (extra) return extra;
   if (p.startsWith("/plan") || p === "/orders" || p === "/orders/basket") return inPlan(url.searchParams.get("plan_id"), () => mockCore(method, url, init));

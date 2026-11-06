@@ -23,6 +23,7 @@ import (
 	"cloud.google.com/go/firestore"
 
 	"github.com/smartlife-lab/mimi/backend/internal/account"
+	"github.com/smartlife-lab/mimi/backend/internal/assistant"
 	"github.com/smartlife-lab/mimi/backend/internal/braintree"
 	"github.com/smartlife-lab/mimi/backend/internal/config"
 	"github.com/smartlife-lab/mimi/backend/internal/demo"
@@ -146,6 +147,11 @@ func serveAPI(ctx context.Context, cfg config.Config, log *slog.Logger, store *f
 	if cards != nil {
 		orders.WithCards(cards)
 	}
+	// Hỏi Mimi (màn Phân tích chi tiêu): một lượt Gemini mỗi lần gọi, cùng model đọc hóa đơn.
+	var ask httpapi.Assistant
+	if cfg.AIDailyLimit > 0 {
+		ask = assistant.New(reader.NewAssistant(cfg.GeminiModel), cfg.AIDailyLimit)
+	}
 	api, err := httpapi.New(httpapi.Deps{
 		Log: log, Tokens: auth, AppCheck: appCheck, Principals: store, Profiles: store,
 		Receipts: receipts, Items: items, Ready: store,
@@ -166,6 +172,7 @@ func serveAPI(ctx context.Context, cfg config.Config, log *slog.Logger, store *f
 		FX:           store, // tỷ giá từng ngày, app quy đổi sang tiền tệ hiển thị
 		Accounts:     account.New(store, store, auth),
 		SignIn:       auth,
+		Assistant:    ask,
 	}, httpapi.WithTimeouts(cfg.ReadTimeout, cfg.DefaultTimeout), httpapi.WithIdempotency(fsstore.NewIdempotency(store)),
 		httpapi.WithSharedLimiter(fsstore.NewRateLimiter(store)))
 	if err != nil {
