@@ -39,6 +39,14 @@ test("Phân tích chi tiêu: bảng, widget Mimi, Hỏi Mimi", async ({ page }) 
   await page.getByText("Tuần này cần mua gì?").click();
   await expect(page.getByText("Mimi xem món sắp hết")).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText("Các món sắp hết trong 7 ngày:")).toBeVisible();
+  // Biểu đồ của câu trả lời hiện ngay trong khung chat, mở sẵn.
+  await expect(page.locator(".chatchart canvas").first()).toBeVisible();
+
+  // Hỏi một biểu đồ khác: Mimi vẽ chi theo cửa hàng trong khung chat.
+  await page.locator("textarea").last().fill("Cho mẹ xem biểu đồ chi tiêu theo cửa hàng tháng này.");
+  await page.locator("textarea").last().press("Enter");
+  await expect(page.getByText("Mimi vẽ biểu đồ", { exact: true })).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator(".chatchart")).toHaveCount(2);
 
   expect(errors).toEqual([]);
 });

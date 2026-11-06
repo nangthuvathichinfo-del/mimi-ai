@@ -13,15 +13,27 @@ import { AG_STUDIO_LOCALE_VN } from "ag-studio-locale";
 import { uiLang } from "../i18n";
 import { useAnalyticsData, studioData, type AnalyticsRows } from "./data";
 import { buildAskMimi } from "./askMimi";
+import { CHART_TOOLS, chartFor, ToolChart, useAutoOpenCharts } from "./chatCharts";
 import { initialPhoneReport, initialReport, pageTitles, PHONE_MAX_WIDTH } from "./report";
 import { mimiStudioTheme } from "./theme";
 import { mimiWidgets } from "./widgets";
 import { at } from "./text";
 import "./analytics.css";
 
-/** Tên dễ đọc cho các bước tool của Hỏi Mimi trong khung chat. */
+/** Tên dễ đọc cho các bước tool của Hỏi Mimi trong khung chat; tool có số liệu thì kèm biểu đồ. */
 const toolDisplay = Object.fromEntries(
-  Object.entries(at.ai.tools).map(([name, text]) => [name, { label: () => ({ text }) }]),
+  Object.entries(at.ai.tools).map(([name, text]) => [
+    name,
+    CHART_TOOLS.has(name)
+      ? {
+          label: ({ result }: { result?: { success: boolean; response?: string } }) => ({
+            text,
+            ...(result?.success && result.response && chartFor(name, result.response) && { pill: at.ai.chartPill }),
+          }),
+          detail: ToolChart,
+        }
+      : { label: () => ({ text }) },
+  ]),
 ) as never;
 
 // Máy tính và điện thoại nhớ bảng riêng, vì bố cục hai bên khác nhau.
@@ -111,6 +123,8 @@ function Dashboard({ rows, note, phone }: { rows: AnalyticsRows; note?: string; 
   // `ai` chỉ được đọc một lần lúc tạo Studio; tool đọc dữ liệu mới nhất qua rowsRef.
   const ai = useMemo(() => buildAskMimi(() => rowsRef.current), []);
   const saveTimer = useRef<number | undefined>(undefined);
+  const studioRef = useRef<HTMLDivElement>(null);
+  useAutoOpenCharts(studioRef);
   useEffect(() => () => window.clearTimeout(saveTimer.current), []);
 
   const go = (id: string) => {
@@ -161,7 +175,7 @@ function Dashboard({ rows, note, phone }: { rows: AnalyticsRows; note?: string; 
         ))}
         {note && <span className="ana__note">{note}</span>}
       </nav>
-      <div className="ana__studio">
+      <div className="ana__studio" ref={studioRef}>
         <AgStudioProvider licenseKey={LICENSE} modules={[AgStudioAiModule]}>
           <AgStudio
             style={{ height: "100%", width: "100%" }}

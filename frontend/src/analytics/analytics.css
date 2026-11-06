@@ -37,3 +37,6 @@
 .saved__num { margin: 0; font-size: 28px; font-weight: 800; color: var(--st-plenty); line-height: 1.1; }
 .saved__note { margin: 2px 0 0; font-size: var(--fs-xs); color: var(--ink-soft); }
 .saved__more { margin: var(--s1) 0 0; font-size: var(--fs-xs); font-weight: 600; color: var(--blue); }
+
+/* Biểu đồ trong khung chat Hỏi Mimi */
+.chatchart { width: 100%; min-width: 220px; margin: var(--s1) 0 var(--s2); border-radius: 12px; background: #fff; border: 1px solid var(--sky-line); }

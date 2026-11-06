@@ -61,6 +61,14 @@ function answer(name: string, r: Json): string {
       ? `${head} Còn có thể bớt thêm ${vnd(r.could_save_more)}: ví dụ **${tip.item}** ở ${tip.best_store} rẻ hơn ${vnd(tip.saving)}. Chi tiết ở trang So sánh giá.`
       : `${head} You could save another ${vnd(r.could_save_more)}: for example **${tip.item}** is ${vnd(tip.saving)} cheaper at ${tip.best_store}. Details on the Price check page.`;
   }
+  if (name === "mimi_chart") {
+    const labels = (r.labels as string[]) ?? [];
+    const first = (r.series as { values: number[] }[] | undefined)?.[0]?.values ?? [];
+    if (!labels.length) return vi ? "Chưa có số liệu để vẽ, mẹ quét thêm hóa đơn nhé." : "Nothing to chart yet. Scan a few more receipts.";
+    return vi
+      ? `Mimi vẽ biểu đồ **${r.title}** ở trên rồi. Đứng đầu là **${labels[0]}**${first[0] != null ? ` với ${vnd(first[0])}` : ""}.`
+      : `Here is **${r.title}** above. **${labels[0]}** leads${first[0] != null ? ` at ${vnd(first[0])}` : ""}.`;
+  }
   return vi ? "Mimi đã làm xong." : "Done.";
 }
 
@@ -75,9 +83,20 @@ export function mockAiTurn(body: Body): Json {
   if (!tools.has("mimi_spending_summary")) {
     return { id, model: "mock", parts: [{ text: vi ? "Bản thử chưa nối Gemini nên agent này chỉ trả lời mẫu." : "This demo has no Gemini connection, so this agent only gives a sample answer." }] };
   }
-  if (/(bieu do|chart|ve |them|add|widget)/.test(q)) {
-    return { id, model: "mock", parts: [{ text: vi ? "Bản thử chưa nối Gemini nên Mimi chưa vẽ thêm được. Mẹ bấm **Chỉnh bảng** rồi kéo trường Cửa hàng vào trang nhé." : "Without Gemini this demo can't add charts yet. Tap **Edit dashboard** and drag the Store field onto the page." }] };
+  if (/(them|add|widget)/.test(q)) {
+    return { id, model: "mock", parts: [{ text: vi ? "Bản thử chưa nối Gemini nên Mimi chưa sửa bảng được. Mẹ bấm **Chỉnh bảng** rồi kéo trường Cửa hàng vào trang nhé." : "Without Gemini this demo can't edit the dashboard yet. Tap **Edit dashboard** and drag the Store field onto the page." }] };
   }
+  const month = new Date().toISOString().slice(0, 7);
+  const chart = /(cua hang|store|shop)/.test(q)
+    ? { topic: "spending_by_store", month }
+    : /(theo thang|by month|month by month|xu huong|trend)/.test(q)
+      ? { topic: "spending_by_month", month: "" }
+      : /(gia online|online price|so sanh gia|price)/.test(q)
+        ? { topic: "price_compare", month: "" }
+        : /(mon nao chi|top item|mua nhieu)/.test(q)
+          ? { topic: "top_items", month }
+          : null;
+  if (chart && tools.has("mimi_chart")) return { id, model: "mock", parts: [{ functionCall: { id: `${id}_call`, name: "mimi_chart", args: chart } }] };
   const call = /(het|run out|running|need|can mua|tuan nay|this week)/.test(q)
     ? { name: "mimi_running_out", args: { days: 7 } }
     : /(tiet kiem|save|saved|re hon|cheaper)/.test(q)
