@@ -13,7 +13,7 @@ import { AG_STUDIO_LOCALE_VN } from "ag-studio-locale";
 import { uiLang } from "../i18n";
 import { useAnalyticsData, studioData, type AnalyticsRows } from "./data";
 import { buildAskMimi } from "./askMimi";
-import { initialReport, pageTitles } from "./report";
+import { initialPhoneReport, initialReport, pageTitles, PHONE_MAX_WIDTH } from "./report";
 import { mimiStudioTheme } from "./theme";
 import { mimiWidgets } from "./widgets";
 import { at } from "./text";
@@ -24,21 +24,35 @@ const toolDisplay = Object.fromEntries(
   Object.entries(at.ai.tools).map(([name, text]) => [name, { label: () => ({ text }) }]),
 ) as never;
 
-const STORE_KEY = "mimi.analytics.report.v1";
+// Máy tính và điện thoại nhớ bảng riêng, vì bố cục hai bên khác nhau.
+const storeKey = (phone: boolean) => (phone ? "mimi.analytics.report.phone.v1" : "mimi.analytics.report.v1");
 const LICENSE = import.meta.env.VITE_AG_STUDIO_LICENSE as string | undefined;
+const PHONE_QUERY = `(max-width: ${PHONE_MAX_WIDTH}px)`;
 
-function loadSaved(): AgReportState | null {
+/** Màn hẹp (điện thoại, hoặc cửa sổ kéo nhỏ) thì dùng bố cục một cột. */
+function useIsPhone() {
+  const [phone, setPhone] = useState(() => window.matchMedia(PHONE_QUERY).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(PHONE_QUERY);
+    const on = () => setPhone(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  return phone;
+}
+
+function loadSaved(phone: boolean): AgReportState | null {
   try {
-    const s = localStorage.getItem(STORE_KEY);
+    const s = localStorage.getItem(storeKey(phone));
     return s ? (JSON.parse(s) as AgReportState) : null;
   } catch {
     return null;
   }
 }
-function save(state: AgReportState | null) {
+function save(phone: boolean, state: AgReportState | null) {
   try {
-    if (state) localStorage.setItem(STORE_KEY, JSON.stringify(state));
-    else localStorage.removeItem(STORE_KEY);
+    if (state) localStorage.setItem(storeKey(phone), JSON.stringify(state));
+    else localStorage.removeItem(storeKey(phone));
   } catch {
     // trình duyệt chặn lưu: bảng vẫn chạy, chỉ không nhớ chỗ chỉnh
   }
@@ -46,13 +60,14 @@ function save(state: AgReportState | null) {
 
 export function Analytics() {
   const q = useAnalyticsData();
+  const phone = useIsPhone();
   return (
     <div className="ana">
       {q.rows ? (
         q.rows.receipts.length === 0 ? (
           <Shell><div className="ana__state"><p>{at.empty}</p><Link className="btn btn--primary" to="/scan">{at.scan}</Link></div></Shell>
         ) : (
-          <Dashboard rows={q.rows} note={q.total > q.analysed ? at.partial(q.analysed, q.total) : undefined} />
+          <Dashboard key={phone ? "phone" : "desktop"} phone={phone} rows={q.rows} note={q.total > q.analysed ? at.partial(q.analysed, q.total) : undefined} />
         )
       ) : q.error && !q.isPending ? (
         <Shell><div className="ana__state"><p>{at.failed}</p><button className="btn btn--quiet" onClick={() => q.refetch()}>{at.retry}</button></div></Shell>
@@ -77,14 +92,17 @@ function Shell({ children, bar }: { children: React.ReactNode; bar?: React.React
   );
 }
 
-function Dashboard({ rows, note }: { rows: AnalyticsRows; note?: string }) {
+function Dashboard({ rows, note, phone }: { rows: AnalyticsRows; note?: string; phone: boolean }) {
+  const base = phone ? initialPhoneReport : initialReport;
   const apiRef = useRef<AgStudioApi | null>(null);
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
   const [mode, setMode] = useState<AgStudioMode>("view");
+  // Trên điện thoại, "Hỏi Mimi" chỉ hiện khung chat, chiếm cả bề ngang (không kèm các khung chỉnh).
+  const [asking, setAsking] = useState(false);
   // Bộ lọc nằm ngay trên trang nên khung Lọc bên phải thu gọn sẵn ở chế độ xem.
   const [initialState] = useState<AgReportState>(() => {
-    const st = loadSaved() ?? initialReport;
+    const st = loadSaved(phone) ?? base;
     return { ...st, panels: { ...st.panels, filters: { ...st.panels?.filters, collapsed: true } } };
   });
   const [pageId, setPageId] = useState(initialState.selectedPageId);
@@ -105,26 +123,31 @@ function Dashboard({ rows, note }: { rows: AnalyticsRows; note?: string }) {
     const api = apiRef.current;
     if (!api) return;
     setMode("edit");
+    setAsking(true);
     // Đợi Studio dựng xong khung của chế độ chỉnh rồi mới đặt khung nào mở, khung nào gập.
     window.setTimeout(() => {
       const st = api.getState();
-      api.setState({ ...st, panels: { ...st.panels, ai: { ...st.panels?.ai, collapsed: false }, edit: { ...st.panels?.edit, collapsed: true }, data: { ...st.panels?.data, collapsed: true }, filters: { ...st.panels?.filters, collapsed: true } } });
+      api.setState({ ...st, panels: { ...st.panels, ai: { ...st.panels?.ai, collapsed: false, ...(phone && { width: window.innerWidth }) }, edit: { ...st.panels?.edit, collapsed: true }, data: { ...st.panels?.data, collapsed: true }, filters: { ...st.panels?.filters, collapsed: true } } });
     }, 50);
   };
   const reset = () => {
-    save(null);
+    save(phone, null);
     const api = apiRef.current;
     if (!api) return;
-    api.setState(initialReport);
+    api.setState(base);
     api.clearHistory();
     setMode("view");
+    setAsking(false);
   };
 
   const bar = (
     <>
-      <button type="button" className="btn btn--outline ana__btn" onClick={askMimi}><Sparkles size={18} aria-hidden /> <span>{at.ai.agent}</span></button>
-      <button type="button" className="btn btn--quiet ana__btn" onClick={reset}><RotateCcw size={18} aria-hidden /> <span>{at.reset}</span></button>
-      <button type="button" className="btn btn--primary ana__btn" aria-pressed={mode === "edit"} onClick={() => setMode(mode === "edit" ? "view" : "edit")}>
+      <button type="button" className="btn btn--outline ana__btn" onClick={askMimi} aria-label={at.ai.agent}><Sparkles size={18} aria-hidden /> <span>{at.ai.agent}</span></button>
+      <button type="button" className="btn btn--quiet ana__btn" onClick={reset} aria-label={at.reset}><RotateCcw size={18} aria-hidden /> <span>{at.reset}</span></button>
+      <button type="button" className="btn btn--primary ana__btn" aria-pressed={mode === "edit"} aria-label={at.edit} onClick={() => {
+          setMode(mode === "edit" ? "view" : "edit");
+          setAsking(false);
+        }}>
         {mode === "edit" ? <Check size={18} aria-hidden /> : <Pencil size={18} aria-hidden />} <span>{mode === "edit" ? at.done : at.edit}</span>
       </button>
     </>
@@ -149,7 +172,8 @@ function Dashboard({ rows, note }: { rows: AnalyticsRows; note?: string }) {
             initialState={initialState}
             mode={mode}
             layout={{ widgetBorderEnabled: true }}
-            panels={{ edit: { left: ["ai"], right: ["edit", "data", "filters"] }, view: { right: ["filters"] } }}
+            // Điện thoại không đủ chỗ cho khung Lọc ở chế độ xem: bộ lọc đã có ngay trên trang.
+            panels={{ edit: phone && asking ? { left: ["ai"], right: [] } : { left: ["ai"], right: ["edit", "data", "filters"] }, view: { right: phone ? [] : ["filters"] } }}
             aiToolDisplay={toolDisplay}
             localeText={{ ...(uiLang === "vi" ? AG_STUDIO_LOCALE_VN : {}), panelTitleAi: at.ai.agent, aiMessageInputPlaceholder: at.ai.placeholder } as never}
             onApiReady={(e) => {
@@ -159,7 +183,7 @@ function Dashboard({ rows, note }: { rows: AnalyticsRows; note?: string }) {
               setPageId(e.state.selectedPageId);
               setPages(e.state.pages.map((p) => p.id));
               window.clearTimeout(saveTimer.current);
-              saveTimer.current = window.setTimeout(() => save(e.state), 600);
+              saveTimer.current = window.setTimeout(() => save(phone, e.state), 600);
             }}
           />
         </AgStudioProvider>

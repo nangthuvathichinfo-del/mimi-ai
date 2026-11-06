@@ -42,3 +42,27 @@ test("Phân tích chi tiêu: bảng, widget Mimi, Hỏi Mimi", async ({ page }) 
 
   expect(errors).toEqual([]);
 });
+
+test.describe("trên điện thoại", () => {
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+
+  test("Phân tích chi tiêu: một cột, không cuộn ngang, Hỏi Mimi chiếm cả màn", async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+    await signIn(page);
+    await page.goto("/spending/analytics");
+    await expect(page.getByText("Sắp hết trước")).toBeVisible({ timeout: 20_000 });
+
+    // Widget nằm gọn trong bề ngang màn hình.
+    const box = await page.locator(".radar").boundingBox();
+    expect(box && box.x + box.width).toBeLessThanOrEqual(390);
+
+    await page.getByRole("button", { name: "Hỏi Mimi", exact: true }).click();
+    await page.getByText("Tuần này cần mua gì?").click();
+    await expect(page.getByText("Các món sắp hết trong 7 ngày:")).toBeVisible({ timeout: 20_000 });
+    const chat = await page.getByText("Các món sắp hết trong 7 ngày:").boundingBox();
+    expect(chat && chat.x + chat.width).toBeLessThanOrEqual(390);
+
+    expect(errors).toEqual([]);
+  });
+});

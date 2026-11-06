@@ -171,3 +171,71 @@ export const pageTitles: Record<string, string> = {
   [PAGE.prices]: at.pages.prices,
   [PAGE.receipts]: at.pages.receipts,
 };
+
+// ---------------- Bản cho điện thoại ----------------
+
+/** Màn hẹp hơn mức này dùng bố cục điện thoại. */
+export const PHONE_MAX_WIDTH = 720;
+
+/**
+ * Bố cục điện thoại từ một báo cáo: canvas co theo màn (Studio mặc định không hẹp hơn 720px,
+ * nên trên điện thoại phải cuộn ngang), widget xếp chồng một cột theo thứ tự đọc của bản máy tính.
+ * Riêng ô số (KPI) đi đôi một hàng hai ô cho đỡ dài.
+ */
+export function toPhoneReport(report: AgReportState): AgReportState {
+  return {
+    ...report,
+    pages: report.pages.map((page) => {
+      const layout = page.widgetLayout ?? {};
+      const ids = Object.keys(page.widgets ?? {}).sort((a, b) => {
+        const la = layout[a];
+        const lb = layout[b];
+        return (la?.yTrack ?? 0) - (lb?.yTrack ?? 0) || (la?.xTrack ?? 0) - (lb?.xTrack ?? 0);
+      });
+      const out: Record<string, AgWidgetLayoutState> = {};
+      let y = 0;
+      let half: number | null = null; // ô KPI đang đứng một mình bên trái hàng
+      let halfId = "";
+      const widgets = { ...page.widgets };
+      for (const id of ids) {
+        const w = page.widgets?.[id] as { type?: string } | undefined;
+        const h = layout[id]?.ySpan ?? 12;
+        if (w?.type === "value") {
+          widgets[id] = phoneKpi(widgets[id]);
+          if (half == null) {
+            out[id] = pos(0, y, 12, h);
+            half = h;
+            halfId = id;
+          } else {
+            out[id] = pos(12, y, 12, h);
+            y += Math.max(half, h);
+            half = null;
+          }
+          continue;
+        }
+        if (half != null) {
+          // ô KPI lẻ cuối hàng thì trải rộng cả hàng
+          out[halfId] = { ...out[halfId], xSpan: 24 };
+          y += half;
+          half = null;
+        }
+        // Bộ lọc nút trên màn hẹp xuống hàng nên cần cao hơn một chút; bảng cần chỗ để cuộn.
+        const ySpan = w?.type === "button-filter" ? Math.max(h, 10) : w?.type === "grid" || w?.type === "pivot-grid" ? Math.max(h, 26) : h;
+        out[id] = pos(0, y, 24, ySpan);
+        y += ySpan;
+      }
+      if (half != null) out[halfId] = { ...out[halfId], xSpan: 24 };
+      return { ...page, widgets, layout: { ...page.layout, minWidth: 300 }, widgetLayout: out };
+    }),
+  };
+}
+
+/** Ô số trên điện thoại chỉ rộng nửa màn, nên chữ số nhỏ lại để số tiền không bị cắt thành "...". */
+function phoneKpi<T>(widget: T): T {
+  const w = widget as { format?: { style?: { typography?: Record<string, unknown> } } };
+  const typography = w.format?.style?.typography;
+  if (!typography) return widget;
+  return { ...w, format: { ...w.format, style: { ...w.format?.style, typography: { ...typography, fontSize: 19 } } } } as T;
+}
+
+export const initialPhoneReport = toPhoneReport(initialReport);
