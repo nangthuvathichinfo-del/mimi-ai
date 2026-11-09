@@ -24,6 +24,10 @@ const ItemDetail = lazy(() => import("../screens/ItemDetail").then((m) => ({ def
 const Scan = lazy(() => import("../screens/Scan").then((m) => ({ default: m.Scan })));
 const PlanList = lazy(() => import("../screens/PlanList").then((m) => ({ default: m.PlanList })));
 const PlanDetail = lazy(() => import("../screens/PlanDetail").then((m) => ({ default: m.PlanDetail })));
+const PlanAdd = lazy(() => import("../screens/PlanFlow22").then((m) => ({ default: m.PlanAdd })));
+const PlanCompare = lazy(() => import("../screens/PlanFlow22").then((m) => ({ default: m.PlanCompare })));
+const PlanConfirm = lazy(() => import("../screens/PlanFlow22").then((m) => ({ default: m.PlanConfirm })));
+const PlanDone = lazy(() => import("../screens/PlanFlow22").then((m) => ({ default: m.PlanDone })));
 const PurchaseHistory = lazy(() => import("../screens/PurchaseHistory").then((m) => ({ default: m.PurchaseHistory })));
 const ReceiptDetailScreen = lazy(() => import("../screens/PurchaseHistory").then((m) => ({ default: m.ReceiptDetailScreen })));
 const RecurringDetail = lazy(() => import("../screens/RecurringDetail").then((m) => ({ default: m.RecurringDetail })));
@@ -95,6 +99,10 @@ function Gate() {
         <Route path="/spending/receipt/:id" element={<ReceiptDetailScreen />} />
         <Route path="/plan" element={<PlanList />} />
         <Route path="/plan/run/:id" element={<ShoppingRun />} />
+        <Route path="/plan/:id/add" element={<PlanAdd />} />
+        <Route path="/plan/:id/compare" element={<PlanCompare />} />
+        <Route path="/plan/:id/confirm" element={<PlanConfirm />} />
+        <Route path="/plan/:id/done" element={<PlanDone />} />
         <Route path="/plan/:id" element={<PlanDetail />} />
         <Route path="/plan/online" element={<OnlineBuy />} />
         <Route path="/orders" element={<Orders />} />

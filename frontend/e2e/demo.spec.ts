@@ -50,17 +50,18 @@ test("kịch bản demo: quét bill, Đồ dùng, Sổ chi tiêu, Kế hoạch",
   await expect(page.getByText("Sữa và chế phẩm sữa")).toBeVisible();
   await expect(page.getByText("Khoản chi định kỳ").first()).toBeVisible();
 
-  // Cảnh 3b và 3c: Kế hoạch có gợi ý món sắp hết, ước tính chi, ba cách mua; Mimi mua online đã mở.
+  // Cảnh 3b và 3c (Mimi 2.2): kế hoạch chưa lưu hiện sẵn ở đầu màn với gợi ý món sắp hết, ước tính chi;
+  // bước Xác nhận có ba cách mua, Mimi mua online vẫn mở.
   await home(page);
   await page.getByRole("link", { name: /^Kế hoạch/ }).first().click();
-  await page.getByText("Giỏ mua sắm", { exact: true }).first().click();
-  await expect(page.getByText("Gợi ý mua")).toBeVisible();
-  await expect(page.getByText(/Dự kiến chi/)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Tôi", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Gửi cho thành viên" })).toBeVisible();
-  const mimi = page.getByRole("button", { name: /Mimi.*Mua online/s });
-  await expect(mimi).toBeVisible();
-  await expect(mimi).toBeEnabled();
+  await expect(page.getByRole("heading", { name: "Giỏ mua sắm" })).toBeVisible();
+  await expect(page.getByText("Gợi ý cho kế hoạch này")).toBeVisible();
+  await expect(page.getByText(/Giá thấp nhất tìm được/)).toBeVisible();
+  await page.getByRole("button", { name: /So sánh giá/ }).first().click();
+  await page.getByRole("button", { name: "Tiếp tục" }).click();
+  await expect(page.getByRole("radio", { name: /Tôi mua/ })).toBeVisible();
+  await expect(page.getByRole("radio", { name: /Minh/ })).toBeVisible();
+  await expect(page.getByRole("radio", { name: /Mimi mua online/ })).toBeEnabled();
 
   expect(errors).toEqual([]);
 });
