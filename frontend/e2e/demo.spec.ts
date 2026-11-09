@@ -55,7 +55,6 @@ test("kịch bản demo: quét bill, Đồ dùng, Sổ chi tiêu, Kế hoạch",
   await home(page);
   await page.getByRole("link", { name: /^Kế hoạch/ }).first().click();
   await expect(page.locator(".top22").getByRole("textbox", { name: "Tên kế hoạch" })).toHaveValue("Giỏ mua sắm");
-  await expect(page.getByText("Gợi ý cho kế hoạch này")).toBeVisible();
   await page.locator(".top22").getByRole("button", { name: "Tiếp tục" }).click();
   await page.getByRole("button", { name: "Tiếp tục" }).click();
   await expect(page.getByRole("radio", { name: /Tôi mua/ })).toBeVisible();

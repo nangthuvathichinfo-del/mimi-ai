@@ -298,12 +298,24 @@
 /* Nút Chi tiết của từng giá và bảng chi tiết giá. */
 [data-ui] .cmpi22__more { flex: none; border: 0; background: transparent; padding: 0; cursor: pointer; display: grid; place-items: center; min-width: 44px; min-height: 44px; border-radius: 12px; color: var(--m15-blue); }
 .det22 { display: grid; gap: 16px; }
-.det22__price { margin: 0; font-size: 26px; font-weight: 700; color: var(--ink); }
-.det22__diff { margin: -8px 0 0; font-size: 14px; font-weight: 600; }
-.det22__diff--down { color: #1f7a52; }
-.det22__diff--up { color: #c2410c; }
-.det22__table { margin: 0; display: grid; border: 1px solid var(--m15-line, #d7def2); border-radius: 16px; overflow: hidden; }
-.det22__table div { display: flex; justify-content: space-between; gap: 12px; padding: 12px 16px; }
+.det22__src { justify-self: start; display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 6px 14px; border-radius: 18px; background: #eaf0ff; color: var(--m15-blue); font-size: 14px; font-weight: 600; }
+.det22__name { margin: 0; font-size: 26px; font-weight: 700; color: var(--ink); line-height: 1.2; }
+.det22__size { margin: 4px 0 0; color: var(--ink-soft); }
+.det22__card { background: #fff; border-radius: 20px; box-shadow: 0 2px 12px rgba(30, 50, 120, .08); }
+.det22__hero { display: grid; justify-items: center; gap: 8px; padding: 24px 16px; text-align: center; }
+.det22__price { margin: 0; font-size: 34px; font-weight: 700; color: var(--ink); }
+.det22__where { margin: 0; color: var(--ink-soft); font-size: 16px; }
+.det22__diff { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 16px; font-size: 14px; font-weight: 600; background: #eef1f6; color: var(--ink-soft); }
+.det22__diff--down { background: #e5f4e4; color: #1f7a52; }
+.det22__diff--up { background: #f9ece7; color: #c2410c; }
+.det22__table { margin: 0; display: grid; padding: 4px 16px; }
+.det22__table div { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 52px; }
 .det22__table div + div { border-top: 1px solid var(--m15-line, #d7def2); }
 .det22__table dt { color: var(--ink-soft); }
 .det22__table dd { margin: 0; font-weight: 600; color: var(--ink); text-align: right; overflow-wrap: anywhere; }
+.det22__table dd a { color: var(--m15-blue); text-decoration: none; }
+.det22__open { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 12px 16px; color: var(--ink); text-decoration: none; }
+.det22__open b { flex: 1; font-size: 17px; }
+.det22__globe { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: #eaf0ff; color: var(--m15-blue); }
+/* Nút Xong dính đáy bảng Thêm sản phẩm. */
+.done22 { position: sticky; bottom: 0; margin: 16px -4px 0; padding: 12px 4px calc(4px + env(safe-area-inset-bottom)); background: linear-gradient(to top, #fff 75%, rgba(255,255,255,0)); }

@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { ChevronLeft, ChevronRight, CircleCheckBig, CirclePlus, ExternalLink, House, Info, Plus, RefreshCw, Store, UserRound } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, CircleCheckBig, CirclePlus, Globe, House, Info, Plus, ReceiptText, Search, TrendingDown, TrendingUp, RefreshCw, Store, UserRound } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { m1 } from "../i18n/m1";
 import { apiSend } from "../api/client";
@@ -22,7 +22,7 @@ import { AddAnything } from "../components/PlanExtras";
 import { Stepper, TripRows, useLowItems } from "../components/PlanDraft22";
 import { LoadState } from "../components/LoadState";
 import { setCurrentPlanId, useCurrentPlanId } from "../lib/currentPlan";
-import { buyerOf, clearDraft, markDraft, setBuyer, usePlanDraftVersion } from "../lib/planDraft";
+import { buyerOf, clearDraft, draftName, markDraft, setBuyer, setDraftName, usePlanDraftVersion } from "../lib/planDraft";
 import { useRelations } from "../lib/relation";
 import { formatDayMonth, formatVnd } from "../lib/text";
 import { planName } from "./PlanList";
@@ -149,11 +149,15 @@ export function Step1Body({ id, cart }: { id: string; cart: Cart }) {
             value={cur}
             maxLength={40}
             aria-label={m15.plan.name}
-            readOnly={meta?.default}
             onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
             onBlur={() => {
               const n = cur.trim();
-              if (meta && !meta.default && n && n !== meta.name) metaAct.update.mutate({ id, name: n }, { onSuccess: () => markDraft(id) });
+              // Giỏ mua sắm (mặc định) không đổi tên trên máy chủ: tên giữ ở nháp, lưu ở bước 3 thì thành tên kế hoạch mới.
+              if (meta?.default) {
+                setDraftName(id, n && n !== m15.plan.main ? n : null);
+                markDraft(id);
+              } else if (meta && n && n !== meta.name) metaAct.update.mutate({ id, name: n }, { onSuccess: () => markDraft(id) });
               setName(null);
             }}
           />
@@ -206,6 +210,11 @@ export function Step1Body({ id, cart }: { id: string; cart: Cart }) {
         <Sheet title={p22.addProduct} sub={p22.addProductSub} onClose={() => setSheet(null)}>
           <AddAnything cart={cart} chips onAdded={() => markDraft(id)} />
           <LowQuick planId={id} cart={cart} />
+          <div className="done22">
+            <button type="button" className="btn btn--primary btn--block btn--lg" onClick={() => setSheet(null)}>
+              <Check size={20} aria-hidden /> {p22.done}
+            </button>
+          </div>
         </Sheet>
       )}
       {iconSheet && meta && (
@@ -387,36 +396,48 @@ export function PlanCompare() {
 }
 
 
-/** Chi tiết một lựa chọn giá (Redesign: nút Details tách khỏi việc chọn dòng). */
+/** Chi tiết một lựa chọn giá, theo màn Product details của Redesign (nút Details tách khỏi việc chọn dòng). */
 function PriceDetail({ item, opt, opts, onClose, onChoose }: { item: CartItem; opt: PriceOption; opts: PriceOption[]; onClose: () => void; onChoose: () => void }) {
   const receipt = opts.find((o) => o.receipt);
   const diff = receipt && !opt.receipt ? opt.total - receipt.total : null;
+  const lowest = opts.length > 1 && opts[0].id === opt.id;
   const p = opt.price;
+  const srcLabel = opt.receipt ? p22.pastReceipt("") : p22.src(p?.source ?? "");
   let domain = "";
   try {
     domain = opt.url ? new URL(opt.url).hostname.replace(/^www\./, "") : "";
   } catch {
     domain = "";
   }
-  const rows: [string, string][] = [
+  const rows: [string, ReactNode][] = [
     [p22.det.seller, opt.store],
-    [p22.det.source, opt.receipt ? p22.pastReceipt("") : p22.src(p?.source ?? "")],
-    ...(p?.size ? [[p22.det.size, p.size] as [string, string]] : []),
-    ...(p?.local != null && p.currency && p.currency !== "VND" ? [[p22.det.local, `${p.local} ${p.currency}`] as [string, string]] : []),
-    ...(domain ? [[p22.det.link, domain] as [string, string]] : []),
-    ...(p?.on ? [[p22.det.checked, formatDayMonth(p.on)] as [string, string]] : []),
-    [p22.det.qty, `${item.qty} ${item.unit ?? ""}`.trim()],
+    [p22.det.source, srcLabel],
+    ...(domain ? [[p22.det.link, <a key="l" href={opt.url} target="_blank" rel="noopener noreferrer">{domain}</a>] as [string, ReactNode]] : []),
+    ...(p?.on ? [[p22.det.checked, formatDayMonth(p.on)] as [string, ReactNode]] : []),
+    ...(p?.local != null && p.currency && p.currency !== "VND" ? [[p22.det.local, `${p.local} ${p.currency}`] as [string, ReactNode]] : []),
   ];
   return (
-    <Sheet title={item.name} sub={opt.receipt ? p22.pastReceipt("") : p22.src(p?.source ?? "")} onClose={onClose}>
+    <Sheet title={p22.det.title} onClose={onClose}>
       <div className="det22">
-        <p className="det22__price num">{formatVnd(opt.total)}</p>
-        {diff != null && (
-          <p className={diff <= 0 ? "det22__diff det22__diff--down" : "det22__diff det22__diff--up"}>
-            {diff === 0 ? p22.det.same : diff < 0 ? p22.det.cheaper(formatVnd(-diff)) : p22.det.dearer(formatVnd(diff))}
-          </p>
-        )}
-        <dl className="det22__table">
+        <span className="det22__src">
+          {opt.receipt ? <ReceiptText size={18} aria-hidden /> : <Search size={18} aria-hidden />} {srcLabel}
+        </span>
+        <div>
+          <h3 className="det22__name">{item.name}</h3>
+          <p className="det22__size">{[p?.size, `${p22.det.qty}: ${item.qty}${item.unit ? " " + item.unit : ""}`].filter(Boolean).join(" · ")}</p>
+        </div>
+        <div className="det22__card det22__hero">
+          <p className="det22__price num">{formatVnd(opt.total)}</p>
+          <p className="det22__where">{lowest ? p22.det.whereLowest(opt.store) : opt.store}</p>
+          {diff != null && diff !== 0 && (
+            <span className={diff < 0 ? "det22__diff det22__diff--down" : "det22__diff det22__diff--up"}>
+              {diff < 0 ? <TrendingDown size={18} aria-hidden /> : <TrendingUp size={18} aria-hidden />}
+              {diff < 0 ? p22.det.cheaper(formatVnd(-diff)) : p22.det.dearer(formatVnd(diff))}
+            </span>
+          )}
+          {diff === 0 && <span className="det22__diff">{p22.det.same}</span>}
+        </div>
+        <dl className="det22__card det22__table">
           {rows.map(([k, v]) => (
             <div key={k}>
               <dt>{k}</dt>
@@ -424,14 +445,19 @@ function PriceDetail({ item, opt, opts, onClose, onChoose }: { item: CartItem; o
             </div>
           ))}
         </dl>
+        {!opt.receipt && <p className="hint">{p22.det.note}</p>}
         {opt.url && (
-          <a className="btn btn--outline btn--block btn--lg" href={opt.url} target="_blank" rel="noopener noreferrer">
-            <ExternalLink size={18} aria-hidden /> {p22.det.open}
+          <a className="det22__card det22__open" href={opt.url} target="_blank" rel="noopener noreferrer">
+            <span className="det22__globe"><Globe size={22} aria-hidden /></span>
+            <b>{p22.det.open}</b>
+            <ChevronRight size={20} aria-hidden />
           </a>
         )}
         {opt.receipt && (
-          <Link className="btn btn--outline btn--block btn--lg" to={`/items/${encodeURIComponent(item.key)}`}>
-            {p22.det.history}
+          <Link className="det22__card det22__open" to={`/items/${encodeURIComponent(item.key)}`}>
+            <span className="det22__globe"><ReceiptText size={22} aria-hidden /></span>
+            <b>{p22.det.history}</b>
+            <ChevronRight size={20} aria-hidden />
           </Link>
         )}
         <button type="button" className="btn btn--primary btn--block btn--lg" onClick={onChoose}>
@@ -496,18 +522,21 @@ export function PlanConfirm() {
     try {
       const base = meta ? planName(meta) : m15.plan.main;
       const stamp = formatDayMonth(new Date().toISOString().slice(0, 10));
+      // Đã tự đặt tên cho Giỏ mua sắm thì dùng đúng tên đó, không thêm ngày.
+      const named = (n: string) => (meta?.default && draftName(id) ? n : `${n} ${stamp}`);
       // Giỏ mua sắm (mặc định) là chỗ nháp: lưu thì chuyển món sang một kế hoạch đặt tên để giữ lại trong Tất cả đơn.
       let storeId = id;
       let onlineId: string | null = null;
       if (online.length > 0 && store.length > 0) {
         onlineId = await moveToNewPlan(id, p22.onlineName(base), online.map((x) => x.item), cart.state);
-        if (meta?.default) storeId = await moveToNewPlan(id, `${base} ${stamp}`, store.map((x) => x.item), cart.state);
+        if (meta?.default) storeId = await moveToNewPlan(id, named(base), store.map((x) => x.item), cart.state);
       } else if (online.length > 0) {
-        onlineId = meta?.default ? await moveToNewPlan(id, `${base} ${stamp}`, online.map((x) => x.item), cart.state) : id;
+        onlineId = meta?.default ? await moveToNewPlan(id, named(base), online.map((x) => x.item), cart.state) : id;
       } else if (meta?.default) {
-        storeId = await moveToNewPlan(id, `${base} ${stamp}`, store.map((x) => x.item), cart.state);
+        storeId = await moveToNewPlan(id, named(base), store.map((x) => x.item), cart.state);
       }
       clearDraft(id);
+      if (meta?.default) setDraftName(id, null);
       let who = "";
       if (store.length > 0 && pick) {
         setBuyer(storeId, pick);

@@ -9,8 +9,8 @@ import { MainFrame, TopBar } from "../components/AppShell";
 import { setCurrentPlanId, useCurrentPlanId } from "../lib/currentPlan";
 import { visiblePlans } from "../components/PlanPicker";
 import { iconOf, planIcon } from "../lib/planIcon";
-import { buyerOf, isDraft, usePlanDraftVersion } from "../lib/planDraft";
-import { Stepper, SuggestGrid } from "../components/PlanDraft22";
+import { buyerOf, draftName, isDraft, usePlanDraftVersion } from "../lib/planDraft";
+import { Stepper } from "../components/PlanDraft22";
 import { NextButton, Step1Body } from "./PlanFlow22";
 import { p22 } from "../i18n/p22";
 import { formatDayMonth, formatVnd } from "../lib/text";
@@ -20,7 +20,7 @@ import { LoadState } from "../components/LoadState";
 const pad = (n: number) => String(n).padStart(2, "0");
 
 export function planName(p: Pick<PlanMeta, "default" | "name">) {
-  return p.default ? m15.plan.main : p.name;
+  return p.default ? draftName("default") || m15.plan.main : p.name;
 }
 
 export function whenText(st: Cart["state"] | undefined): string {
@@ -111,7 +111,6 @@ function Mine() {
       {top && current === top.p.id ? (
         <>
           <TopDraft id={top.p.id} />
-          <SuggestGrid meta={top.p} />
         </>
       ) : (
         !top && <p className="hint">{m15.plan.mineEmpty}</p>
