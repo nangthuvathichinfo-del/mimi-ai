@@ -36,6 +36,9 @@ type Config struct {
 	EmailFrom    string
 	TaxonomyKeys []string // nạp từ file nhúng trong binary, không từ env
 
+	// Channel3: nguồn giá đồ dùng nhà, thuốc, đồ trẻ em ở Mỹ (secret channel3-api-key). Rỗng: tắt.
+	Channel3Key string
+
 	// PayPal (Mimi 2.0 mục 15). PAYPAL_MODE: sandbox | live | fake | off.
 	// fake: giả lập trong bộ nhớ để demo khi chưa có tài khoản Sandbox.
 	PayPalMode     string
@@ -85,6 +88,7 @@ func Load() (Config, error) {
 		BraintreePublicKey:  strings.TrimSpace(os.Getenv("BRAINTREE_PUBLIC_KEY")),
 		BraintreePrivateKey: strings.TrimSpace(os.Getenv("BRAINTREE_PRIVATE_KEY")),
 		BraintreeMerchantAc: strings.TrimSpace(os.Getenv("BRAINTREE_MERCHANT_ACCOUNT_ID")),
+		Channel3Key:         strings.TrimSpace(os.Getenv("CHANNEL3_API_KEY")),
 	}
 	var errs []error
 	if c.ProjectID == "" {

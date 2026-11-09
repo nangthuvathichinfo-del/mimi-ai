@@ -230,13 +230,21 @@ func lookupBatch(ctx context.Context, srcs []Source, items []Wanted, fx FX, day 
 	left := items
 	var firstErr error
 	failed := 0
+	var extra []Source
+	primary, primaryFailed := 0, 0
 	for _, s := range srcs {
+		if a, ok := s.(Additive); ok && a.Additive() {
+			extra = append(extra, s)
+			continue
+		}
+		primary++
 		if len(left) == 0 {
-			break
+			continue
 		}
 		got, err := s.Lookup(ctx, c, left)
 		if err != nil {
 			failed++
+			primaryFailed++
 			if firstErr == nil {
 				firstErr = fmt.Errorf("%s: %w", s.Name(), err)
 			}
@@ -256,10 +264,54 @@ func lookupBatch(ctx context.Context, srcs []Source, items []Wanted, fx FX, day 
 		}
 		left = miss
 	}
+	// Nguồn bổ sung (Channel3): hỏi mọi món, giá ghép thêm cạnh giá nguồn chính. Lỗi chỉ ghi log
+	// ở nơi gọi khi mọi nguồn đều lỗi; nguồn chính vẫn dùng được.
+	for _, s := range extra {
+		got, err := s.Lookup(ctx, c, items)
+		if err != nil {
+			failed++
+			if firstErr == nil {
+				firstErr = fmt.Errorf("%s: %w", s.Name(), err)
+			}
+			continue
+		}
+		for _, w := range items {
+			ps, err := Normalize(ctx, got[w.Key], c, fx, s.Name(), day)
+			if err != nil {
+				return out, err
+			}
+			if len(ps) > 0 {
+				out[w.Key] = merge(out[w.Key], ps)
+			}
+		}
+	}
 	if failed == len(srcs) && firstErr != nil {
 		return out, firstErr
 	}
+	// Nguồn chính lỗi hết mà nguồn bổ sung cũng không ra giá nào: coi như lỗi để thử lại sau.
+	if primary > 0 && primaryFailed == primary && len(out) == 0 && firstErr != nil {
+		return out, firstErr
+	}
 	return out, nil
+}
+
+// Additive: nguồn bổ sung, được hỏi mọi món và ghép giá thêm, không chỉ hỏi món nguồn trước trượt.
+type Additive interface {
+	Additive() bool
+}
+
+// maxMerged: tối đa giá mỗi món khi ghép nhiều nguồn.
+const maxMerged = 8
+
+// merge ghép giá hai nguồn, sắp rẻ trước, tối đa maxMerged. Cùng cửa hàng ở hai nguồn thì giữ cả hai
+// (mỗi nguồn có link riêng), người dùng chọn ở bước So sánh giá.
+func merge(a, b []Price) []Price {
+	out := append(append([]Price{}, a...), b...)
+	sort.SliceStable(out, func(i, j int) bool { return out[i].PriceVND < out[j].PriceVND })
+	if len(out) > maxMerged {
+		out = out[:maxMerged]
+	}
+	return out
 }
 
 // Normalize đổi giá nguồn trả về sang dạng lưu: kiểm tiền gốc theo nước, bỏ người bán lẻ

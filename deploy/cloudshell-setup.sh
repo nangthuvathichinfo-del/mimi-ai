@@ -48,6 +48,12 @@ if [ "$BRAINTREE_MODE" = sandbox ] || [ "$BRAINTREE_MODE" = live ]; then
   [ -n "$BRAINTREE_PUBLIC_KEY" ] || { echo "Thiếu BRAINTREE_PUBLIC_KEY cho BRAINTREE_MODE=$BRAINTREE_MODE"; exit 1; }
   need_secret braintree-private-key BRAINTREE_PRIVATE_KEY
 fi
+# Channel3 (giá đồ dùng nhà, thuốc, đồ trẻ em ở Mỹ): có secret channel3-api-key thì bật, không có thì bỏ qua.
+JOB_SECRET_FLAGS=()
+if gcloud secrets describe channel3-api-key >/dev/null 2>&1; then
+  need_secret channel3-api-key CHANNEL3_API_KEY
+  JOB_SECRET_FLAGS=(--set-secrets "CHANNEL3_API_KEY=channel3-api-key:latest")
+fi
 SECRET_FLAGS=()
 if [ ${#SECRET_ENVS[@]} -gt 0 ]; then
   SECRET_FLAGS=(--set-secrets "$(IFS=,; echo "${SECRET_ENVS[*]}")")
@@ -63,6 +69,10 @@ bind() { gcloud projects add-iam-policy-binding "$PROJECT" --member "serviceAcco
 for r in roles/datastore.user roles/aiplatform.user roles/firebaseauth.admin roles/serviceusage.serviceUsageConsumer; do bind sa-api "$r"; done
 for r in roles/datastore.user roles/firebaseauth.viewer roles/serviceusage.serviceUsageConsumer roles/aiplatform.user; do bind sa-jobs "$r"; done # aiplatform: price-sync tra giá bằng Gemini
 bind sa-scheduler roles/run.invoker
+if [ ${#JOB_SECRET_FLAGS[@]} -gt 0 ]; then # job price-sync cũng đọc key Channel3
+  gcloud secrets add-iam-policy-binding channel3-api-key --member "serviceAccount:sa-jobs@$PROJECT.iam.gserviceaccount.com" \
+    --role roles/secretmanager.secretAccessor --condition=None >/dev/null
+fi
 for sec in "${SECRETS[@]}"; do
   gcloud secrets add-iam-policy-binding "$sec" --member "serviceAccount:sa-api@$PROJECT.iam.gserviceaccount.com" \
     --role roles/secretmanager.secretAccessor --condition=None >/dev/null
@@ -90,15 +100,16 @@ gcloud run deploy mimi-api --source "$ROOT/backend" --region "$REGION" \
 IMAGE="$(gcloud run services describe mimi-api --region "$REGION" --format='value(spec.template.spec.containers[0].image)')"
 
 say "3/7 Các job (cùng image)"
-job() { # tên, thời gian tối đa (mặc định 10m)
-  gcloud run jobs deploy "mimi-job-$1" --image "$IMAGE" --region "$REGION" \
+job() { # tên, thời gian tối đa (mặc định 10m), cờ thêm
+  local extra=("${@:3}")
+  gcloud run jobs deploy "mimi-job-$1" --image "$IMAGE" --region "$REGION" "${extra[@]}" \
     --service-account "sa-jobs@$PROJECT.iam.gserviceaccount.com" \
     --set-env-vars "GOOGLE_CLOUD_PROJECT=$PROJECT,MIMI_ENV=dev,APP_CHECK_REQUIRED=false,GEMINI_MODEL=$GEMINI_MODEL,GEMINI_LOCATION=global" \
     --args "job,$1" --max-retries 1 --task-timeout "${2:-10m}" --quiet >/dev/null
   echo "  mimi-job-$1"
 }
 for j in fx-sync cleanup migrate seed-demo; do job "$j"; done
-job price-sync 60m # bảng giá chung: tối đa 200 món mỗi đêm, mỗi món vài giây
+job price-sync 60m "${JOB_SECRET_FLAGS[@]}" # bảng giá chung: tối đa 200 món mỗi đêm, mỗi món vài giây
 
 say "4/7 Lịch chạy job (giờ Việt Nam)"
 sched() { # tên job, cron

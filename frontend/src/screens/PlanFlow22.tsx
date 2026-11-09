@@ -55,7 +55,7 @@ export function optionsOf(item: CartItem, prices: MarketPrice[]): PriceOption[] 
   if (item.unit_price != null)
     out.push({ id: "receipt", store: item.best_store || p22.pastReceipt(""), sub: p22.pastReceipt(""), total: item.unit_price * item.qty, receipt: true });
   prices.forEach((p, i) =>
-    out.push({ id: `web:${i}:${p.store}`, store: p.store, sub: [p22.online, p.size, formatDayMonth(p.on)].filter(Boolean).join(" · "), total: p.price_vnd * item.qty, url: p.url, receipt: false }),
+    out.push({ id: `web:${i}:${p.store}`, store: p.store, sub: [p22.src(p.source), p.size, formatDayMonth(p.on)].filter(Boolean).join(" · "), total: p.price_vnd * item.qty, url: p.url, receipt: false }),
   );
   return out.sort((a, b) => a.total - b.total);
 }
