@@ -7,7 +7,7 @@ import { GroupInput } from "../components/GroupInput";
 import { ApiError } from "../api/client";
 import { useCorrectItem, useItem, useItemMarketPrices, useItemPriceHistory, useSetQuantity, useTaxonomyLabels } from "../api/hooks";
 import { PlanPicker, useKeysInPlans } from "../components/PlanPicker";
-import type { ItemDetail as ItemDetailData } from "../api/types";
+import type { ItemDetail as ItemDetailData, PriceObservation } from "../api/types";
 import { MainFrame, TopBar } from "../components/AppShell";
 import { ALL_UNITS, formatNum, rememberUnit, savedUnit, stockInDisplay, unitLabel } from "../lib/displayUnit";
 import { formatDayMonth, formatVnd } from "../lib/text";
@@ -37,7 +37,7 @@ export function ItemDetail() {
         {item && (
           <>
             <QuantityCard item={item} />
-            <PriceCompare itemKey={item.key} />
+            <PriceCompare itemKey={item.key} unit={stockInDisplay(item)?.[1] ?? savedUnit(item)} />
             <HistoryCard itemKey={item.key} unit={stockInDisplay(item)?.[1] ?? savedUnit(item)} />
           </>
         )}
@@ -158,16 +158,39 @@ function site(url: string): string {
  * Mimi 2.2 (anh yêu cầu 09/11): so sánh giá đang bán của món, từ bảng giá chung (Mimi tra mỗi
  * đêm). Rẻ nhất đứng đầu có nhãn "Thấp nhất"; mỗi giá có link mở trang nguồn.
  */
-function PriceCompare({ itemKey }: { itemKey: string }) {
+function PriceCompare({ itemKey, unit }: { itemKey: string; unit: string }) {
   const q = useItemMarketPrices(itemKey);
+  const h = useItemPriceHistory(itemKey);
   const d = q.data;
   const prices = [...(d?.prices ?? [])].sort((a, b) => a.price_vnd - b.price_vnd);
+  const ours = (label: string, o: PriceObservation | null | undefined) =>
+    o && (
+      <div className="cmp22__our">
+        <dt>{label}</dt>
+        <dd>
+          <b className="num">{formatVnd(o.paid_price, o.purchased_at)}/{unitLabel(unit)}</b>
+          <small>{[o.store_name, formatDayMonth(o.purchased_at.slice(0, 10))].filter(Boolean).join(" · ")}</small>
+        </dd>
+      </div>
+    );
+  const last = h.data?.last_purchase;
+  const low = h.data?.lowest_historical;
   return (
     <section className="box15 cmp22" aria-labelledby="cmp-title">
       <div className="cmp22__head">
         <h2 id="cmp-title">{s22.compare.title}</h2>
-        <p className="hint">{s22.compare.sub}</p>
       </div>
+      <h3 className="cmp22__sub">{s22.compare.ours}</h3>
+      {last || low ? (
+        <dl className="cmp22__ours">
+          {ours(s22.compare.oursLast, last)}
+          {ours(s22.compare.oursLow, low)}
+        </dl>
+      ) : (
+        <p className="hint">{h.isPending ? t.common.loading : s22.compare.oursNone}</p>
+      )}
+      <h3 className="cmp22__sub">{s22.compare.online}</h3>
+      <p className="hint">{s22.compare.sub}</p>
       {!d ? (
         <LoadState q={q} hasData={false} />
       ) : prices.length === 0 ? (

@@ -74,14 +74,19 @@ const vi = {
   },
   compare: {
     title: "So sánh giá",
-    sub: "Giá đang bán trên mạng, Mimi tra mỗi đêm",
+    sub: "Mimi tra giá mỗi đêm",
     lowest: "Thấp nhất",
     source: (site: string) => `Mở ${site}`,
     sourceLabel: (store: string) => `Xem giá tại ${store} (mở trang nguồn)`,
     updated: (d: string) => `Cập nhật ${d}`,
     pending: "Mimi đang tra giá món này, sẽ có trong vài ngày.",
     none: "Mimi chưa tìm thấy nơi bán món này trên mạng.",
-    disclaimer: "Giá tham khảo từ trang công khai, có thể đã thay đổi. Giá trên hóa đơn của nhà mình nằm ở Lịch sử mua hàng.",
+    disclaimer: "Giá tham khảo từ trang công khai, có thể đã thay đổi. Từng lần nhà mình mua nằm ở Lịch sử mua hàng bên dưới.",
+    ours: "Nhà mình đã mua",
+    oursLast: "Lần trước",
+    oursLow: "Thấp nhất từng mua",
+    oursNone: "Chưa có hóa đơn nào có món này.",
+    online: "Đang bán trên mạng",
   },
 };
 
@@ -161,14 +166,19 @@ const en: typeof vi = {
   },
   compare: {
     title: "Compare prices",
-    sub: "Prices online, checked by Mimi every night",
+    sub: "Mimi checks prices every night",
     lowest: "Lowest",
     source: (site) => `Open ${site}`,
     sourceLabel: (store) => `See the price at ${store} (opens the source page)`,
     updated: (d) => `Updated ${d}`,
     pending: "Mimi is looking up this item. Prices will show within a few days.",
     none: "Mimi has not found this item for sale online yet.",
-    disclaimer: "Reference prices from public pages; they may have changed. What you paid is under Purchase history.",
+    disclaimer: "Reference prices from public pages; they may have changed. Each of your purchases is under Purchase history below.",
+    ours: "What you paid",
+    oursLast: "Last time",
+    oursLow: "Lowest you paid",
+    oursNone: "No receipt has this item yet.",
+    online: "For sale online",
   },
 };
 

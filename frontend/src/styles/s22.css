@@ -90,6 +90,14 @@
 .cmp22 { display: grid; gap: 12px; }
 .cmp22__head { display: grid; gap: 4px; }
 .cmp22__head h2, .cmp22__head p { margin: 0; }
+.cmp22 > .cmp22__sub { margin: 4px 0 -4px; font-size: 13px; font-weight: 600; color: var(--mute, var(--ink-soft)); }
+.cmp22 > .hint { margin: 0; }
+.cmp22__ours { margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cmp22__our { padding: 12px; border-radius: 12px; background: color-mix(in srgb, var(--m15-blue) 5%, transparent); display: grid; gap: 4px; align-content: start; min-width: 0; }
+.cmp22__our dt { font-size: 12.5px; color: var(--ink-soft); }
+.cmp22__our dd { margin: 0; display: grid; gap: 2px; }
+.cmp22__our b { font-size: 16px; font-weight: 700; color: var(--ink); }
+.cmp22__our small { font-size: 12.5px; color: var(--ink-soft); overflow-wrap: anywhere; }
 .cmp22__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .cmp22__row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 12px; border-radius: 12px; background: color-mix(in srgb, var(--m15-blue) 5%, transparent); }
 .cmp22__row--best { background: color-mix(in srgb, var(--m15-grn, #1f7a3a) 10%, transparent); }

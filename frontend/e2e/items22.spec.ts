@@ -25,6 +25,9 @@ test("Đồ dùng 2.2: lọc, giá rẻ nhất, so sánh giá có link nguồn",
   await page.goto("/items/sua-tuoi");
   await expect(page.getByRole("heading", { name: "So sánh giá" })).toBeVisible();
   await expect(page.locator(".cmp22__row").first()).toContainText("Thấp nhất");
+  // Giá nhà mình từng mua (từ hóa đơn) đứng trên giá đang bán.
+  await expect(page.locator(".cmp22__ours")).toContainText("Lần trước");
+  await expect(page.locator(".cmp22__ours")).toContainText("Thấp nhất từng mua");
   const link = page.locator(".cmp22__src").first();
   await expect(link).toHaveAttribute("href", /^https:\/\//);
   await expect(link).toHaveAttribute("target", "_blank");
