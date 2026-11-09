@@ -5,6 +5,9 @@
 //   - Chỉ lấy từ nguồn công khai (đối tác khi có, tra Google bằng Gemini). Giá trên hóa đơn
 //     của một nhà KHÔNG vào bảng này: nó chỉ dùng cho chính nhà đó (package pricing).
 //   - Danh sách món cần giá chỉ có tên món, không kèm ai cần.
+//   - Món cần giá (anh chốt 09/11/2026): mọi món từng nằm trong tồn kho, hóa đơn đã quét hoặc
+//     kế hoạch của mọi tài khoản. Tra theo thứ tự ưu tiên: món trong kế hoạch đang mở, món sắp
+//     hết, rồi món nhiều nhà có.
 //   - Job price-sync chạy mỗi đêm: món nào đã có giá trong FreshFor thì bỏ qua; mỗi đêm tối
 //     đa Limit món để giữ chi phí cố định.
 package market
@@ -52,9 +55,12 @@ type Wanted struct {
 	Name     string
 	GroupKey string
 	Category string // category_key, để gom món cùng ngành hàng và dùng link ngành hàng trong sổ nguồn
+	// Priority: 2 món trong kế hoạch đang mở, 1 món sắp hết trong tồn kho, 0 còn lại.
+	// Trong giới hạn mỗi đêm, món ưu tiên cao được tra trước.
+	Priority int
 }
 
-// Demand liệt kê món đang nằm trong kế hoạch (dòng mở) của mọi nhà, có thể trùng nhau.
+// Demand liệt kê món cần có giá của mọi nhà (tồn kho, hóa đơn, kế hoạch), có thể trùng nhau.
 type Demand interface {
 	WantedItems(ctx context.Context) ([]Wanted, error)
 }
@@ -131,7 +137,7 @@ func Sync(ctx context.Context, d Demand, st Store, srcs []Source, o Options) (Re
 	if err != nil {
 		return res, fmt.Errorf("market: wanted items: %w", err)
 	}
-	wanted, counts := dedupe(all)
+	wanted, counts, prio := dedupe(all)
 	res.Wanted = len(wanted)
 	fresh, err := st.FreshKeys(ctx, o.Now.Add(-o.FreshFor))
 	if err != nil {
@@ -145,8 +151,11 @@ func Sync(ctx context.Context, d Demand, st Store, srcs []Source, o Options) (Re
 		}
 		todo = append(todo, w)
 	}
-	// Món nhiều nhà cần được tra trước; cùng số nhà thì theo key cho ổn định.
+	// Ưu tiên cao tra trước, rồi món nhiều nhà cần; cùng số nhà thì theo key cho ổn định.
 	sort.SliceStable(todo, func(i, j int) bool {
+		if prio[todo[i].Key] != prio[todo[j].Key] {
+			return prio[todo[i].Key] > prio[todo[j].Key]
+		}
 		if counts[todo[i].Key] != counts[todo[j].Key] {
 			return counts[todo[i].Key] > counts[todo[j].Key]
 		}
@@ -329,8 +338,8 @@ func Clean(ps []Price, source, day string) []Price {
 	return out
 }
 
-func dedupe(all []Wanted) ([]Wanted, map[string]int) {
-	counts := map[string]int{}
+func dedupe(all []Wanted) ([]Wanted, map[string]int, map[string]int) {
+	counts, prio := map[string]int{}, map[string]int{}
 	var out []Wanted
 	for _, w := range all {
 		w.Name = strings.TrimSpace(w.Name)
@@ -345,6 +354,7 @@ func dedupe(all []Wanted) ([]Wanted, map[string]int) {
 			out = append(out, w)
 		}
 		counts[w.Key]++
+		prio[w.Key] = max(prio[w.Key], w.Priority)
 	}
-	return out, counts
+	return out, counts, prio
 }

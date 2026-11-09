@@ -868,6 +868,18 @@ function mockMarketItems() {
   }));
 }
 
+/** Bản thử: giá chung của một món, có link nguồn giả tới trang tìm kiếm của cửa hàng. Cà phê: chưa tra lần nào. */
+const STORE_SITE: Record<string, string> = { "Co.opmart": "https://cooponline.vn/search?q=", "Bách Hóa Xanh": "https://www.bachhoaxanh.com/tim-kiem?key=", WinMart: "https://winmart.vn/search?q=" };
+function mockItemMarket(key: string, name: string) {
+  if (key === "ca-phe") return { key, name, prices: [], updated_at: null };
+  const on = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+  const base = MOCK_PRICES[key] ?? (key === "kem-danh-rang" ? { WinMart: 34_000, "Co.opmart": 36_500 } : {});
+  const prices = Object.entries(base)
+    .map(([store, v]) => ({ store, price_vnd: Math.round((v * 0.97) / 100) * 100, currency: "VND", source: "gemini_search", url: `${STORE_SITE[store] ?? "https://www.google.com/search?q="}${encodeURIComponent(name)}`, on }))
+    .sort((a, b) => a.price_vnd - b.price_vnd);
+  return { key, name, prices, updated_at: new Date(Date.now() - 6 * 3_600_000).toISOString() };
+}
+
 function mockM1(method: string, url: URL, init: RequestInit): Response | null {
   const p = url.pathname;
   const body = () => (init.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : {});
@@ -927,6 +939,16 @@ function mockM1(method: string, url: URL, init: RequestInit): Response | null {
       namedPlans.delete(planM[1]);
       return json(undefined, 204);
     }
+  }
+
+  // Mimi 2.2: giá chung theo món (bảng giá lấy mọi món từng có trong tồn kho, hóa đơn, kế hoạch).
+  if (p === "/items/market-prices" && method === "GET") {
+    return json({ items: items.map((i) => mockItemMarket(i.key, i.name)).filter((m) => m.prices.length > 0) });
+  }
+  const imp = p.match(/^\/items\/([^/]+)\/market-prices$/);
+  if (imp && method === "GET") {
+    const it = items.find((i) => i.key === decodeURIComponent(imp[1]));
+    return it ? json(mockItemMarket(it.key, it.name)) : notFound();
   }
 
   // Lịch sử giá

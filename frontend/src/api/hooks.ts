@@ -4,7 +4,7 @@ import { ApiError, UPLOAD_TIMEOUT_MS, apiGet, apiSend, apiSendQueued, apiUploadI
 import { currentPlanId, planQuery, useCurrentPlanId } from "../lib/currentPlan";
 import type {
   Assignment, HistoryReceipt, ReceiptDetail, Basket, BasketPrices, MarketPrices, MarketRefresh, Cart, Delegated, DeliveryObservation, Forecast, HomeSummary, Household, Item, ItemDetail,
-  ItemPriceHistory, ItemsQuery, Mandate, Me, Notification, Occurrence, Order, PlanLinePatch, PlanMeta, PlanPrices, PlanState,
+  ItemMarketPrices, ItemPriceHistory, ItemsQuery, Mandate, Me, Notification, Occurrence, Order, PlanLinePatch, PlanMeta, PlanPrices, PlanState,
   QuickStock, ReceiptDraft, ReceiptDraftLine, Recurring, RecurringInput, RefundReason, SaveReceiptRequest, SaveReceiptResult, SettingsPatch,
   SpendingReport, TaxonomyGroup,
 } from "./types";
@@ -477,6 +477,23 @@ export function useRefreshMarketPrices() {
     onError: () => qc.invalidateQueries({ queryKey: ["plan", "market-prices"] }),
   });
 }
+
+/** Mimi 2.2: giá đang bán của một món (bảng giá chung), cho mục So sánh giá ở Chi tiết món. */
+export const useItemMarketPrices = (key: string) =>
+  useQuery({
+    queryKey: ["item", key, "market"],
+    queryFn: () => apiGet<ItemMarketPrices>(`${itemPath(key)}/market-prices`),
+    enabled: key !== "",
+    staleTime: 30 * 60_000, // bảng giá chỉ đổi mỗi đêm
+  });
+
+/** Mimi 2.2: giá rẻ nhất của mọi món đang theo dõi, cho dòng "Rẻ nhất" trên thẻ món. */
+export const useItemsMarketPrices = () =>
+  useQuery({
+    queryKey: ["items", "market"],
+    queryFn: () => apiGet<{ items: ItemMarketPrices[] }>("/items/market-prices"),
+    staleTime: 30 * 60_000,
+  });
 
 export const useItemPriceHistory = (key: string) =>
   useQuery({

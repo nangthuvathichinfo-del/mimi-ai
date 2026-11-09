@@ -474,6 +474,8 @@ export type ItemPriceHistory = {
 export type MarketPrice = { store: string; price_vnd: number; local?: number; currency?: string; size?: string; source: string; url?: string; on: string };
 /** Nút "Cập nhật giá": còn mấy lần hôm nay, lần bấm gần nhất. */
 export type MarketRefreshStatus = { daily: number; left: number; last_at?: string };
+/** Mimi 2.2: giá chung của một món trong Đồ dùng. updated_at null: Mimi chưa tra món này lần nào. */
+export type ItemMarketPrices = { key: string; name: string; prices: MarketPrice[]; updated_at: string | null };
 export type MarketPrices = { items: { key: string; name: string; prices: MarketPrice[]; updated_at: string }[]; refresh?: MarketRefreshStatus };
 /** Nút "Cập nhật giá": bảng giá mới kèm số món vừa tra. */
 export type MarketRefresh = MarketPrices & { looked: number; found: number; fresh: number };

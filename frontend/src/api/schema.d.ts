@@ -1016,6 +1016,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/items/market-prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Mimi 2.2: giá chung của mọi món đang theo dõi, cho dòng Rẻ nhất trên thẻ món. Chỉ món đã có giá. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["ItemMarketPrices"][];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/items/{key}/market-prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Mimi 2.2: giá đang bán của một món (bảng giá chung, nước của người dùng), cho mục So sánh giá trong Chi tiết món
+         * @description Bảng giá lấy mọi món từng có trong tồn kho, hóa đơn, kế hoạch của mọi tài khoản (anh chốt 09/11). updated_at null khi món chưa được tra lần nào.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    key: components["parameters"]["ItemKey"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ItemMarketPrices"];
+                    };
+                };
+                404: components["responses"]["Error"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/needs": {
         parameters: {
             query?: never;
@@ -3669,6 +3749,13 @@ export interface components {
              * @description Lần bấm gần nhất; vắng khi chưa bấm lần nào
              */
             last_at?: string;
+        };
+        ItemMarketPrices: {
+            key: string;
+            name: string;
+            prices: components["schemas"]["MarketPrice"][];
+            /** Format: date-time */
+            updated_at: string | null;
         };
         MarketPrices: {
             refresh?: components["schemas"]["MarketRefreshStatus"];

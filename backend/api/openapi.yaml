@@ -342,6 +342,23 @@ paths:
       summary: "8.1 mục 14.1: giá gần nhất, thấp nhất, trung bình theo đơn giá chuẩn hóa (đ / g, ml, m, item)"
       parameters: [{ $ref: "#/components/parameters/ItemKey" }]
       responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ItemPriceHistory" } } } } }
+  /items/market-prices:
+    get:
+      tags: [items]
+      summary: "Mimi 2.2: giá chung của mọi món đang theo dõi, cho dòng Rẻ nhất trên thẻ món. Chỉ món đã có giá."
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: "#/components/schemas/ItemMarketPrices" } } } } } }
+  /items/{key}/market-prices:
+    get:
+      tags: [items]
+      summary: "Mimi 2.2: giá đang bán của một món (bảng giá chung, nước của người dùng), cho mục So sánh giá trong Chi tiết món"
+      description: Bảng giá lấy mọi món từng có trong tồn kho, hóa đơn, kế hoạch của mọi tài khoản (anh chốt 09/11). updated_at null khi món chưa được tra lần nào.
+      parameters: [{ $ref: "#/components/parameters/ItemKey" }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ItemMarketPrices" } } } }
+        "404": { $ref: "#/components/responses/Error" }
   /needs:
     get:
       tags: [items]
@@ -1371,6 +1388,14 @@ components:
         daily: { type: integer, description: Số lần bấm Cập nhật giá mỗi ngày }
         left: { type: integer, description: Số lần còn lại hôm nay }
         last_at: { type: string, format: date-time, description: Lần bấm gần nhất; vắng khi chưa bấm lần nào }
+    ItemMarketPrices:
+      type: object
+      required: [key, name, prices, updated_at]
+      properties:
+        key: { type: string }
+        name: { type: string }
+        prices: { type: array, items: { $ref: "#/components/schemas/MarketPrice" } }
+        updated_at: { type: [string, "null"], format: date-time }
     MarketPrices:
       type: object
       required: [items]

@@ -61,6 +61,28 @@ const vi = {
   donut: { total: "Tổng", hint: "Chạm một nhóm để xem số tiền" },
   due: (d: number) => (d < 0 ? `quá hạn ${-d} ngày` : d === 0 ? "hôm nay" : `còn ${d} ngày`),
   analytics: "Phân tích và hỏi Mimi",
+  /** Màn Đồ dùng 2.2 (đề xuất chốt 09/11). */
+  items: {
+    all: "Tất cả",
+    attention: (n: number) => `Cần chú ý (${n})`,
+    plenty: "Còn nhiều",
+    filters: "Lọc món",
+    noMatch: "Không có món nào khớp",
+    noMatchSub: "Thử gõ tên ngắn hơn.",
+    cheapest: (v: string, store: string) => `Rẻ nhất ${v} · ${store}`,
+    recHint: "Mimi liệt kê các khoản chi lặp lại. Bấm một khoản để xem chi tiết.",
+  },
+  compare: {
+    title: "So sánh giá",
+    sub: "Giá đang bán trên mạng, Mimi tra mỗi đêm",
+    lowest: "Thấp nhất",
+    source: (site: string) => `Mở ${site}`,
+    sourceLabel: (store: string) => `Xem giá tại ${store} (mở trang nguồn)`,
+    updated: (d: string) => `Cập nhật ${d}`,
+    pending: "Mimi đang tra giá món này, sẽ có trong vài ngày.",
+    none: "Mimi chưa tìm thấy nơi bán món này trên mạng.",
+    disclaimer: "Giá tham khảo từ trang công khai, có thể đã thay đổi. Giá trên hóa đơn của nhà mình nằm ở Lịch sử mua hàng.",
+  },
 };
 
 const en: typeof vi = {
@@ -127,6 +149,27 @@ const en: typeof vi = {
   donut: { total: "Total", hint: "Tap a group to see the amount" },
   due: (d) => (d < 0 ? `${-d} days overdue` : d === 0 ? "today" : `in ${d} days`),
   analytics: "Analysis and Ask Mimi",
+  items: {
+    all: "All",
+    attention: (n) => `Needs attention (${n})`,
+    plenty: "Plenty left",
+    filters: "Filter items",
+    noMatch: "Nothing matches",
+    noMatchSub: "Try a shorter name.",
+    cheapest: (v, store) => `Lowest ${v} · ${store}`,
+    recHint: "Mimi lists bills that repeat. Tap one to see its details.",
+  },
+  compare: {
+    title: "Compare prices",
+    sub: "Prices online, checked by Mimi every night",
+    lowest: "Lowest",
+    source: (site) => `Open ${site}`,
+    sourceLabel: (store) => `See the price at ${store} (opens the source page)`,
+    updated: (d) => `Updated ${d}`,
+    pending: "Mimi is looking up this item. Prices will show within a few days.",
+    none: "Mimi has not found this item for sale online yet.",
+    disclaimer: "Reference prices from public pages; they may have changed. What you paid is under Purchase history.",
+  },
 };
 
 export const s22 = uiLang === "en" ? en : vi;

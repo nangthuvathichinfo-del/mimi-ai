@@ -351,6 +351,8 @@ func (s *Server) Handler() http.Handler {
 	}
 	if s.market != nil {
 		private("GET /plan/market-prices", s.defaultTimeout, s.getPlanMarketPrices)
+		private("GET /items/{key}/market-prices", s.defaultTimeout, s.getItemMarketPrices)
+		private("GET /items/market-prices", s.defaultTimeout, s.listItemMarketPrices)
 		if s.priceRefresh != nil {
 			private("POST /plan/market-prices/refresh", s.readTimeout, s.refreshPlanMarketPrices)
 		}

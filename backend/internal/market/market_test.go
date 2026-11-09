@@ -317,3 +317,26 @@ func TestSelectableCountries(t *testing.T) {
 		t.Fatal(Countries["US"], Countries["SG"])
 	}
 }
+
+// Anh chốt 09/11: món trong kế hoạch đang mở tra trước, rồi món sắp hết, dù món khác nhiều nhà có hơn.
+func TestSyncPriority(t *testing.T) {
+	now := time.Date(2026, 11, 9, 2, 0, 0, 0, time.UTC)
+	d := fakeDemand{
+		{Country: "VN", Name: "Gạo ST25"}, {Country: "VN", Name: "Gạo ST25"}, {Country: "VN", Name: "Gạo ST25"},
+		{Country: "VN", Name: "Trứng gà", Priority: 1},
+		{Country: "VN", Name: "Sữa tươi", Priority: 2},
+		{Country: "VN", Name: "Trứng gà"}, // cùng món ở nhà khác, vẫn giữ ưu tiên cao nhất
+	}
+	src := &fakeSource{name: "gemini_search", prices: map[string][]Price{}}
+	res, err := Sync(context.Background(), d, &fakeStore{}, []Source{src}, Options{Limit: 2, Now: now})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Wanted != 3 || res.Looked != 2 || res.Skipped != 1 {
+		t.Fatalf("%+v", res)
+	}
+	want := []string{ItemID("VN", "Sữa tươi"), ItemID("VN", "Trứng gà")}
+	if fmt.Sprint(src.calls) != fmt.Sprint(want) {
+		t.Fatalf("order %v, want %v", src.calls, want)
+	}
+}

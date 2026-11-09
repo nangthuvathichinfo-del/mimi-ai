@@ -85,3 +85,31 @@
 .day22__head { margin: 0 4px; display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; color: var(--ink-soft); }
 
 @media (prefers-reduced-motion: reduce) { .donut22__svg circle { transition: none; } }
+
+/* Đồ dùng 2.2: So sánh giá trong Chi tiết món */
+.cmp22 { display: grid; gap: 12px; }
+.cmp22__head { display: grid; gap: 4px; }
+.cmp22__head h2, .cmp22__head p { margin: 0; }
+.cmp22__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.cmp22__row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 12px; border-radius: 12px; background: color-mix(in srgb, var(--m15-blue) 5%, transparent); }
+.cmp22__row--best { background: color-mix(in srgb, var(--m15-grn, #1f7a3a) 10%, transparent); }
+.cmp22__store { min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.cmp22__store b { font-size: 15px; font-weight: 600; color: var(--ink); }
+.cmp22__store small { flex-basis: 100%; font-size: 12.5px; color: var(--ink-soft); }
+.cmp22__tag { font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; color: var(--m15-grn, #1f7a3a); background: color-mix(in srgb, var(--m15-grn, #1f7a3a) 16%, transparent); }
+.cmp22__src { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; font-size: 13px; font-weight: 600; color: var(--m15-blue); text-decoration: none; overflow-wrap: anywhere; }
+.cmp22__price { flex: none; font-size: 16px; font-weight: 700; color: var(--ink); }
+.cmp22__row--best .cmp22__price { color: var(--m15-grn, #1f7a3a); }
+
+/* Đồ dùng 2.2: chip lọc, dòng Rẻ nhất trên thẻ món, nhãn chu kỳ, trạng thái không tìm thấy */
+.chips22 { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px 2px; }
+.chips22::-webkit-scrollbar { display: none; }
+.chips22 button { flex: none; min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--m15-line, #e3e8f7); background: var(--paper, #fff); color: var(--ink); font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+.chips22 button[aria-pressed="true"] { background: var(--m15-blue); border-color: var(--m15-blue); color: #fff; }
+.cheap22 { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 600; color: var(--m15-grn, #1f7a3a); }
+.cyc22 { margin-left: 6px; font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; color: var(--m15-blue); background: color-mix(in srgb, var(--m15-blue) 12%, transparent); vertical-align: 2px; white-space: nowrap; }
+.nomatch22 { display: grid; justify-items: center; gap: 8px; padding: 32px 16px; text-align: center; }
+.nomatch22__ill { width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center; color: var(--m15-blue); background: color-mix(in srgb, var(--m15-blue) 12%, transparent); }
+.nomatch22 h2 { margin: 0; font-size: 17px; }
+.nomatch22 p { margin: 0; color: var(--ink-soft); }
+.seg15 button svg { flex: none; }
