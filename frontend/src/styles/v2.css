@@ -162,7 +162,7 @@
   .set15__list, .set15__me, .save15, .sync15, .welcome__card, .tile, .list, .spend-hero, .plan-stop, .h15__tile) {
   background: var(--card); border: 0; border-radius: var(--r-card); box-shadow: var(--shadow);
 }
-[data-ui="v2"] :is(.card15, .box15, .plancard15) { padding: 14px 16px; }
+[data-ui="v2"] :is(.card15, .box15, .plancard15) { padding: 16px; } /* lưới 4/8 của iOS */
 [data-ui="v2"] .welcome__card { padding: 18px; }
 [data-ui="v2"] .g15__list { gap: 12px; }
 /* Thẻ "Tiết kiệm nhiều nhất": giữ ý xanh lá nhưng nhẹ hơn */

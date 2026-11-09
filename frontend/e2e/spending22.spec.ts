@@ -18,7 +18,11 @@ test("Sổ chi tiêu 2.2: ngân sách, Còn tiêu được, Mimi nhận thấy, 
   await page.goto("/spending");
 
   await expect(page.getByText("Theo dõi những gì mẹ đã chi")).toBeVisible();
-  await expect(page.getByText(/so với cùng kỳ tháng/)).toBeVisible();
+  await expect(page.getByText(/so với 1–\d+\/\d+/)).toBeVisible();
+  await expect(page.getByRole("img", { name: "Chi tiêu cộng dồn từ đầu tháng" })).toBeVisible();
+  // Thẻ đến dần nhưng hàng vẫn đứng ở thẻ đầu (không bị cuộn bắt dính giữ thẻ cũ).
+  await expect(page.locator(".noticed22__card")).toHaveCount(4);
+  expect(await page.locator(".noticed22").evaluate((e) => e.scrollLeft)).toBe(0);
   await expect(page.getByRole("button", { name: "Sửa ngân sách" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Còn tiêu được" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Mimi nhận thấy" })).toBeVisible();

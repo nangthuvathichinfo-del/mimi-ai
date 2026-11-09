@@ -2,7 +2,7 @@ import { t } from "../i18n";
 import { m15 } from "../i18n/m15";
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { CalendarDays, ChartPie, ChevronDown, ChevronLeft, ChevronRight, Clock, ScanLine, ShoppingCart, Trophy } from "lucide-react";
+import { CalendarDays, ChartPie, ChevronDown, ChevronLeft, ChevronRight, Clock, Minus, ScanLine, ShoppingCart, TrendingDown, TrendingUp, Trophy } from "lucide-react";
 import { at as ana } from "../analytics/text";
 import { ApiError } from "../api/client";
 import { useForecast, useItems, useReceiptHistory, useRecurring, useSpending } from "../api/hooks";
@@ -15,7 +15,7 @@ import { addMonths, currentMonth, formatDayMonth, formatVnd } from "../lib/text"
 import { LoadState } from "../components/LoadState";
 import { s22 } from "../i18n/s22";
 import { daysUntil } from "../lib/displayUnit";
-import { BudgetBar, BudgetInvite, BudgetSheet, CategoryDonut, Noticed, SafeToSpend, billsLeft, monthClock, safeToSpend, useBudget } from "../components/SpendingPlus";
+import { BudgetBar, BudgetInvite, BudgetSheet, CategoryDonut, Noticed, SafeToSpend, Sparkline, billsLeft, monthClock, safeToSpend, useBudget } from "../components/SpendingPlus";
 
 const ym = (s: string) => s.split("-").map(Number) as [number, number];
 
@@ -90,16 +90,17 @@ function EmptyMonth() {
   );
 }
 
-function compare(r: SpendingReport, month: string): string {
-  const [py, pm] = ym(addMonths(month, -1));
+function compare(r: SpendingReport, month: string): { dir: "up" | "down" | "flat"; text: string } {
+  const [, pm] = ym(addMonths(month, -1));
   // Mimi 2.2 (C3): tháng hiện tại so với cùng kỳ tháng trước; tháng cũ vẫn so cả tháng.
+  // Nhãn gọn như Redesign: "Nhiều hơn 34% so với 1–9/10", "Ít hơn 12% so với tháng 9".
   const same = r.same_range_day != null && r.spent_prev_same_range_pct !== undefined;
-  const prev = same ? s22.sameRange(m15.spending.prevMonth(pm, py)) : m15.spending.prevMonth(pm, py);
+  const prev = s22.prevShort(pm, same ? r.same_range_day : undefined);
   const pct = same ? r.spent_prev_same_range_pct ?? null : r.spent_prev_month_pct;
-  if (pct == null) return m15.spending.noPrev(prev);
+  if (pct == null) return { dir: "flat", text: m15.spending.noPrev(prev) };
   const n = Math.round(Math.abs(pct));
-  if (n === 0) return m15.spending.same(prev);
-  return pct > 0 ? `▲ ${m15.spending.more(n, prev)}` : `▼ ${m15.spending.less(n, prev)}`;
+  if (n === 0) return { dir: "flat", text: m15.spending.same(prev) };
+  return pct > 0 ? { dir: "up", text: m15.spending.more(n, prev) } : { dir: "down", text: m15.spending.less(n, prev) };
 }
 
 /** Gộp hóa đơn theo cửa hàng: tổng tiền và lần mua gần nhất. */
@@ -137,11 +138,18 @@ function Report({ r, month }: { r: SpendingReport; month: string }) {
     <>
       <section className="hero15 hero22" aria-label={m15.spending.spent}>
         <p className="hero22__label">{isCurrent ? s22.spentIn(m, clock.day, clock.days) : s22.spentIn(m)}</p>
-        <p className="hero15__num num">{formatVnd(r.spent, rateDay)}</p>
+        <div className="hero22__top">
+          <p className="hero15__num num">{formatVnd(r.spent, rateDay)}</p>
+          {isCurrent && <Sparkline rows={r.recent_receipts} month={month} day={clock.day} />}
+        </div>
         {(r.delegated_spent ?? 0) > 0 && <p className="hero22__note">{m15.spending.delegated(formatVnd(r.delegated_spent ?? 0, rateDay))}</p>}
         {isCurrent && budget != null && <BudgetBar budget={budget} spent={r.spent} bills={bills} onEdit={() => setEditBudget(true)} />}
         <div className="hero22__pills">
-          <p className="hero15__sub">{compare(r, month)}</p>
+          {(() => {
+            const c = compare(r, month);
+            const Icon = c.dir === "up" ? TrendingUp : c.dir === "down" ? TrendingDown : Minus;
+            return <p className="hero15__sub"><Icon size={16} aria-hidden />{c.text}</p>;
+          })()}
           {!isCurrent && <p className="hero15__sub">{s22.monthDone}</p>}
         </div>
       </section>

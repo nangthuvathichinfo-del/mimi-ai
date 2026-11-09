@@ -5,10 +5,16 @@
 .hero22 { display: grid; gap: 12px; }
 .hero22 > * { position: relative; z-index: 1; margin: 0; }
 .hero22__label { font-size: 13px; font-weight: 500; opacity: .85; }
-.hero22 .hero15__num { margin-top: -8px; line-height: 1.1; }
+.hero22 .hero15__num { line-height: 1.1; }
+/* Số tiền bên trái, đường chi cộng dồn bên phải (Redesign) */
+.hero22 > .hero22__top { margin-top: -8px; display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
+.hero22__top .hero15__num { margin: 0; min-width: 0; }
+.spark22 { width: 112px; height: 44px; flex: none; color: #fff; overflow: visible; }
+@media (max-width: 374px) { .spark22 { display: none; } }
 .hero22__note { font-size: 12.5px; opacity: .9; margin-top: -8px; }
 .hero22__pills { display: flex; flex-wrap: wrap; gap: 8px; }
-.hero22__pills .hero15__sub { margin: 0; }
+.hero22 .hero22__pills .hero15__sub { margin: 0; padding: 4px 12px 4px 8px; white-space: nowrap; }
+.hero22__pills .hero15__sub svg { flex: none; }
 
 /* Thanh ngân sách: đã chi đặc, định kỳ sắp trả kẻ sọc */
 .bud22 { display: grid; gap: 8px; }
@@ -44,12 +50,15 @@
 
 /* Mimi nhận thấy: hàng thẻ cuộn ngang, rộng 250, nền nhạt theo màu từng loại. min-width 0: không kéo giãn trang */
 .noticed22wrap { min-width: 0; max-width: 100%; }
-.noticed22 { list-style: none; margin: 0 -16px; padding: 2px 16px 10px; display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; }
+.noticed22 { list-style: none; margin: 0 -16px; padding: 2px 16px 10px; display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: 16px; scrollbar-width: none; }
 .noticed22::-webkit-scrollbar { display: none; }
-.noticed22__card { flex: 0 0 250px; scroll-snap-align: start; display: flex; flex-direction: column; gap: 12px; padding: 16px; background: color-mix(in srgb, var(--c) 10%, var(--paper, #fff)); }
+/* Nền nhạt theo màu từng loại; [data-ui] để thắng nền trắng chung của .box15 trong v2.css */
+.noticed22__card, [data-ui] .noticed22 > .noticed22__card { background: color-mix(in srgb, var(--c) 12%, var(--paper, #fff)); }
+.noticed22__card { flex: 0 0 250px; scroll-snap-align: start; display: flex; flex-direction: column; gap: 12px; padding: 16px; }
 .noticed22__icon { width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; color: var(--c); background: color-mix(in srgb, var(--c) 18%, transparent); }
 .noticed22__text { margin: 0; flex: 1; font-size: 14px; line-height: 1.4; color: var(--ink); display: grid; gap: 2px; }
 .noticed22__text small { color: var(--ink-soft); font-size: 12.5px; }
+.noticed22__text b { font-weight: 700; color: color-mix(in srgb, var(--c) 70%, var(--ink)); }
 .noticed22__cta { align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 0; border: 0; background: none; font: inherit; font-size: 13.5px; font-weight: 700; color: var(--m15-blue); cursor: pointer; }
 
 /* Biểu đồ vòng bên trái, chú giải bên phải. Vòng mảnh (nét 10 trên khung 140), chữ giữa nhẹ, viên % nhỏ như Redesign */

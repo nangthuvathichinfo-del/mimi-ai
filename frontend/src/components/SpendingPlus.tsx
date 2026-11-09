@@ -3,14 +3,14 @@
  * thanh ngân sách, Còn tiêu được, Mimi nhận thấy và biểu đồ vòng theo nhóm hàng.
  * Mọi số tiền gốc vẫn do API trả về; ở đây chỉ cộng trừ để hiển thị như spec Redesign mục 5.1.
  */
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AlertTriangle, CalendarClock, ChevronRight, Pencil, PiggyBank, Repeat, Store, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import { categoryLabel, t } from "../i18n";
 import { s22 } from "../i18n/s22";
 import { ApiError } from "../api/client";
 import { useForecast, useItems, useMe, useRecurring, useSaveSettings } from "../api/hooks";
-import type { Recurring, SpendingReport } from "../api/types";
+import type { ReceiptSummary, Recurring, SpendingReport } from "../api/types";
 import { daysUntil, goodsTier } from "../lib/displayUnit";
 import { formatVnd } from "../lib/text";
 import { Sheet } from "./Sheet15";
@@ -154,6 +154,11 @@ type Insight = { id: string; c: string; Icon: typeof Store; text: string; sub?: 
  * món sắp hết (Thêm vào kế hoạch), khoản định kỳ sắp đến hạn (Xem sắp chi),
  * cửa hàng chiếm phần lớn chi tiêu (Xem hóa đơn), nhóm hàng tăng giảm so tháng trước (Hỏi Mimi vì sao).
  */
+/** "**Tiền điện** đến hạn" → Tiền điện in đậm. */
+function bold(text: string) {
+  return text.split(/\*\*(.+?)\*\*/).map((p, i) => (i % 2 ? <b key={i}>{p}</b> : p));
+}
+
 export function Noticed({ r, prev }: { r: SpendingReport; prev?: SpendingReport }) {
   const items = useItems({ tab: "active", horizon: 7 });
   const fc = useForecast();
@@ -207,15 +212,20 @@ export function Noticed({ r, prev }: { r: SpendingReport; prev?: SpendingReport 
     return out;
   }, [items.data, fc.data, rec.data, r, prev]);
 
+  // Thẻ đến dần (đồ dùng, định kỳ tải sau); cuộn bắt dính sẽ giữ thẻ cũ nên đưa hàng về thẻ đầu.
+  const row = useRef<HTMLUListElement>(null);
+  const ids = list.map((x) => x.id).join("|");
+  useLayoutEffect(() => { if (row.current) row.current.scrollLeft = 0; }, [ids]);
+
   if (list.length === 0) return null;
   return (
     <section className="noticed22wrap" aria-labelledby="noticed22">
       <h2 id="noticed22" className="h15sec">{s22.noticed.title}</h2>
-      <ul className="noticed22">
+      <ul className="noticed22" ref={row}>
         {list.map((x) => (
           <li key={x.id} className="box15 noticed22__card" style={{ ["--c" as string]: x.c }}>
             <span className="noticed22__icon"><x.Icon size={20} aria-hidden /></span>
-            <p className="noticed22__text">{x.text}{x.sub && <small>{x.sub}</small>}</p>
+            <p className="noticed22__text"><span>{bold(x.text)}</span>{x.sub && <small>{x.sub}</small>}</p>
             <button type="button" className="noticed22__cta" onClick={() => (x.plan ? setPick(x.plan) : x.to && nav(x.to))}>
               {x.cta} <ChevronRight size={16} aria-hidden />
             </button>
@@ -287,5 +297,35 @@ export function CategoryDonut({ cats, total, rateDay, prev }: { cats: SpendingRe
         })}
       </ul>
     </div>
+  );
+}
+
+/**
+ * Đường chi tiêu cộng dồn từ ngày 1 đến hôm nay, trong thẻ tổng (Redesign, C8).
+ * Tính từ hóa đơn và người nhà mua hộ của tháng (recent_receipts); đơn online không có ngày
+ * nên không nằm trên đường, vì thế chỉ vẽ hình dáng, không ghi số.
+ */
+export function Sparkline({ rows, month, day }: { rows: ReceiptSummary[]; month: string; day: number }) {
+  if (day < 2) return null;
+  const perDay = new Array<number>(day).fill(0);
+  for (const x of rows) {
+    if (!x.purchased_on.startsWith(month)) continue;
+    const d = Number(x.purchased_on.slice(8, 10));
+    if (d >= 1 && d <= day) perDay[d - 1] += x.total_vnd;
+  }
+  let c = 0;
+  const pts = perDay.map((v) => (c += v));
+  const mx = pts[pts.length - 1];
+  if (mx <= 0) return null;
+  const W = 112, H = 44;
+  const xy = pts.map((v, i) => [(i / (pts.length - 1)) * W, H - 4 - (v / mx) * (H - 10)]);
+  const line = xy.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(" ");
+  const [lx, ly] = xy[xy.length - 1];
+  return (
+    <svg className="spark22" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={s22.spark}>
+      <path d={`${line} L${W} ${H} L0 ${H}z`} fill="rgb(255 255 255 / .16)" />
+      <path d={line} fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={lx} cy={ly} r="3.4" fill="currentColor" />
+    </svg>
   );
 }
