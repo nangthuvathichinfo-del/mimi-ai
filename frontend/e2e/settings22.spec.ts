@@ -27,6 +27,19 @@ test("Cài đặt 2.2: không còn Ủy quyền mua online, Thông báo theo ng�
   await expect(page.getByText("Sắp hết: còn 4 đến 7 ngày")).toBeVisible();
   await expect(page.getByRole("switch")).toHaveCount(0);
 
+  // B1 đến B4 theo Redesign: vai trò dưới avatar, Ẩn số tiền làm mờ thẻ tổng Sổ chi tiêu, chạm để xem.
+  await go("/settings/profile");
+  await expect(page.locator(".set15__who")).toContainText("lan@gmail.com");
+  await go("/settings/privacy");
+  await page.getByRole("switch", { name: /Ẩn số tiền/ }).check();
+  await go("/spending");
+  const hidden = page.getByRole("button", { name: "Hiện số tiền" });
+  await expect(hidden).toBeVisible();
+  await hidden.click();
+  await expect(hidden).toHaveCount(0);
+  await go("/settings/privacy");
+  await page.getByRole("switch", { name: /Ẩn số tiền/ }).uncheck();
+
   // Người mua của kế hoạch đã lưu: chỉ Tôi và người nhà, không còn Mimi mua online.
   await go("/plan/p-be");
   await expect(page.getByRole("heading", { name: "Người mua" })).toBeVisible();

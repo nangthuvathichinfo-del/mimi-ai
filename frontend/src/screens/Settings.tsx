@@ -1,3 +1,4 @@
+import { setHideAmounts, useHideAmounts } from "../lib/hideAmounts";
 import { s22 } from "../i18n/s22";
 import { switchUiLang, t, uiLang } from "../i18n";
 import { displayCurrency, switchCurrency, type DisplayCurrency } from "../lib/money";
@@ -176,6 +177,11 @@ export function SettingsProfile() {
         }}
       >
         <span className="set15__avatar set15__avatar--lg" aria-hidden>{initial(cur || auth.session?.email || "")}</span>
+        {/* B1 (theo Redesign): email và vai trò dưới avatar. */}
+        <p className="set15__who">
+          <span>{auth.session?.email ?? ""}</span>
+          {me && <span className="tag15">{me.role === "member" ? S.member : S.owner}</span>}
+        </p>
         <label className="field15">
           <span>{S.name}</span>
           <input value={cur} maxLength={40} autoComplete="given-name" onChange={(e) => setName(e.target.value)} />
@@ -491,8 +497,19 @@ export function SettingsMember() {
 
 /** Quyền riêng tư & bảo mật: tạm là trang chữ (chốt 31/10). */
 export function SettingsPrivacy() {
+  const hidden = useHideAmounts();
   return (
     <Sub title={S.privacy}>
+      {/* B2 (theo Redesign): ẩn số tiền, lưu trên máy. */}
+      <div className="box15 set15__form">
+        <label className="switch-row">
+          <span className="set15__text">
+            <span>{S.hideAmounts}</span>
+            <small>{S.hideAmountsSub}</small>
+          </span>
+          <input type="checkbox" role="switch" {...{ switch: "" }} checked={hidden} onChange={(e) => setHideAmounts(e.target.checked)} />
+        </label>
+      </div>
       <section className="box15 set15__page">
         {S.privacyPage.map((p) => <p key={p}>{p}</p>)}
       </section>

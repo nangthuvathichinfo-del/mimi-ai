@@ -1,5 +1,6 @@
 import { t } from "../i18n";
 import { m15 } from "../i18n/m15";
+import { useHideAmounts } from "../lib/hideAmounts";
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { CalendarDays, ChartPie, ChevronDown, ChevronLeft, ChevronRight, Clock, Minus, ScanLine, ShoppingCart, TrendingDown, TrendingUp, Trophy } from "lucide-react";
@@ -139,7 +140,7 @@ function Report({ r, month }: { r: SpendingReport; month: string }) {
       <section className="hero15 hero22" aria-label={m15.spending.spent}>
         <p className="hero22__label">{isCurrent ? s22.spentIn(m, clock.day, clock.days) : s22.spentIn(m)}</p>
         <div className="hero22__top">
-          <p className="hero15__num num">{formatVnd(r.spent, rateDay)}</p>
+          <HeroAmount text={formatVnd(r.spent, rateDay)} />
           {isCurrent && <Sparkline rows={r.recent_receipts} month={month} day={clock.day} />}
         </div>
         {(r.delegated_spent ?? 0) > 0 && <p className="hero22__note">{m15.spending.delegated(formatVnd(r.delegated_spent ?? 0, rateDay))}</p>}
@@ -302,4 +303,16 @@ function groupByDay<T extends { purchased_at: string }>(rows: T[]): [string, T[]
     out.set(key, [...(out.get(key) ?? []), r]);
   }
   return [...out.entries()];
+}
+
+/** Số tiền ở thẻ tổng; khi bật Ẩn số tiền (Cài đặt) thì làm mờ, chạm để xem. */
+function HeroAmount({ text }: { text: string }) {
+  const hidden = useHideAmounts();
+  const [peek, setPeek] = useState(false);
+  if (!hidden || peek) return <p className="hero15__num num">{text}</p>;
+  return (
+    <p className="hero15__num num">
+      <button type="button" className="amt22--hidden" aria-label={m15.settings.showAmount} onClick={() => setPeek(true)}>{text}</button>
+    </p>
+  );
 }
