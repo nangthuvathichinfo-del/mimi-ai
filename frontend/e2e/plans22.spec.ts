@@ -25,16 +25,27 @@ test("Kế hoạch 2.2: lưu kế hoạch nháp qua 3 bước, thêm món sắp 
   await expect(first.getByText("Thấp nhất")).toBeVisible();
   await page.getByRole("button", { name: "Tiếp tục" }).click();
 
-  // Xác nhận: phải chọn người mua; Tôi mua thì Lưu kế hoạch và ra màn kết quả.
-  await expect(page.getByRole("button", { name: "Lưu kế hoạch" })).toHaveAttribute("aria-disabled", "true");
+  // Bước 3: có cả giá online và giá hóa đơn cũ thì tách 2 kế hoạch; phần cửa hàng phải chọn người mua.
+  await expect(page.getByText(/tách thành 2 kế hoạch/)).toBeVisible();
+  const save = page.getByRole("button", { name: "Lưu, tách 2 kế hoạch" });
+  await expect(save).toHaveAttribute("aria-disabled", "true");
   await page.getByRole("radio", { name: /Tôi mua/ }).click();
-  await page.getByRole("button", { name: "Lưu kế hoạch" }).click();
-  await expect(page.getByRole("heading", { name: "Đã lưu kế hoạch" })).toBeVisible();
+  await save.click();
+  await expect(page.getByRole("heading", { name: "Đã tách thành 2 kế hoạch" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Thanh toán online ngay" })).toBeVisible();
   await page.getByRole("link", { name: "Về Kế hoạch" }).click();
 
-  // Kế hoạch đã lưu xuống mục dưới, thẻ đầu trống.
-  await expect(page.locator(".plancard15", { hasText: "Giỏ mua sắm" })).toBeVisible();
-  await expect(page.locator(".draft22")).toHaveCount(0);
+  // Hai kế hoạch đã lưu xuống mục dưới; Giỏ mua sắm trống thành nháp mới ở bước 1.
+  await expect(page.locator(".plancard15", { hasText: "Giỏ mua sắm · Online" })).toBeVisible();
+  await expect(page.locator(".draft22").getByText("Bước 1/3 · Thêm món")).toBeVisible();
+
+  // Kế hoạch đã lưu: xác nhận đã mua xong thì sang Tất cả đơn, mục Đã hoàn thành.
+  await page.locator(".plancard15", { hasText: "Giỏ mua sắm · Online" }).click();
+  await page.getByRole("button", { name: "Xác nhận đã mua xong" }).click();
+  await page.getByRole("button", { name: "Bấm lần nữa để xác nhận" }).click();
+  await page.getByRole("button", { name: "Đã hoàn thành", exact: true }).click();
+  await expect(page.locator(".past22", { hasText: "Giỏ mua sắm · Online" })).toBeVisible();
+  await page.getByRole("button", { name: "Của tôi" }).click();
 
   // Kế hoạch mới: trống, bước 1, thêm món sắp hết một chạm có Hoàn tác.
   await page.getByRole("button", { name: /Kế hoạch mới/ }).click();
@@ -50,8 +61,8 @@ test("Kế hoạch 2.2: lưu kế hoạch nháp qua 3 bước, thêm món sắp 
   await page.getByRole("button", { name: "Tất cả đơn" }).click();
   await expect(page.getByText("Đã chi qua kế hoạch")).toBeVisible();
   // Tất cả đơn gồm cả kế hoạch đã lưu (Giỏ mua sắm) và kế hoạch được nhờ.
-  await page.getByRole("button", { name: "Đang làm" }).click();
-  await expect(page.locator(".past22", { hasText: "Giỏ mua sắm" })).toBeVisible();
+  await page.getByRole("button", { name: "Chưa hoàn thành", exact: true }).click();
+  await expect(page.locator(".past22", { hasText: "Mua đồ cho bé" })).toBeVisible();
   await page.getByRole("button", { name: "Nhờ mua", exact: true }).click();
   await expect(page.locator(".past22", { hasText: "Nhờ từ Minh" })).toBeVisible();
 

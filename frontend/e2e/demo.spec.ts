@@ -51,7 +51,7 @@ test("kịch bản demo: quét bill, Đồ dùng, Sổ chi tiêu, Kế hoạch",
   await expect(page.getByText("Khoản chi định kỳ").first()).toBeVisible();
 
   // Cảnh 3b và 3c (Mimi 2.2): kế hoạch chưa lưu hiện sẵn ở đầu màn với gợi ý món sắp hết, ước tính chi;
-  // bước Xác nhận có ba cách mua, Mimi mua online vẫn mở.
+  // bước Mua tách phần trả online và phần chọn người đi mua.
   await home(page);
   await page.getByRole("link", { name: /^Kế hoạch/ }).first().click();
   await expect(page.getByRole("heading", { name: "Giỏ mua sắm" })).toBeVisible();
@@ -61,7 +61,8 @@ test("kịch bản demo: quét bill, Đồ dùng, Sổ chi tiêu, Kế hoạch",
   await page.getByRole("button", { name: "Tiếp tục" }).click();
   await expect(page.getByRole("radio", { name: /Tôi mua/ })).toBeVisible();
   await expect(page.getByRole("radio", { name: /Minh/ })).toBeVisible();
-  await expect(page.getByRole("radio", { name: /Mimi mua online/ })).toBeEnabled();
+  // Món chọn giá trên mạng vào nhóm Thanh toán online (PayPal, thẻ); món giá hóa đơn cũ chọn người đi mua.
+  await expect(page.getByRole("heading", { name: /Thanh toán online/ })).toBeVisible();
 
   expect(errors).toEqual([]);
 });

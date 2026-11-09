@@ -223,7 +223,7 @@
 .ord22__stats b { font-size: 16px; font-weight: 700; color: var(--ink); }
 
 /* Luồng 3 bước */
-.flow22 { display: grid; gap: 16px; padding-bottom: 120px; }
+.flow22 { display: grid; gap: 16px; padding-bottom: 180px; }
 .flow22__head { display: flex; align-items: center; gap: 12px; }
 .flow22__head h1 { margin: 0; font-size: 24px; font-weight: 700; color: var(--ink); }
 .flow22__bar { position: fixed; left: 50%; transform: translateX(-50%); bottom: 0; width: min(100%, var(--frame, 480px)); padding: 12px 16px max(12px, env(safe-area-inset-bottom)); background: color-mix(in srgb, var(--paper, #fff) 94%, transparent); backdrop-filter: blur(14px); border-top: 1px solid var(--m15-line, #e3e8f7); z-index: 20; box-sizing: border-box; }
@@ -266,3 +266,23 @@
 .done22__name { margin: 0; font-weight: 600; color: var(--ink); }
 .done22 .hint { margin: 0; }
 .done22__btns { width: 100%; display: grid; gap: 12px; margin-top: 16px; }
+.ord22__hint { font-size: 12px !important; color: var(--m15-blue) !important; }
+.info22 { display: grid; gap: 12px; }
+.info22__name { display: flex; align-items: center; gap: 8px; }
+.info22__name .pd15__icon { flex: none; }
+.info22__name .tag15 { flex: none; }
+.menu22 { display: grid; gap: 8px; }
+.menu22__row { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 12px 16px; border-radius: 16px; border: 1px solid var(--m15-line, #e3e8f7); background: var(--paper, #fff); font: inherit; color: var(--ink); text-align: left; cursor: pointer; }
+.menu22__row > svg:first-child { color: var(--m15-blue); flex: none; }
+.menu22__row > span { flex: 1; display: grid; gap: 2px; }
+.menu22__row b { font-size: 15px; }
+.menu22__row small { font-size: 12.5px; color: var(--ink-soft); }
+.lowq22 { display: grid; gap: 8px; margin-top: 16px; }
+.lowq22 .h15sec { margin: 0; }
+.flow22__two { display: grid; grid-template-columns: auto 1fr; gap: 12px; }
+.flow22__two .btn { white-space: nowrap; padding-inline: 16px; }
+.flow22__two .btn { display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
+.flow22__bar { display: grid; gap: 8px; }
+.conf22__sub { font-size: 12.5px; font-weight: 500; color: var(--ink-soft); margin-left: 6px; }
+.conf22 .conf22__total { min-height: 44px; }
+.pd22__more { display: grid; gap: 12px; }

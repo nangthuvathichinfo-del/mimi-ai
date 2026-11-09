@@ -172,17 +172,19 @@ function AllOrders() {
   const d = useDelegated();
   const nav = useNavigate();
   const [f, setF] = useState<"all" | OrderKind>("all");
-  const list = visiblePlans(plans.data);
+  // Kế hoạch đang dùng (trừ Giỏ mua sắm trống) và kế hoạch đã xác nhận mua xong (archived).
+  const list = (plans.data ?? []).filter((p) => p.status === "archived" || visiblePlans([p]).length > 0);
   const carts = usePlanCarts(list.map((p) => p.id));
   const openPlan = (id: string) => { setCurrentPlanId(id); nav(`/plan/${encodeURIComponent(id)}`); };
   const sentOf = (id: string) => (d.data?.from_me ?? []).filter((a) => a.plan_id === id && a.status !== "cancelled").pop();
   const rows: OrderRow[] = [
     ...list.map((p, i) => {
       const c = carts[i]?.data;
-      const bought = c?.phase === "reconciled";
+      // Hoàn thành khi quét hóa đơn khớp (reconciled) hoặc người dùng tự xác nhận (archived).
+      const bought = c?.phase === "reconciled" || p.status === "archived";
       const sent = sentOf(p.id);
       const day = ((bought ? c?.state.reconciled_on : "") || c?.state.buy_date || "").slice(0, 10);
-      const tag = isDraft(p.id) ? m15.plan.draft : sent && !bought ? m15.plan.buyer(sent.buyer_display_name) : m15.plan.phase[c?.phase ?? "planning"];
+      const tag = bought ? p22.completed : isDraft(p.id) ? m15.plan.draft : sent ? m15.plan.buyer(sent.buyer_display_name) : p22.pending;
       const kinds: OrderKind[] = [bought ? "bought" : "doing", ...(sent ? (["asks"] as const) : [])];
       return { id: `p:${p.id}`, kinds, title: planName(p), date: day, count: c?.item_count ?? p.item_count, total: c?.estimate ?? null, tag, done: bought, open: () => openPlan(p.id) };
     }),
@@ -195,9 +197,9 @@ function AllOrders() {
       };
     }),
     ...(orders.data ?? []).map((o) => ({
-      id: `o:${o.id}`, kinds: ["online", o.state === "verified" || o.state === "delivered" ? "bought" : "doing"] as OrderKind[], title: o.merchant,
+      id: `o:${o.id}`, kinds: ["online", o.state === "verified" ? "bought" : "doing"] as OrderKind[], title: o.merchant,
       date: (o.paid_at ?? o.events[0]?.at ?? "").slice(0, 10), count: o.lines.length, total: o.total_vnd, tag: t.orders.states[o.state],
-      done: o.state === "verified" || o.state === "delivered", open: () => nav(`/orders/${encodeURIComponent(o.id)}`),
+      done: o.state === "verified", open: () => nav(`/orders/${encodeURIComponent(o.id)}`),
     })),
   ]
     .filter((r) => r.count > 0)
@@ -227,6 +229,7 @@ function AllOrders() {
                 <span className="past22__text">
                   <b>{r.title}</b>
                   <small>{[r.date ? formatDayMonth(r.date) : "", m15.plan.count(r.count)].filter(Boolean).join(" · ")}</small>
+                  {!r.done && <small className="ord22__hint">{r.kinds.includes("online") ? p22.onlineHint : r.kinds.includes("asks") && r.id.startsWith("a:") ? "" : p22.pendingHint}</small>}
                 </span>
                 <span className="past22__end">
                   {r.total != null && <span className="num past22__sum">{formatVnd(r.total)}</span>}
