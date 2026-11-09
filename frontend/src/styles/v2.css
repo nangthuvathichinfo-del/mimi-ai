@@ -163,6 +163,7 @@
   background: var(--card); border: 0; border-radius: var(--r-card); box-shadow: var(--shadow);
 }
 [data-ui="v2"] :is(.card15, .box15, .plancard15) { padding: 14px 16px; }
+[data-ui="v2"] .welcome__card { padding: 18px; }
 [data-ui="v2"] .g15__list { gap: 12px; }
 /* Thẻ "Tiết kiệm nhiều nhất": giữ ý xanh lá nhưng nhẹ hơn */
 [data-ui="v2"] .save15 { background: color-mix(in srgb, var(--green) 9%, var(--card)); }
@@ -291,6 +292,24 @@
 [data-ui="v2"] .h15__bell { width: 44px; height: 44px; background: var(--card); box-shadow: var(--shadow); color: var(--ink); }
 [data-ui="v2"] .h15__dot { background: #e5484d; width: 9px; height: 9px; box-shadow: 0 0 0 2px var(--card); }
 [data-ui="v2"] .h15__bubble { background: var(--card); color: var(--ink); }
+
+
+/* ---------- 14. Đầu màn trong trang (chi tiết kế hoạch, đi mua, lịch sử, hóa đơn, định kỳ) ---------- */
+[data-ui="v2"] .pd15__head { grid-template-columns: 44px 52px 1fr; gap: 10px; }
+[data-ui="v2"] .pd15__back { border-radius: 50%; }
+[data-ui="v2"] .pd15__head .pd15__icon { height: 52px; border: 0; border-radius: 16px; box-shadow: var(--shadow); background: var(--card); }
+[data-ui="v2"] .pd15__name { min-height: 52px; border: 0; border-radius: 16px; background: var(--card); box-shadow: var(--shadow); font-size: 17px; font-weight: 700; }
+[data-ui="v2"] .run15__title { color: var(--ink); font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
+[data-ui="v2"] .pd15__back svg { width: 24px; height: 24px; }
+[data-ui="v2"] .run15__decline { border: 0; border-radius: 999px; background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); }
+[data-ui="v2"] .ph15__q { border: 0; border-radius: 16px; background: var(--card); box-shadow: var(--shadow); }
+[data-ui="v2"] .ph15__q input { background: transparent; color: var(--ink); font-size: 16px; }
+[data-ui="v2"] .ph15__sel select { border: 0; border-radius: 16px; background: var(--card); box-shadow: var(--shadow); color: var(--ink); }
+
+/* Nhóm ô chọn trong form (ủy quyền mua online...) */
+[data-ui="v2"] .plan-form fieldset,
+[data-ui="v2"] fieldset.plan-form { border: 1.5px solid var(--line); border-radius: 16px; }
+[data-ui="v2"] :is(input[type="checkbox"], input[type="radio"]) { accent-color: var(--blue); }
 
 /* Tắt toàn bộ chuyển động khi người dùng bật giảm chuyển động */
 @media (prefers-reduced-motion: reduce) {
