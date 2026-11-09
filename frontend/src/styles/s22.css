@@ -6,7 +6,7 @@
 .hero22 > * { position: relative; z-index: 1; margin: 0; }
 .hero22__label { font-size: 13px; font-weight: 500; opacity: .85; }
 .hero22 .hero15__num { margin-top: -8px; line-height: 1.1; }
-.hero22__note { font-size: 12.5px; opacity: .9; margin-top: -6px; }
+.hero22__note { font-size: 12.5px; opacity: .9; margin-top: -8px; }
 .hero22__pills { display: flex; flex-wrap: wrap; gap: 8px; }
 .hero22__pills .hero15__sub { margin: 0; }
 
@@ -17,14 +17,14 @@
 .bud22__seg--spent { background: currentColor; }
 .bud22__seg--bills { background: repeating-linear-gradient(135deg, color-mix(in srgb, currentColor 55%, transparent) 0 4px, color-mix(in srgb, currentColor 20%, transparent) 4px 8px); }
 .bud22__row { display: flex; justify-content: space-between; align-items: center; gap: 4px 8px; flex-wrap: wrap; font-size: 12.5px; font-weight: 500; opacity: .95; }
-.bud22__edit { display: inline-flex; align-items: center; gap: 5px; min-height: 28px; padding: 0; border: 0; background: none; font: inherit; font-weight: 600; color: inherit; cursor: pointer; }
+.bud22__edit { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 0; border: 0; background: none; font: inherit; font-weight: 600; color: inherit; cursor: pointer; }
 .bud22__form { display: grid; gap: 12px; padding-bottom: 8px; }
 .bud22__form .field15 { display: grid; gap: 6px; font-weight: 600; }
 .bud22__form .input { min-height: 52px; padding: 0 14px; font-size: 18px; }
 
 /* Còn tiêu được: một hàng gọn, số mỗi ngày là số lớn, nút hỏi bên phải */
-.safe22 { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; padding: 14px 16px; min-width: 0; }
-.safe22__icon { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; flex: none; background: color-mix(in srgb, var(--m15-grn, #1f7a3a) 14%, transparent); color: var(--m15-grn, #1f7a3a); }
+.safe22 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 16px; min-width: 0; }
+.safe22__icon { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; flex: none; background: color-mix(in srgb, var(--m15-grn, #1f7a3a) 14%, transparent); color: var(--m15-grn, #1f7a3a); }
 .safe22__body { flex: 1 1 120px; min-width: 0; display: grid; gap: 1px; }
 .safe22 h2 { margin: 0; font-size: 12.5px; font-weight: 500; color: var(--ink-soft); }
 .safe22__num { margin: 0; overflow-wrap: anywhere; font-size: 22px; font-weight: 700; color: var(--ink); letter-spacing: -.02em; }
@@ -33,7 +33,7 @@
 .safe22__sub a { color: inherit; font-weight: 600; }
 .safe22--over .safe22__icon { background: color-mix(in srgb, var(--m15-red) 12%, transparent); color: var(--m15-red); }
 .safe22--over h2, .safe22--over .safe22__num { color: var(--m15-red); }
-.safe22__ask { margin: 0; flex: none; min-height: 38px; padding: 0 12px; font-size: 13px; white-space: nowrap; }
+.safe22__ask { margin: 0; flex: none; min-height: 40px; padding: 0 12px; font-size: 13px; white-space: nowrap; }
 .safe22--invite { align-items: center; border: 0; text-align: left; }
 .safe22--invite .safe22__icon { background: color-mix(in srgb, var(--m15-blue) 12%, transparent); color: var(--m15-blue); }
 .safe22--invite > span:nth-child(2) { display: grid; gap: 2px; }
@@ -46,33 +46,33 @@
 .noticed22wrap { min-width: 0; max-width: 100%; }
 .noticed22 { list-style: none; margin: 0 -16px; padding: 2px 16px 10px; display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; }
 .noticed22::-webkit-scrollbar { display: none; }
-.noticed22__card { flex: 0 0 250px; scroll-snap-align: start; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: color-mix(in srgb, var(--c) 10%, var(--paper, #fff)); }
+.noticed22__card { flex: 0 0 250px; scroll-snap-align: start; display: flex; flex-direction: column; gap: 12px; padding: 16px; background: color-mix(in srgb, var(--c) 10%, var(--paper, #fff)); }
 .noticed22__icon { width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; color: var(--c); background: color-mix(in srgb, var(--c) 18%, transparent); }
 .noticed22__text { margin: 0; flex: 1; font-size: 14px; line-height: 1.4; color: var(--ink); display: grid; gap: 2px; }
 .noticed22__text small { color: var(--ink-soft); font-size: 12.5px; }
 .noticed22__cta { align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 0; border: 0; background: none; font: inherit; font-size: 13.5px; font-weight: 700; color: var(--m15-blue); cursor: pointer; }
 
-/* Biểu đồ vòng bên trái, chú giải bên phải */
-.donut22 { grid-template-columns: 116px 1fr; gap: 8px; align-items: center; padding: 16px; }
-.donut22__svg { width: 116px; height: 116px; }
+/* Biểu đồ vòng bên trái, chú giải bên phải. Vòng mảnh (nét 10 trên khung 140), chữ giữa nhẹ, viên % nhỏ như Redesign */
+.donut22 { grid-template-columns: 112px 1fr; gap: 16px; align-items: center; padding: 16px; }
+.donut22__svg { width: 112px; height: 112px; }
 .donut22__svg circle { transition: stroke-width .15s, opacity .15s; }
-.donut22__k { font-size: 10.5px; fill: var(--ink-soft); }
-.donut22__v { font-size: 12.5px; font-weight: 700; fill: var(--ink); }
+.donut22__k { font-size: 11px; fill: var(--ink-soft); }
+.donut22__v { font-size: 13px; font-weight: 600; fill: var(--ink); letter-spacing: -.01em; }
 .donut22__legend { list-style: none; margin: 0; padding: 0; min-width: 0; display: grid; gap: 2px; }
-.donut22__row { width: 100%; min-height: 40px; display: flex; align-items: center; gap: 10px; padding: 6px 4px; border: 0; border-radius: 12px; background: none; font: inherit; color: var(--ink); text-align: left; text-decoration: none; cursor: pointer; }
+.donut22__row { width: 100%; min-height: 44px; display: flex; align-items: center; gap: 8px; padding: 4px; border: 0; border-radius: 12px; background: none; font: inherit; color: var(--ink); text-align: left; text-decoration: none; cursor: pointer; }
 .donut22__row[aria-pressed="true"] { background: color-mix(in srgb, var(--m15-blue) 10%, transparent); }
-.donut22__dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
-.donut22__name { flex: 1; min-width: 0; display: grid; font-size: 13.5px; font-weight: 500; line-height: 1.2; overflow-wrap: anywhere; }
+.donut22__dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.donut22__name { flex: 1; min-width: 0; display: grid; gap: 2px; font-size: 14px; font-weight: 500; line-height: 1.2; overflow-wrap: anywhere; }
 .donut22__name small { font-size: 12px; color: var(--ink-soft); }
-.donut22__pct { font-size: 13px; color: var(--ink-soft); font-weight: 600; }
-.tr22 { font-size: 12px; font-weight: 700; border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+.donut22__pct { font-size: 12px; color: var(--ink-soft); font-weight: 600; }
+.tr22 { font-size: 11.5px; font-weight: 600; border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
 .tr22--down { color: var(--m15-grn, #1f7a3a); background: color-mix(in srgb, var(--m15-grn, #1f7a3a) 14%, transparent); }
 .tr22--up { color: var(--m15-red); background: color-mix(in srgb, var(--m15-red) 12%, transparent); }
 .tr22--flat { color: var(--ink-soft); background: color-mix(in srgb, var(--ink-soft) 12%, transparent); }
 @media (max-width: 360px) { .donut22 { grid-template-columns: 1fr; justify-items: center; } .donut22__legend { width: 100%; } }
 
 /* Tiêu đề ngày trong Mua hàng gần đây */
-.day22 { display: grid; gap: 6px; margin-top: 10px; }
+.day22 { display: grid; gap: 8px; margin-top: 12px; }
 .day22__head { margin: 0 4px; display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; color: var(--ink-soft); }
 
 @media (prefers-reduced-motion: reduce) { .donut22__svg circle { transition: none; } }

@@ -92,7 +92,7 @@
   background: linear-gradient(180deg, var(--wash), var(--bg));
 }
 [data-ui="v2"] .frame--nav { padding-bottom: calc(var(--nav-h) + var(--nav-pad) + 30px); }
-[data-ui="v2"] .page { padding-inline: max(20px, env(safe-area-inset-left, 0px)) max(20px, env(safe-area-inset-right, 0px)); }
+[data-ui="v2"] .page { padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px)); }
 [data-ui="v2"] .p15 { gap: 16px; }
 
 /* Vào màn: các khối trượt lên 10 px, cách nhau 0.04 s, tối đa 5 khối */
@@ -109,7 +109,7 @@
 }
 
 /* ---------- 3. Đầu màn ---------- */
-[data-ui="v2"] .topbar { min-height: 64px; padding: 12px max(20px, env(safe-area-inset-right, 0px)) 4px max(20px, env(safe-area-inset-left, 0px)); gap: 12px; }
+[data-ui="v2"] .topbar { min-height: 64px; padding: 12px max(16px, env(safe-area-inset-right, 0px)) 4px max(16px, env(safe-area-inset-left, 0px)); gap: 12px; }
 [data-ui="v2"] .topbar h1,
 [data-ui="v2"] .topbar__title { font-size: 23px; font-weight: 700; letter-spacing: -.02em; color: var(--ink); flex: 1; min-width: 0; overflow-wrap: anywhere; line-height: 1.2; }
 @media (max-width: 360px) {
@@ -173,7 +173,7 @@
 
 /* Thẻ tổng chi tiêu: chuyển sắc xanh, chữ trắng, vòng tròn mờ góc phải */
 [data-ui="v2"] .hero15 {
-  position: relative; overflow: hidden; padding: 20px;
+  position: relative; overflow: hidden; padding: 16px;
   background: linear-gradient(135deg, var(--hero-from), var(--hero-to)); color: #fff;
 }
 [data-ui="v2"] .hero15::after {

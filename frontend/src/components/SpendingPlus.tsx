@@ -237,7 +237,7 @@ const COLORS = ["var(--c-bill, #d4538a)", "var(--c-groc, #2f9e6e)", "var(--c-hom
 export function CategoryDonut({ cats, total, rateDay, prev }: { cats: SpendingReport["by_category"]; total: number; rateDay?: string; prev?: SpendingReport }) {
   const [sel, setSel] = useState<string | null>(null);
   const sum = cats.reduce((a, c) => a + c.amount, 0) || 1;
-  const R = 52, C = 2 * Math.PI * R;
+  const R = 56, C = 2 * Math.PI * R; // vòng mảnh như Redesign: nét 10, chọn 13, khe 2
   const before = new Map((prev?.by_category ?? []).map((c) => [c.key, c.amount]));
   let acc = 0;
   const arcs = cats.map((c, i) => {
@@ -257,14 +257,14 @@ export function CategoryDonut({ cats, total, rateDay, prev }: { cats: SpendingRe
   return (
     <div className="box15 donut22">
       <svg viewBox="0 0 140 140" className="donut22__svg" role="img" aria-label={cats.map((c) => `${categoryLabel(c.key)} ${Math.round(c.pct)}%`).join(", ")}>
-        <circle cx="70" cy="70" r={R} fill="none" stroke="var(--line, #e3e8f7)" strokeWidth="15" />
+        <circle cx="70" cy="70" r={R} fill="none" stroke="var(--line, #e3e8f7)" strokeWidth="10" />
         {arcs.map((a) => (
-          <circle key={a.key} cx="70" cy="70" r={R} fill="none" stroke={a.color} strokeWidth={sel === a.key ? 20 : 15}
-            strokeDasharray={`${Math.max(1, a.len - 3)} ${C}`} strokeDashoffset={-a.off} transform="rotate(-90 70 70)"
+          <circle key={a.key} cx="70" cy="70" r={R} fill="none" stroke={a.color} strokeWidth={sel === a.key ? 13 : 10}
+            strokeDasharray={`${Math.max(1, a.len - 2)} ${C}`} strokeDashoffset={-a.off} transform="rotate(-90 70 70)"
             opacity={sel && sel !== a.key ? 0.3 : 1} />
         ))}
-        <text x="70" y="64" textAnchor="middle" className="donut22__k">{picked ? categoryLabel(picked.key) : s22.donut.total}</text>
-        <text x="70" y="83" textAnchor="middle" className="donut22__v">{formatVnd(picked ? picked.amount : total, rateDay)}</text>
+        <text x="70" y="65" textAnchor="middle" className="donut22__k">{picked ? categoryLabel(picked.key) : s22.donut.total}</text>
+        <text x="70" y="81" textAnchor="middle" className="donut22__v">{formatVnd(picked ? picked.amount : total, rateDay)}</text>
       </svg>
       <ul className="donut22__legend">
         {cats.map((c, i) => {
