@@ -49,6 +49,11 @@ test("Kế hoạch 2.2: lưu kế hoạch nháp qua 3 bước, thêm món sắp 
   await expect(page.locator(".plancard15", { hasText: "Nhờ từ Minh" })).toBeVisible();
   await page.getByRole("button", { name: "Tất cả đơn" }).click();
   await expect(page.getByText("Đã chi qua kế hoạch")).toBeVisible();
+  // Tất cả đơn gồm cả kế hoạch đã lưu (Giỏ mua sắm) và kế hoạch được nhờ.
+  await page.getByRole("button", { name: "Đang làm" }).click();
+  await expect(page.locator(".past22", { hasText: "Giỏ mua sắm" })).toBeVisible();
+  await page.getByRole("button", { name: "Nhờ mua", exact: true }).click();
+  await expect(page.locator(".past22", { hasText: "Nhờ từ Minh" })).toBeVisible();
 
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(393);
   expect(errors).toEqual([]);

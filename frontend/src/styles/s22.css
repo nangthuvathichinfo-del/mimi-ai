@@ -123,7 +123,7 @@
 .seg15 button svg { flex: none; }
 
 /* ---------- Mimi 2.2 Kế hoạch (đề xuất chốt 09/11) ---------- */
-[data-ui] .seg.seg22--3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); flex-wrap: nowrap; }
+[data-ui] .seg.seg22--3 { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.25fr) minmax(0, 1fr); gap: 2px; flex-wrap: nowrap; }
 [data-ui] .seg.seg22--3 > button { flex: 1 1 0; white-space: nowrap; min-width: 0; padding-inline: 6px; font-size: 14px; }
 .sec22 { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px; }
 .sec22 .h15sec { margin: 0; }

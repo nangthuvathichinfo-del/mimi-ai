@@ -32,7 +32,8 @@ export function whenText(st: Cart["state"] | undefined): string {
  * Kế hoạch mua sắm. Mimi 2.2 (đề xuất chốt 09/11): ba tab Của tôi, Được nhờ mua, Tất cả đơn (T5).
  * Tab Được nhờ mua giữ như 2.1 (anh chốt 09/11): danh sách kế hoạch được nhờ, nhận hoặc từ chối trong màn đi mua.
  * Tab Của tôi: trên cùng là kế hoạch chưa lưu, hiện sẵn đầy đủ như Redesign (T1); bên dưới là kế hoạch
- * đã lưu hoặc đang triển khai dạng thẻ gọn (bấm mới xem chi tiết), cuối cùng là Đã mua xong (B6).
+ * đã lưu hoặc đang triển khai dạng thẻ gọn (bấm mới xem chi tiết). Kế hoạch đã mua xong chỉ nằm ở
+ * tab Tất cả đơn (anh chốt 09/11: Của tôi chỉ có kế hoạch chưa mua).
  */
 export function PlanList() {
   const [params, setParams] = useSearchParams();
@@ -97,7 +98,6 @@ function Mine() {
   const visible = new Set(visiblePlans(plans.data).map((p) => p.id));
   const rest = rows.filter((r) => r !== top && visible.has(r.p.id));
   const going = rest.filter((r) => r.c?.phase !== "reconciled");
-  const past = rest.filter((r) => r.c?.phase === "reconciled");
   return (
     <>
       {typeof saved === "string" && <p className="sent15" role="status">{saved}</p>}
@@ -154,73 +154,65 @@ function Mine() {
         })}
       </ul>
 
-      {past.length > 0 && (
-        <>
-          <h2 className="h15sec">{p22.past}</h2>
-          <ul className="box15 past22">
-            {past.map(({ p, c }) => {
-              const who = (delegated.data?.from_me ?? []).find((a) => a.plan_id === p.id && (a.status === "completed" || a.status === "closed_partial"))?.buyer_display_name;
-              const day = c?.state.reconciled_on || c?.state.buy_date || "";
-              return (
-                <li key={p.id}>
-                  <button type="button" className="past22__row" onClick={() => open(p.id)}>
-                    <span className="past22__ok" aria-hidden><Check size={20} /></span>
-                    <span className="past22__text">
-                      <b>{planName(p)}</b>
-                      <small>{p22.pastSub(day ? formatDayMonth(day.slice(0, 10)) : "–", c?.item_count ?? p.item_count, who ? p22.boughtBy(who) : p22.inStore)}</small>
-                    </span>
-                    {c?.estimate != null && <span className="num past22__sum">{formatVnd(c.estimate)}</span>}
-                    <ChevronRight size={20} aria-hidden />
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </>
-      )}
       <p className="hint hint15"><Info size={16} aria-hidden /> {m15.plan.note}</p>
     </>
   );
 }
 
-type OrderRow = { id: string; kind: "online" | "store" | "asks"; title: string; date: string; count: number; total: number | null; tag: string; open: boolean; to: string; planId?: string };
+type OrderKind = "doing" | "bought" | "online" | "asks";
+type OrderRow = { id: string; kinds: OrderKind[]; title: string; date: string; count: number; total: number | null; tag: string; done: boolean; open: () => void };
 
-/** Tab Tất cả đơn (T5): gộp đơn online, kế hoạch đã mua tại cửa hàng và việc nhờ mua, mới nhất trước. */
+/**
+ * Tab Tất cả đơn (anh chốt 09/11): lưu mọi kế hoạch đã lên, đang làm, đã mua, kế hoạch được người
+ * khác nhờ mua và đơn online, mới nhất trước. Bộ lọc: Tất cả, Đang làm, Đã mua, Online, Nhờ mua.
+ */
 function AllOrders() {
   const orders = useOrders();
   const plans = usePlans();
   const d = useDelegated();
   const nav = useNavigate();
-  const [f, setF] = useState<"all" | "online" | "store" | "asks">("all");
+  const [f, setF] = useState<"all" | OrderKind>("all");
   const list = visiblePlans(plans.data);
   const carts = usePlanCarts(list.map((p) => p.id));
+  const openPlan = (id: string) => { setCurrentPlanId(id); nav(`/plan/${encodeURIComponent(id)}`); };
+  const sentOf = (id: string) => (d.data?.from_me ?? []).filter((a) => a.plan_id === id && a.status !== "cancelled").pop();
   const rows: OrderRow[] = [
-    ...(orders.data ?? []).map((o) => ({
-      id: `o:${o.id}`, kind: "online" as const, title: o.merchant, date: (o.paid_at ?? o.events[0]?.at ?? "").slice(0, 10), count: o.lines.length,
-      total: o.total_vnd, tag: o.paid_at ? p22.paidOnline : t.orders.states[o.state], open: o.state !== "verified" && o.state !== "delivered", to: `/orders/${encodeURIComponent(o.id)}`,
-    })),
-    ...list.flatMap((p, i) => {
+    ...list.map((p, i) => {
       const c = carts[i]?.data;
-      if (c?.phase !== "reconciled") return [];
-      const day = (c.state.reconciled_on || c.state.buy_date || "").slice(0, 10);
-      return [{ id: `p:${p.id}`, kind: "store" as const, title: planName(p), date: day, count: c.item_count, total: c.estimate, tag: p22.inStore, open: false, to: `/plan/${encodeURIComponent(p.id)}`, planId: p.id }];
+      const bought = c?.phase === "reconciled";
+      const sent = sentOf(p.id);
+      const day = ((bought ? c?.state.reconciled_on : "") || c?.state.buy_date || "").slice(0, 10);
+      const tag = isDraft(p.id) ? m15.plan.draft : sent && !bought ? m15.plan.buyer(sent.buyer_display_name) : m15.plan.phase[c?.phase ?? "planning"];
+      const kinds: OrderKind[] = [bought ? "bought" : "doing", ...(sent ? (["asks"] as const) : [])];
+      return { id: `p:${p.id}`, kinds, title: planName(p), date: day, count: c?.item_count ?? p.item_count, total: c?.estimate ?? null, tag, done: bought, open: () => openPlan(p.id) };
     }),
-    ...(d.data?.from_me ?? []).map((a) => ({
-      id: `a:${a.assignment_id}`, kind: "asks" as const, title: a.trip?.plan_name || m15.plan.main, date: (a.updated_at ?? a.created_at).slice(0, 10), count: a.items.length,
-      total: null, tag: p22.askStatus[a.status] ?? a.status, open: a.status === "assigned" || a.status === "shopping", to: `/plan/${encodeURIComponent(a.plan_id)}`, planId: a.plan_id,
+    ...(d.data?.to_me ?? []).map((a) => {
+      const done = a.status === "completed" || a.status === "closed_partial" || a.status === "declined" || a.status === "cancelled";
+      return {
+        id: `a:${a.assignment_id}`, kinds: ["asks", done ? "bought" : "doing"] as OrderKind[], title: a.trip?.plan_name && a.trip.plan_name !== "Kế hoạch chính" ? a.trip.plan_name : m15.plan.main,
+        date: (a.trip?.buy_date || a.updated_at || a.created_at).slice(0, 10), count: a.items.length, total: null,
+        tag: `${m15.plan.from(a.owner_display_name)} · ${p22.askStatus[a.status] ?? a.status}`, done, open: () => nav(`/plan/run/${encodeURIComponent(a.assignment_id)}`),
+      };
+    }),
+    ...(orders.data ?? []).map((o) => ({
+      id: `o:${o.id}`, kinds: ["online", o.state === "verified" || o.state === "delivered" ? "bought" : "doing"] as OrderKind[], title: o.merchant,
+      date: (o.paid_at ?? o.events[0]?.at ?? "").slice(0, 10), count: o.lines.length, total: o.total_vnd, tag: t.orders.states[o.state],
+      done: o.state === "verified" || o.state === "delivered", open: () => nav(`/orders/${encodeURIComponent(o.id)}`),
     })),
-  ].sort((a, b) => b.date.localeCompare(a.date));
-  const spent = rows.reduce((s, r) => s + (r.kind !== "asks" && r.total != null && (r.kind === "store" || r.tag === p22.paidOnline) ? r.total : 0), 0);
-  const shown = rows.filter((r) => f === "all" || r.kind === f);
-  if (orders.isPending && plans.isPending) return <p className="hint">{t.common.loading}</p>;
+  ]
+    .filter((r) => r.count > 0)
+    .sort((a, b) => b.date.localeCompare(a.date));
+  const spent = rows.reduce((s, r) => s + (r.done && r.total != null ? r.total : 0), 0);
+  const shown = rows.filter((r) => f === "all" || r.kinds.includes(f));
+  if (plans.isPending) return <p className="hint">{t.common.loading}</p>;
   return (
     <>
       <div className="ord22__stats">
         <div className="box15"><small>{p22.spent}</small><b className="num">{formatVnd(spent)}</b></div>
-        <div className="box15"><small>{p22.tabs.orders}</small><b>{p22.ordersCount(rows.length, rows.filter((r) => r.open).length)}</b></div>
+        <div className="box15"><small>{p22.tabs.orders}</small><b>{p22.ordersCount(rows.length, rows.filter((r) => !r.done).length)}</b></div>
       </div>
       <div className="chips22" role="group" aria-label={p22.tabs.orders}>
-        {(["all", "online", "store", "asks"] as const).map((k) => (
+        {(["all", "doing", "bought", "online", "asks"] as const).map((k) => (
           <button key={k} type="button" aria-pressed={f === k} onClick={() => setF(k)}>{p22.filters[k]}</button>
         ))}
       </div>
@@ -230,7 +222,8 @@ function AllOrders() {
         <ul className="box15 past22">
           {shown.map((r) => (
             <li key={r.id}>
-              <button type="button" className="past22__row" onClick={() => { if (r.planId) setCurrentPlanId(r.planId); nav(r.to); }}>
+              <button type="button" className="past22__row" onClick={r.open}>
+                {r.done && <span className="past22__ok" aria-hidden><Check size={20} /></span>}
                 <span className="past22__text">
                   <b>{r.title}</b>
                   <small>{[r.date ? formatDayMonth(r.date) : "", m15.plan.count(r.count)].filter(Boolean).join(" · ")}</small>
@@ -248,7 +241,6 @@ function AllOrders() {
     </>
   );
 }
-
 /** Được nhờ mua: bấm thẻ mở màn đi mua (Spec 1.5 mục 2). */
 function ToMe() {
   const d = useDelegated();

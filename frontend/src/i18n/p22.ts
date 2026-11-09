@@ -82,7 +82,7 @@ const vi = {
   askStatus: { assigned: "Đang chờ", shopping: "Đang mua", completed: "Đã mua", closed_partial: "Mua được một phần", declined: "Từ chối", cancelled: "Đã hủy" } as Record<string, string>,
   spent: "Đã chi qua kế hoạch",
   ordersCount: (n: number, open: number) => `${n} đơn · ${open} đang mở`,
-  filters: { all: "Tất cả", online: "Online", store: "Tại cửa hàng", asks: "Nhờ mua" },
+  filters: { all: "Tất cả", doing: "Đang làm", bought: "Đã mua", online: "Online", asks: "Nhờ mua" },
   ordersEmpty: "Chưa có đơn nào ở đây.",
   paidOnline: "Trả online",
 };
@@ -166,7 +166,7 @@ const en: typeof vi = {
   askStatus: { assigned: "Waiting", shopping: "Shopping", completed: "Bought", closed_partial: "Partly bought", declined: "Declined", cancelled: "Cancelled" },
   spent: "Spent through plans",
   ordersCount: (n, open) => `${n} orders · ${open} open`,
-  filters: { all: "All", online: "Online", store: "In store", asks: "Requests" },
+  filters: { all: "All", doing: "In progress", bought: "Bought", online: "Online", asks: "Requests" },
   ordersEmpty: "No orders here.",
   paidOnline: "Paid online",
 };
