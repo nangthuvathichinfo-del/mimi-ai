@@ -46,5 +46,10 @@ test("Sổ chi tiêu 2.2: ngân sách, Còn tiêu được, Mimi nhận thấy, 
   await page.getByRole("button", { name: "Tháng trước" }).click();
   await expect(page.getByText("Đã hết tháng")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Mimi nhận thấy" })).toHaveCount(0);
+
+  // Lịch sử đơn hàng (anh chốt 09/11): bấm ở Sổ chi tiêu thì sang tab Lịch sử đơn hàng của Kế hoạch.
+  await page.getByRole("link", { name: "Lịch sử đơn hàng" }).click();
+  await expect(page).toHaveURL(/\/plan\?tab=history/);
+  await expect(page.getByRole("button", { name: "Lịch sử đơn hàng" })).toHaveAttribute("aria-pressed", "true");
   expect(errors).toEqual([]);
 });

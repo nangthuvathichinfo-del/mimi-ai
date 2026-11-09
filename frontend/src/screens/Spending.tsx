@@ -277,7 +277,8 @@ function HistorySummary() {
   if (rows.length === 0) return null;
   return (
     <section>
-      <Link to="/spending/history" className="box15 rowlink15">
+      {/* Anh chốt 09/11: Lịch sử đơn hàng ở một chỗ, tab thứ ba của Kế hoạch. */}
+      <Link to="/plan?tab=history" className="box15 rowlink15">
         <Clock size={20} aria-hidden />
         <span>{m15.spending.history}</span>
         <ChevronRight size={20} aria-hidden />

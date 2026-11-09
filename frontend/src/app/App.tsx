@@ -28,7 +28,6 @@ const PlanAdd = lazy(() => import("../screens/PlanFlow22").then((m) => ({ defaul
 const PlanCompare = lazy(() => import("../screens/PlanFlow22").then((m) => ({ default: m.PlanCompare })));
 const PlanConfirm = lazy(() => import("../screens/PlanFlow22").then((m) => ({ default: m.PlanConfirm })));
 const PlanDone = lazy(() => import("../screens/PlanFlow22").then((m) => ({ default: m.PlanDone })));
-const PurchaseHistory = lazy(() => import("../screens/PurchaseHistory").then((m) => ({ default: m.PurchaseHistory })));
 const ReceiptDetailScreen = lazy(() => import("../screens/PurchaseHistory").then((m) => ({ default: m.ReceiptDetailScreen })));
 const RecurringDetail = lazy(() => import("../screens/RecurringDetail").then((m) => ({ default: m.RecurringDetail })));
 const ShoppingRun = lazy(() => import("../screens/ShoppingRun").then((m) => ({ default: m.ShoppingRun })));
@@ -94,7 +93,8 @@ function Gate() {
         <Route path="/items/:key" element={<ItemDetail />} />
         <Route path="/scan" element={<Scan />} />
         <Route path="/spending" element={<Spending />} />
-        <Route path="/spending/history" element={<PurchaseHistory />} />
+        {/* Link cũ: Lịch sử đơn hàng nay ở tab thứ ba của Kế hoạch (anh chốt 09/11). */}
+        <Route path="/spending/history" element={<Navigate to="/plan?tab=history" replace />} />
         <Route path="/spending/analytics" element={<Analytics />} />
         <Route path="/spending/receipt/:id" element={<ReceiptDetailScreen />} />
         <Route path="/plan" element={<PlanList />} />
