@@ -320,3 +320,11 @@
 .det22__globe { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: #eaf0ff; color: var(--m15-blue); }
 /* Nút Xong dính đáy bảng Thêm sản phẩm. */
 .done22 { position: sticky; bottom: 0; margin: 16px -4px 0; padding: 12px 4px calc(4px + env(safe-area-inset-bottom)); background: linear-gradient(to top, #fff 75%, rgba(255,255,255,0)); }
+
+/* Cài đặt 2.2 (anh chốt 09/11): Thông báo chỉ hiện 2 ngưỡng nhắc cố định. */
+.set15__rules { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.set15__rules li { display: flex; align-items: center; gap: 12px; min-height: 24px; }
+.set15__dot { flex: none; width: 12px; height: 12px; border-radius: 50%; }
+.set15__dot--now { background: #d4538a; }
+.set15__dot--soon { background: #e8873a; }
+.buyer15 { grid-template-columns: 1fr 1fr; } /* T1: bỏ nút Mimi mua online, còn Tôi và người nhà */

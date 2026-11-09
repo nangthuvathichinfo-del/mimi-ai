@@ -465,6 +465,7 @@ function Forecast({ cart }: { cart: Cart }) {
 }
 
 /* ---------- Người mua ---------- */
+const SHOW_MIMI_BUYER = false;
 function Buyer({ pick, name, onMe, onMember, onMimi }: { pick: BuyerPick | null; name: string; onMe: () => void; onMember: () => void; onMimi: () => void }) {
   const member = !!pick && pick !== "me";
   return (
@@ -475,7 +476,8 @@ function Buyer({ pick, name, onMe, onMember, onMimi }: { pick: BuyerPick | null;
         <button type="button" aria-pressed={member} onClick={onMember}>
           {member && name ? name : m15.plan.sendMember}
         </button>
-        <button type="button" onClick={onMimi}>{m15.plan.mimi}<small className="buyer15__sub">{m15.plan.mimiOnline}</small></button>
+        {/* Anh chốt 09/11 (Cài đặt T1): bỏ Mimi mua online theo Ủy quyền; mua online chỉ qua giá Channel3 ở bước So sánh giá. */}
+        {SHOW_MIMI_BUYER && <button type="button" onClick={onMimi}>{m15.plan.mimi}<small className="buyer15__sub">{m15.plan.mimiOnline}</small></button>}
       </div>
     </section>
   );

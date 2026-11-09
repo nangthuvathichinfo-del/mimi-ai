@@ -109,14 +109,15 @@ export function Settings() {
         <SyncBox />
 
         <Group title={S.general}>
-          <Row to="/settings/notify" Icon={Bell} label={S.notify} sub={s ? S.notifySub(s.digest_time ?? "08:00", s.lead_days ?? 7, s.remind_enabled ?? true) : undefined} />
+          {/* Anh chốt 09/11 (T2, T5): ngưỡng cố định 3 và 7 ngày, chưa nhắc qua email. */}
+          <Row to="/settings/notify" Icon={Bell} label={S.notify} sub={S.notifyFixedSub} />
           <Row to="/settings/language" Icon={Globe} label={S.language} sub={S.languageSub(LANG_NAME[uiLang], (s?.timezone || "Asia/Ho_Chi_Minh").replace(/_/g, " "))} />
         </Group>
         <p className="hint hint15"><Info size={16} aria-hidden /> {S.langNote}</p>
 
         <Group title={S.family}>
           <Row to="/settings/members" Icon={UsersRound} label={S.members} sub={h.data ? S.membersSub(h.data.members.length) : undefined} />
-          <MandateRow />
+          {/* Anh chốt 09/11 (T1): bỏ Ủy quyền mua online khỏi Cài đặt; Mimi chỉ đề xuất so sánh giá. Backend giữ nguyên. */}
         </Group>
 
         <Group title={S.shopping}>
@@ -189,13 +190,27 @@ export function SettingsProfile() {
   );
 }
 
-/** Thông báo & nhắc mua: bật tắt email nhắc, giờ gửi, báo trước bao nhiêu ngày. */
+/**
+ * Thông báo & nhắc mua. Anh chốt 09/11 (T2, T5): nhắc trong app theo 2 ngưỡng cố định (Cần mua ngay
+ * ≤ 3 ngày, Sắp hết ≤ 7 ngày), chưa gửi email nên không còn công tắc, giờ gửi, số ngày báo trước.
+ * NotifyForm của 2.1 giữ lại để bật lại khi làm nhắc qua email.
+ */
 export function SettingsNotify() {
-  const me = useMeData();
-  return <Sub title={S.notify}>{me ? <NotifyForm me={me} /> : <p className="hint">{t.common.loading}</p>}</Sub>;
+  return (
+    <Sub title={S.notify}>
+      <div className="box15 set15__form">
+        <p>{S.notifyInApp}</p>
+        <ul className="set15__rules">
+          <li><span className="set15__dot set15__dot--now" aria-hidden /> {S.notifyNow}</li>
+          <li><span className="set15__dot set15__dot--soon" aria-hidden /> {S.notifySoon}</li>
+        </ul>
+        <p className="hint">{S.notifyNoEmail}</p>
+      </div>
+    </Sub>
+  );
 }
 
-function NotifyForm({ me }: { me: Me }) {
+export function NotifyForm({ me }: { me: Me }) {
   const s = me.settings;
   const start = { on: s.remind_enabled ?? true, time: s.digest_time ?? "08:00", lead: s.lead_days ?? 7 };
   const [base, setBase] = useState(start);
