@@ -286,3 +286,4 @@
 .conf22__sub { font-size: 12.5px; font-weight: 500; color: var(--ink-soft); margin-left: 6px; }
 .conf22 .conf22__total { min-height: 44px; }
 .pd22__more { display: grid; gap: 12px; }
+[data-ui] .top22 { display: grid; gap: 16px; margin-bottom: 24px; }

@@ -54,10 +54,9 @@ test("kịch bản demo: quét bill, Đồ dùng, Sổ chi tiêu, Kế hoạch",
   // bước Mua tách phần trả online và phần chọn người đi mua.
   await home(page);
   await page.getByRole("link", { name: /^Kế hoạch/ }).first().click();
-  await expect(page.getByRole("heading", { name: "Giỏ mua sắm" })).toBeVisible();
+  await expect(page.locator(".top22").getByRole("textbox", { name: "Tên kế hoạch" })).toHaveValue("Giỏ mua sắm");
   await expect(page.getByText("Gợi ý cho kế hoạch này")).toBeVisible();
-  await expect(page.getByText(/Giá thấp nhất tìm được/)).toBeVisible();
-  await page.getByRole("button", { name: /So sánh giá/ }).first().click();
+  await page.locator(".top22").getByRole("button", { name: "Tiếp tục" }).click();
   await page.getByRole("button", { name: "Tiếp tục" }).click();
   await expect(page.getByRole("radio", { name: /Tôi mua/ })).toBeVisible();
   await expect(page.getByRole("radio", { name: /Minh/ })).toBeVisible();

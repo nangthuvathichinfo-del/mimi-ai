@@ -14,12 +14,14 @@ test("Kế hoạch 2.2: lưu kế hoạch nháp qua 3 bước, thêm món sắp 
   await page.goto("/plan");
 
   // Thẻ đầu: kế hoạch chưa lưu, thanh 3 bước ở bước 2, giá cũ gạch ngang.
-  const card = page.locator(".draft22");
-  await expect(card.getByText("Bước 2/3 · So sánh giá")).toBeVisible();
-  await expect(card.locator(".pl22__price s").first()).toBeVisible();
+  // Kế hoạch chưa lưu ở đầu màn chính là màn bước 1: thông tin kế hoạch, danh sách món, nút Tiếp tục.
+  const card = page.locator(".top22");
+  await expect(card.getByRole("textbox", { name: "Tên kế hoạch" })).toHaveValue("Giỏ mua sắm");
+  await expect(card.getByText("Thêm vào Google Calendar")).toBeVisible();
+  await expect(card.getByRole("button", { name: "Thêm món", exact: true })).toBeVisible();
 
   // So sánh giá theo từng món: rẻ nhất được chọn sẵn.
-  await card.getByRole("button", { name: /So sánh giá/ }).click();
+  await card.getByRole("button", { name: "Tiếp tục" }).click();
   const first = page.locator(".cmpi22").first();
   await expect(first.getByRole("radio").first()).toHaveAttribute("aria-checked", "true");
   await expect(first.getByText("Thấp nhất")).toBeVisible();
@@ -37,7 +39,7 @@ test("Kế hoạch 2.2: lưu kế hoạch nháp qua 3 bước, thêm món sắp 
 
   // Hai kế hoạch đã lưu xuống mục dưới; Giỏ mua sắm trống thành nháp mới ở bước 1.
   await expect(page.locator(".plancard15", { hasText: "Giỏ mua sắm · Online" })).toBeVisible();
-  await expect(page.locator(".draft22").getByText("Bước 1/3 · Thêm món")).toBeVisible();
+  await expect(page.locator(".top22").getByRole("button", { name: "Tiếp tục" })).toHaveAttribute("aria-disabled", "true");
 
   // Kế hoạch đã lưu: xác nhận đã mua xong thì sang Tất cả đơn, mục Đã hoàn thành.
   await page.locator(".plancard15", { hasText: "Giỏ mua sắm · Online" }).click();
@@ -49,10 +51,10 @@ test("Kế hoạch 2.2: lưu kế hoạch nháp qua 3 bước, thêm món sắp 
 
   // Kế hoạch mới: trống, bước 1, thêm món sắp hết một chạm có Hoàn tác.
   await page.getByRole("button", { name: /Kế hoạch mới/ }).click();
-  await expect(page.locator(".draft22").getByText("Bước 1/3 · Thêm món")).toBeVisible();
-  await page.getByRole("button", { name: /Thêm \d+ món sắp hết/ }).click();
-  await expect(page.getByRole("button", { name: "Hoàn tác" })).toBeVisible();
-  await expect(page.locator(".draft22").getByText("Bước 2/3 · So sánh giá")).toBeVisible();
+  const next = page.locator(".top22").getByRole("button", { name: "Tiếp tục" });
+  await expect(next).toHaveAttribute("aria-disabled", "true");
+  await page.locator(".top22").getByRole("button", { name: /Thêm cả \d+ món/ }).click();
+  await expect(next).not.toHaveAttribute("aria-disabled", "true");
 
   // Ba tab.
   // Tab Được nhờ mua giữ như 2.1: chỉ danh sách kế hoạch được nhờ.

@@ -97,112 +97,130 @@ function Flow({ step, title, back, children, bar }: { step: 1 | 2 | 3; title: st
 /* ---------- Bước 1: Thêm món và thông tin kế hoạch (anh chốt 09/11) ---------- */
 export function PlanAdd() {
   const nav = useNavigate();
-  const plans = usePlans();
-  const metaAct = usePlanMeta();
-  const [sheet, setSheet] = useState<null | "menu" | "product">(null);
-  const [iconSheet, setIconSheet] = useState(false);
-  const [name, setName] = useState<string | null>(null);
   return (
     <Flow
       step={1}
       title={p22.addTitle}
       back="/plan"
-      bar={(id, cart) => (
-        <button
-          type="button"
-          className="btn btn--primary btn--block btn--lg"
-          aria-disabled={cart.item_count === 0 || undefined}
-          onClick={() => cart.item_count > 0 && nav(`/plan/${encodeURIComponent(id)}/compare`)}
-        >
-          {p22.next} · {p22.compare} <ChevronRight size={18} aria-hidden />
-        </button>
-      )}
+      bar={(id, cart) => <NextButton id={id} cart={cart} onNext={() => nav(`/plan/${encodeURIComponent(id)}/compare`)} />}
     >
-      {(id, cart) => {
-        const meta = plans.data?.find((p) => p.id === id);
-        const Icon = iconOf(planIcon(meta));
-        const cur = name ?? (meta ? planName(meta) : "");
-        const st = cart.state;
-        const time = st.buy_hour != null ? `${String(st.buy_hour).padStart(2, "0")}:${String(st.buy_minute ?? 0).padStart(2, "0")}` : "";
-        return (
-          <>
-            <section className="box15 info22" aria-label={p22.planInfo}>
-              <div className="info22__name">
-                <button type="button" className="pd15__icon" aria-label={m15.plan.pickIcon} onClick={() => setIconSheet(true)}>
-                  <Icon size={26} aria-hidden />
-                </button>
-                <input
-                  className="draft22__input"
-                  value={cur}
-                  maxLength={40}
-                  aria-label={m15.plan.name}
-                  readOnly={meta?.default}
-                  onChange={(e) => setName(e.target.value)}
-                  onBlur={() => {
-                    const n = cur.trim();
-                    if (meta && !meta.default && n && n !== meta.name) metaAct.update.mutate({ id, name: n }, { onSuccess: () => markDraft(id) });
-                    setName(null);
-                  }}
-                />
-                <span className="tag15 tag15--draft">{p22.draft}</span>
-              </div>
-              <TripRows planId={id} cart={cart} />
-              {st.buy_date && (
-                <AddToCalendar
-                  ev={{
-                    title: m15.plan.calTitle(cur),
-                    date: st.buy_date,
-                    time,
-                    location: st.trip_note,
-                    details: m15.plan.calDetails(cart.items.slice(0, 20).map((i) => i.name)),
-                  }}
-                />
-              )}
-            </section>
-
-            {cart.items.length > 0 ? <Lines cart={cart} onChange={() => markDraft(id)} done={new Set()} /> : <p className="hint">{p22.noItems}</p>}
-
-            <button type="button" className="btn btn--outline btn--block btn--lg" onClick={() => setSheet("menu")}>
-              <Plus size={20} aria-hidden /> {p22.addSheet}
-            </button>
-
-            {sheet === "menu" && (
-              <Sheet title={p22.addSheet} sub={p22.addSheetSub} onClose={() => setSheet(null)}>
-                <div className="menu22">
-                  <button type="button" className="menu22__row" onClick={() => nav("/items")}>
-                    <House size={22} aria-hidden />
-                    <span><b>{p22.checkItems}</b><small>{p22.checkItemsSub}</small></span>
-                    <ChevronRight size={18} aria-hidden />
-                  </button>
-                  <button type="button" className="menu22__row" onClick={() => setSheet("product")}>
-                    <CirclePlus size={22} aria-hidden />
-                    <span><b>{p22.addProduct}</b><small>{p22.addProductSub}</small></span>
-                    <ChevronRight size={18} aria-hidden />
-                  </button>
-                </div>
-              </Sheet>
-            )}
-            {sheet === "product" && (
-              <Sheet title={p22.addProduct} sub={p22.addProductSub} onClose={() => setSheet(null)}>
-                <AddAnything cart={cart} />
-                <LowQuick planId={id} cart={cart} />
-              </Sheet>
-            )}
-            {iconSheet && meta && (
-              <IconSheet
-                value={planIcon(meta)}
-                onCancel={() => setIconSheet(false)}
-                onSave={(k) => {
-                  metaAct.update.mutate({ id, icon: k });
-                  setIconSheet(false);
-                  markDraft(id);
-                }}
-              />
-            )}
-          </>
-        );
-      }}
+      {(id, cart) => <Step1Body id={id} cart={cart} />}
     </Flow>
+  );
+}
+
+/** Nút Tiếp tục của bước 1 (chưa có món thì chưa bấm được). */
+export function NextButton({ id, cart, onNext }: { id: string; cart: Cart; onNext?: () => void }) {
+  const nav = useNavigate();
+  const go = onNext ?? (() => nav(`/plan/${encodeURIComponent(id)}/compare`));
+  return (
+    <button
+      type="button"
+      className="btn btn--primary btn--block btn--lg"
+      aria-disabled={cart.item_count === 0 || undefined}
+      onClick={() => cart.item_count > 0 && go()}
+    >
+      {p22.next} <ChevronRight size={18} aria-hidden />
+    </button>
+  );
+}
+
+/** Nội dung bước 1 (Thêm món): dùng ở màn bước 1 và ở thẻ kế hoạch chưa lưu đầu tab Của tôi. */
+export function Step1Body({ id, cart }: { id: string; cart: Cart }) {
+  const nav = useNavigate();
+  const plans = usePlans();
+  const metaAct = usePlanMeta();
+  const [sheet, setSheet] = useState<null | "menu" | "product">(null);
+  const [iconSheet, setIconSheet] = useState(false);
+  const [name, setName] = useState<string | null>(null);
+  const meta = plans.data?.find((p) => p.id === id);
+  const Icon = iconOf(planIcon(meta));
+  const cur = name ?? (meta ? planName(meta) : "");
+  const st = cart.state;
+  const time = st.buy_hour != null ? `${String(st.buy_hour).padStart(2, "0")}:${String(st.buy_minute ?? 0).padStart(2, "0")}` : "";
+  return (
+    <>
+      <section className="box15 info22" aria-label={p22.planInfo}>
+        <div className="info22__name">
+          <button type="button" className="pd15__icon" aria-label={m15.plan.pickIcon} onClick={() => setIconSheet(true)}>
+            <Icon size={26} aria-hidden />
+          </button>
+          <input
+            className="draft22__input"
+            value={cur}
+            maxLength={40}
+            aria-label={m15.plan.name}
+            readOnly={meta?.default}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={() => {
+              const n = cur.trim();
+              if (meta && !meta.default && n && n !== meta.name) metaAct.update.mutate({ id, name: n }, { onSuccess: () => markDraft(id) });
+              setName(null);
+            }}
+          />
+          <span className="tag15 tag15--draft">{p22.draft}</span>
+        </div>
+        <TripRows planId={id} cart={cart} />
+        {st.buy_date && (
+          <AddToCalendar
+            ev={{
+              title: m15.plan.calTitle(cur),
+              date: st.buy_date,
+              time,
+              location: st.trip_note,
+              details: m15.plan.calDetails(cart.items.slice(0, 20).map((i) => i.name)),
+            }}
+          />
+        )}
+      </section>
+
+      {cart.items.length > 0 ? (
+        <Lines cart={cart} onChange={() => markDraft(id)} done={new Set()} />
+      ) : (
+        <>
+          <p className="hint">{p22.noItems}</p>
+          <LowQuick planId={id} cart={cart} />
+        </>
+      )}
+
+      <button type="button" className="btn btn--outline btn--block btn--lg" onClick={() => setSheet("menu")}>
+        <Plus size={20} aria-hidden /> {p22.addSheet}
+      </button>
+
+      {sheet === "menu" && (
+        <Sheet title={p22.addSheet} sub={p22.addSheetSub} onClose={() => setSheet(null)}>
+          <div className="menu22">
+            <button type="button" className="menu22__row" onClick={() => nav("/items")}>
+              <House size={22} aria-hidden />
+              <span><b>{p22.checkItems}</b><small>{p22.checkItemsSub}</small></span>
+              <ChevronRight size={18} aria-hidden />
+            </button>
+            <button type="button" className="menu22__row" onClick={() => setSheet("product")}>
+              <CirclePlus size={22} aria-hidden />
+              <span><b>{p22.addProduct}</b><small>{p22.addProductSub}</small></span>
+              <ChevronRight size={18} aria-hidden />
+            </button>
+          </div>
+        </Sheet>
+      )}
+      {sheet === "product" && (
+        <Sheet title={p22.addProduct} sub={p22.addProductSub} onClose={() => setSheet(null)}>
+          <AddAnything cart={cart} />
+          <LowQuick planId={id} cart={cart} />
+        </Sheet>
+      )}
+      {iconSheet && meta && (
+        <IconSheet
+          value={planIcon(meta)}
+          onCancel={() => setIconSheet(false)}
+          onSave={(k) => {
+            metaAct.update.mutate({ id, icon: k });
+            setIconSheet(false);
+            markDraft(id);
+          }}
+        />
+      )}
+    </>
   );
 }
 

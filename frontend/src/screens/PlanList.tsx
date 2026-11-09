@@ -3,14 +3,15 @@ import { m15 } from "../i18n/m15";
 import { useLayoutEffect, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { CalendarDays, Check, ChevronRight, Info, MapPin, Plus, UsersRound } from "lucide-react";
-import { useDelegated, useOrders, usePlanCarts, usePlanMeta, usePlans } from "../api/hooks";
+import { useDelegated, useOrders, usePlan, usePlanCarts, usePlanMeta, usePlans } from "../api/hooks";
 import type { Cart, PlanMeta } from "../api/types";
 import { MainFrame, TopBar } from "../components/AppShell";
 import { setCurrentPlanId, useCurrentPlanId } from "../lib/currentPlan";
 import { visiblePlans } from "../components/PlanPicker";
 import { iconOf, planIcon } from "../lib/planIcon";
 import { buyerOf, isDraft, usePlanDraftVersion } from "../lib/planDraft";
-import { DraftCard, SuggestGrid } from "../components/PlanDraft22";
+import { Stepper, SuggestGrid } from "../components/PlanDraft22";
+import { NextButton, Step1Body } from "./PlanFlow22";
 import { p22 } from "../i18n/p22";
 import { formatDayMonth, formatVnd } from "../lib/text";
 import { t } from "../i18n";
@@ -109,7 +110,7 @@ function Mine() {
       </div>
       {top && current === top.p.id ? (
         <>
-          <DraftCard meta={top.p} />
+          <TopDraft id={top.p.id} />
           <SuggestGrid meta={top.p} />
         </>
       ) : (
@@ -273,5 +274,19 @@ function ToMe() {
         );
       })}
     </ul>
+  );
+}
+
+/** Kế hoạch chưa lưu ở đầu tab Của tôi: chính là màn bước 1 (Thêm món), cuối có nút Tiếp tục. */
+function TopDraft({ id }: { id: string }) {
+  const plan = usePlan();
+  const cart = plan.data;
+  if (!cart) return <LoadState q={plan} hasData={false} />;
+  return (
+    <section className="top22" aria-label={p22.current}>
+      <Stepper step={1} />
+      <Step1Body id={id} cart={cart} />
+      <NextButton id={id} cart={cart} />
+    </section>
   );
 }
