@@ -2,7 +2,8 @@ import { categoryLabel, t } from "../i18n";
 import { m15 } from "../i18n/m15";
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Clock, ScanLine, ShoppingCart, Trophy } from "lucide-react";
+import { CalendarDays, ChartPie, ChevronDown, ChevronLeft, ChevronRight, Clock, ScanLine, ShoppingCart, Trophy } from "lucide-react";
+import { at as ana } from "../analytics/text";
 import { ApiError } from "../api/client";
 import { useForecast, useItems, useReceiptHistory, useRecurring, useSpending } from "../api/hooks";
 import { ReceiptRow } from "./PurchaseHistory";
@@ -191,6 +192,13 @@ function Report({ r, month }: { r: SpendingReport; month: string }) {
           </ul>
         </section>
       )}
+
+      {/* Phân tích chi tiêu (AG Studio): bảng phân tích, radar sắp hết, Hỏi Mimi. */}
+      <Link to="/spending/analytics" className="box15 rowlink15 ana-entry">
+        <ChartPie size={20} aria-hidden />
+        <span>{ana.open}<small>{ana.openSub}</small></span>
+        <ChevronRight size={20} aria-hidden />
+      </Link>
 
       {/* Spec 1.5 mục 4: tóm tắt 3 hóa đơn mới nhất; bấm tiêu đề mở màn 4c, bấm hóa đơn mở 4d. */}
       <HistorySummary />

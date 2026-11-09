@@ -29,6 +29,7 @@ tags:
   - { name: system, description: Sức khỏe dịch vụ }
   - { name: me, description: "Đăng nhập, Cài đặt, Quyền riêng tư (spec mục 1, 6)" }
   - { name: home, description: Trang chủ (spec mục 2) }
+  - { name: ai, description: "Hỏi Mimi trên màn Phân tích chi tiêu (AG Studio)" }
   - { name: receipts, description: "Quét, Xác nhận, Đã lưu" }
   - { name: items, description: "Đồ dùng, Chi tiết món, Cần mua (spec mục 4, 5)" }
   - { name: spending, description: "Sổ chi tiêu, Dự báo 30 ngày, Khoản chi định kỳ (spec mục 3)" }
@@ -510,6 +511,21 @@ paths:
       responses:
         "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/MarketRefresh" } } } }
         "429": { $ref: "#/components/responses/Error" }
+  /ai/turn:
+    post:
+      tags: [ai]
+      summary: "Hỏi Mimi (màn Phân tích chi tiêu, AG Studio): một lượt Gemini"
+      description: >-
+        App giữ vòng lặp agent của AG Studio và tự chạy mọi tool; máy chủ chỉ gọi Gemini (Vertex AI) một lượt với
+        hội thoại và khai báo tool app gửi lên, rồi trả lời văn bản hoặc lời đề nghị gọi tool. Dạng tin nhắn theo REST
+        của Gemini. Giới hạn lượt mỗi người mỗi ngày (AI_DAILY_LIMIT).
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/AiTurnRequest" } } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/AiTurnResponse" } } } }
+        "413": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
   /plan/delegated:
     get:
       tags: [plan, household]
@@ -894,6 +910,52 @@ components:
       content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
 
   schemas:
+    AiPart:
+      type: object
+      description: Một phần tin nhắn. Có đúng một trong text, functionCall, functionResponse.
+      properties:
+        text: { type: string }
+        thoughtSignature: { type: string, description: "Chữ ký Gemini 3 (base64) của lượt gọi tool, gửi trả nguyên vẹn" }
+        functionCall:
+          type: object
+          required: [name]
+          properties: { id: { type: string }, name: { type: string }, args: { type: object, additionalProperties: true } }
+        functionResponse:
+          type: object
+          required: [name, response]
+          properties: { id: { type: string }, name: { type: string }, response: { type: object, additionalProperties: true } }
+    AiTurnRequest:
+      type: object
+      required: [contents]
+      properties:
+        system: { type: string }
+        contents:
+          type: array
+          maxItems: 120
+          items:
+            type: object
+            required: [role, parts]
+            properties: { role: { type: string, enum: [user, model] }, parts: { type: array, items: { $ref: "#/components/schemas/AiPart" } } }
+        tools:
+          type: array
+          maxItems: 64
+          items:
+            type: object
+            required: [name, description]
+            properties: { name: { type: string }, description: { type: string }, parameters: { type: object, additionalProperties: true, description: JSON Schema } }
+        tool_mode: { type: string, enum: [AUTO, ANY, NONE] }
+        allowed_tools: { type: array, items: { type: string } }
+        json_schema: { type: object, additionalProperties: true }
+        model: { type: string, description: "Bỏ qua: máy chủ dùng model đã cấu hình" }
+    AiTurnResponse:
+      type: object
+      required: [id, parts]
+      properties:
+        id: { type: string }
+        model: { type: string }
+        parts: { type: array, items: { $ref: "#/components/schemas/AiPart" } }
+        finish_reason: { type: string }
+        usage: { type: object, properties: { input_tokens: { type: integer }, output_tokens: { type: integer }, total_tokens: { type: integer } } }
     ClientId:
       type: string
       pattern: "^[a-z0-9-]{1,64}$"

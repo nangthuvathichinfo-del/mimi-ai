@@ -22,6 +22,9 @@ PAYPAL_CLIENT_ID="${PAYPAL_CLIENT_ID:-}"
 BRAINTREE_MODE="${BRAINTREE_MODE:-off}"
 BRAINTREE_PUBLIC_KEY="${BRAINTREE_PUBLIC_KEY:-}"
 BRAINTREE_MERCHANT_ACCOUNT_ID="${BRAINTREE_MERCHANT_ACCOUNT_ID:-}" # rỗng: tài khoản mặc định (phải là USD)
+# AG Studio (màn Phân tích chi tiêu): khóa dùng thử 45 ngày. Để trống thì Studio vẫn chạy, chỉ hiện watermark.
+#   AG_STUDIO_LICENSE=<khóa> bash deploy/cloudshell-setup.sh mimi-1-5
+AG_STUDIO_LICENSE="${AG_STUDIO_LICENSE:-}"
 GEMINI_THINKING="${GEMINI_THINKING:-LOW}" # LOW: đã thử đọc bill ổn. MINIMAL thử 02/11 thì AI từ chối mọi bill, đừng dùng
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
@@ -130,6 +133,7 @@ print("VITE_USE_EMULATORS=false")' > "$ROOT/frontend/.env.production"
 KEY="$(gcloud recaptcha keys list --filter="displayName=mimi-web" --format='value(name)' 2>/dev/null | head -1)"
 [ -n "$KEY" ] && echo "VITE_RECAPTCHA_ENTERPRISE_KEY=${KEY##*/}" >> "$ROOT/frontend/.env.production"
 [ -n "$PAYPAL_CLIENT_ID" ] && echo "VITE_PAYPAL_CLIENT_ID=$PAYPAL_CLIENT_ID" >> "$ROOT/frontend/.env.production"
+[ -n "$AG_STUDIO_LICENSE" ] && echo "VITE_AG_STUDIO_LICENSE=$AG_STUDIO_LICENSE" >> "$ROOT/frontend/.env.production"
 echo "  đã ghi frontend/.env.production"
 
 say "6/7 Build frontend"

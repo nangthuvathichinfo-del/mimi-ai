@@ -29,6 +29,7 @@ const ReceiptDetailScreen = lazy(() => import("../screens/PurchaseHistory").then
 const RecurringDetail = lazy(() => import("../screens/RecurringDetail").then((m) => ({ default: m.RecurringDetail })));
 const ShoppingRun = lazy(() => import("../screens/ShoppingRun").then((m) => ({ default: m.ShoppingRun })));
 const Spending = lazy(() => import("../screens/Spending").then((m) => ({ default: m.Spending })));
+const Analytics = lazy(() => import("../analytics/AnalyticsScreen").then((m) => ({ default: m.Analytics })));
 const Settings = lazy(() => import("../screens/Settings").then((m) => ({ default: m.Settings })));
 const lazySet = (k: "SettingsProfile" | "SettingsNotify" | "SettingsLanguage" | "SettingsMembers" | "SettingsMember" | "SettingsPrivacy" | "SettingsMandate") =>
   lazy(() => import("../screens/Settings").then((m) => ({ default: m[k] })));
@@ -90,6 +91,7 @@ function Gate() {
         <Route path="/scan" element={<Scan />} />
         <Route path="/spending" element={<Spending />} />
         <Route path="/spending/history" element={<PurchaseHistory />} />
+        <Route path="/spending/analytics" element={<Analytics />} />
         <Route path="/spending/receipt/:id" element={<ReceiptDetailScreen />} />
         <Route path="/plan" element={<PlanList />} />
         <Route path="/plan/run/:id" element={<ShoppingRun />} />
