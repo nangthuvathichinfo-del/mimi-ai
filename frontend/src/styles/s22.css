@@ -295,3 +295,15 @@
 [data-ui] .chip22--on { background: #e7f6ee; border-color: #bfe5cf; color: #1f7a52; cursor: default; }
 [data-ui] .chip22--new { border-style: dashed; color: var(--m15-blue); }
 [data-ui] .chip22[aria-disabled="true"]:not(.chip22--on) { opacity: .6; }
+/* Nút Chi tiết của từng giá và bảng chi tiết giá. */
+[data-ui] .cmpi22__more { flex: none; border: 0; background: transparent; padding: 0; cursor: pointer; display: grid; place-items: center; min-width: 44px; min-height: 44px; border-radius: 12px; color: var(--m15-blue); }
+.det22 { display: grid; gap: 16px; }
+.det22__price { margin: 0; font-size: 26px; font-weight: 700; color: var(--ink); }
+.det22__diff { margin: -8px 0 0; font-size: 14px; font-weight: 600; }
+.det22__diff--down { color: #1f7a52; }
+.det22__diff--up { color: #c2410c; }
+.det22__table { margin: 0; display: grid; border: 1px solid var(--m15-line, #d7def2); border-radius: 16px; overflow: hidden; }
+.det22__table div { display: flex; justify-content: space-between; gap: 12px; padding: 12px 16px; }
+.det22__table div + div { border-top: 1px solid var(--m15-line, #d7def2); }
+.det22__table dt { color: var(--ink-soft); }
+.det22__table dd { margin: 0; font-weight: 600; color: var(--ink); text-align: right; overflow-wrap: anywhere; }

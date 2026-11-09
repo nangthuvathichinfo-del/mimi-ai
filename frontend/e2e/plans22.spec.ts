@@ -24,6 +24,12 @@ test("Kế hoạch 2.2: lưu kế hoạch nháp qua 3 bước, thêm món sắp 
   const first = page.locator(".cmpi22").first();
   await expect(first.getByRole("radio").first()).toHaveAttribute("aria-checked", "true");
   await expect(first.getByText("Thấp nhất")).toBeVisible();
+  // Nút Chi tiết tách khỏi việc chọn dòng: xem chi tiết giá thứ hai rồi chọn giá đó, sau đó chọn lại giá rẻ nhất.
+  await first.getByRole("button", { name: /Chi tiết giá/ }).nth(1).click();
+  await expect(page.getByText("Nơi bán")).toBeVisible();
+  await page.getByRole("button", { name: "Chọn giá này" }).click();
+  await expect(first.getByRole("radio").nth(1)).toHaveAttribute("aria-checked", "true");
+  await first.getByRole("radio").first().click();
   await page.getByRole("button", { name: "Tiếp tục" }).click();
 
   // Bước 3: có cả giá online và giá hóa đơn cũ thì tách 2 kế hoạch; phần cửa hàng phải chọn người mua.

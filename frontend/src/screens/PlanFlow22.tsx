@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { ChevronLeft, ChevronRight, CircleCheckBig, CirclePlus, ExternalLink, House, Plus, RefreshCw, Store, UserRound } from "lucide-react";
+import { ChevronLeft, ChevronRight, CircleCheckBig, CirclePlus, ExternalLink, House, Info, Plus, RefreshCw, Store, UserRound } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { m1 } from "../i18n/m1";
 import { apiSend } from "../api/client";
@@ -18,7 +18,7 @@ import {
 } from "../api/hooks";
 import type { Cart, CartItem, MarketPrice, PlanMeta } from "../api/types";
 import { MainFrame } from "../components/AppShell";
-import { AddAnything, BasketPricesPanel, MarketPricesPanel } from "../components/PlanExtras";
+import { AddAnything } from "../components/PlanExtras";
 import { Stepper, TripRows, useLowItems } from "../components/PlanDraft22";
 import { LoadState } from "../components/LoadState";
 import { setCurrentPlanId, useCurrentPlanId } from "../lib/currentPlan";
@@ -46,7 +46,7 @@ function writePicks(id: string, v: Record<string, string>) {
   }
 }
 
-export type PriceOption = { id: string; store: string; sub: string; total: number; url?: string; receipt: boolean };
+export type PriceOption = { id: string; store: string; sub: string; total: number; url?: string; receipt: boolean; price?: MarketPrice };
 
 /** Các lựa chọn giá của một món: hóa đơn cũ của nhà mình và giá đang bán trên mạng, rẻ nhất trước. */
 export function optionsOf(item: CartItem, prices: MarketPrice[]): PriceOption[] {
@@ -54,7 +54,7 @@ export function optionsOf(item: CartItem, prices: MarketPrice[]): PriceOption[] 
   if (item.unit_price != null)
     out.push({ id: "receipt", store: item.best_store || p22.pastReceipt(""), sub: p22.pastReceipt(""), total: item.unit_price * item.qty, receipt: true });
   prices.forEach((p, i) =>
-    out.push({ id: `web:${i}:${p.store}`, store: p.store, sub: [p22.src(p.source), p.size, formatDayMonth(p.on)].filter(Boolean).join(" · "), total: p.price_vnd * item.qty, url: p.url, receipt: false }),
+    out.push({ id: `web:${i}:${p.store}`, store: p.store, sub: [p22.src(p.source), p.size, formatDayMonth(p.on)].filter(Boolean).join(" · "), total: p.price_vnd * item.qty, url: p.url, receipt: false, price: p }),
   );
   return out.sort((a, b) => a.total - b.total);
 }
@@ -273,15 +273,16 @@ function LowQuick({ planId, cart }: { planId: string; cart: Cart }) {
 /* ---------- Bước 2: So sánh giá ---------- */
 export function PlanCompare() {
   const nav = useNavigate();
-  const [mode, setMode] = useState<"item" | "store">("item");
   const market = useMarketPrices(true);
   const refresh = useRefreshMarketPrices();
   const { id: routeId = "default" } = useParams();
   const [picks, setPicks] = useState<Record<string, string>>(() => readPicks(routeId));
+  const [detail, setDetail] = useState<{ item: CartItem; opt: PriceOption; opts: PriceOption[]; pick: (o: PriceOption) => void } | null>(null);
   const byKey = useMemo(() => new Map((market.data?.items ?? []).map((m) => [m.key, m.prices])), [market.data]);
   const totalOf = (cart: Cart) => cart.items.reduce((s, i) => s + (chosen(i, optionsOf(i, byKey.get(i.key) ?? []), picks)?.total ?? 0), 0);
   const st = refresh.data?.refresh ?? market.data?.refresh;
   return (
+    <>
     <Flow
       step={2}
       title={p22.compareTitle}
@@ -307,16 +308,8 @@ export function PlanCompare() {
     >
       {(id, cart) => (
         <>
-          <div className="seg seg15" role="group" aria-label={p22.compareTitle}>
-            <button type="button" aria-pressed={mode === "item"} onClick={() => setMode("item")}>{p22.byItem}</button>
-            <button type="button" aria-pressed={mode === "store"} onClick={() => setMode("store")}>{p22.byStore}</button>
-          </div>
-          {mode === "store" ? (
-            <>
-              <MarketPricesPanel cart={cart} />
-              <BasketPricesPanel cart={cart} />
-            </>
-          ) : (
+          {/* Anh chốt 09/11: bỏ hai tab Theo từng món / Theo cửa hàng, chỉ còn chọn giá từng món. */}
+          {(
             <>
               <p className="hint">{p22.compareHint}</p>
               {/* Nút Cập nhật giá của 2.1 (anh chốt 09/11): tra lại giá ngay, giới hạn số lần mỗi ngày. */}
@@ -330,6 +323,12 @@ export function PlanCompare() {
               {cart.items.map((item) => {
                 const opts = optionsOf(item, byKey.get(item.key) ?? []);
                 const cur = chosen(item, opts, picks);
+                const pick = (o: PriceOption) => {
+                  const next = { ...picks, [item.key]: o.id };
+                  setPicks(next);
+                  writePicks(id, next);
+                  markDraft(id);
+                };
                 return (
                   <section key={item.key} className="box15 cmpi22" aria-label={item.name}>
                     <h2>{item.name}</h2>
@@ -344,12 +343,7 @@ export function PlanCompare() {
                               role="radio"
                               aria-checked={cur?.id === o.id}
                               className="cmpi22__pick"
-                              onClick={() => {
-                                const next = { ...picks, [item.key]: o.id };
-                                setPicks(next);
-                                writePicks(id, next);
-                                markDraft(id);
-                              }}
+                              onClick={() => pick(o)}
                             >
                               <span className="cmpi22__rad" aria-hidden />
                               <span className="cmpi22__text">
@@ -361,11 +355,9 @@ export function PlanCompare() {
                               </span>
                               <span className="num cmpi22__price">{formatVnd(o.total)}</span>
                             </button>
-                            {o.url && (
-                              <a className="cmpi22__src" href={o.url} target="_blank" rel="noopener noreferrer" aria-label={m15.plan.compare + ": " + o.store}>
-                                <ExternalLink size={16} aria-hidden />
-                              </a>
-                            )}
+                            <button type="button" className="cmpi22__more" aria-label={p22.detailOf(o.store)} onClick={() => setDetail({ item, opt: o, opts, pick })}>
+                              <Info size={20} aria-hidden />
+                            </button>
                           </li>
                         ))}
                       </ul>
@@ -378,6 +370,75 @@ export function PlanCompare() {
         </>
       )}
     </Flow>
+    {detail && (
+      <PriceDetail
+        item={detail.item}
+        opt={detail.opt}
+        opts={detail.opts}
+        onClose={() => setDetail(null)}
+        onChoose={() => {
+          detail.pick(detail.opt);
+          setDetail(null);
+        }}
+      />
+    )}
+    </>
+  );
+}
+
+
+/** Chi tiết một lựa chọn giá (Redesign: nút Details tách khỏi việc chọn dòng). */
+function PriceDetail({ item, opt, opts, onClose, onChoose }: { item: CartItem; opt: PriceOption; opts: PriceOption[]; onClose: () => void; onChoose: () => void }) {
+  const receipt = opts.find((o) => o.receipt);
+  const diff = receipt && !opt.receipt ? opt.total - receipt.total : null;
+  const p = opt.price;
+  let domain = "";
+  try {
+    domain = opt.url ? new URL(opt.url).hostname.replace(/^www\./, "") : "";
+  } catch {
+    domain = "";
+  }
+  const rows: [string, string][] = [
+    [p22.det.seller, opt.store],
+    [p22.det.source, opt.receipt ? p22.pastReceipt("") : p22.src(p?.source ?? "")],
+    ...(p?.size ? [[p22.det.size, p.size] as [string, string]] : []),
+    ...(p?.local != null && p.currency && p.currency !== "VND" ? [[p22.det.local, `${p.local} ${p.currency}`] as [string, string]] : []),
+    ...(domain ? [[p22.det.link, domain] as [string, string]] : []),
+    ...(p?.on ? [[p22.det.checked, formatDayMonth(p.on)] as [string, string]] : []),
+    [p22.det.qty, `${item.qty} ${item.unit ?? ""}`.trim()],
+  ];
+  return (
+    <Sheet title={item.name} sub={opt.receipt ? p22.pastReceipt("") : p22.src(p?.source ?? "")} onClose={onClose}>
+      <div className="det22">
+        <p className="det22__price num">{formatVnd(opt.total)}</p>
+        {diff != null && (
+          <p className={diff <= 0 ? "det22__diff det22__diff--down" : "det22__diff det22__diff--up"}>
+            {diff === 0 ? p22.det.same : diff < 0 ? p22.det.cheaper(formatVnd(-diff)) : p22.det.dearer(formatVnd(diff))}
+          </p>
+        )}
+        <dl className="det22__table">
+          {rows.map(([k, v]) => (
+            <div key={k}>
+              <dt>{k}</dt>
+              <dd>{v}</dd>
+            </div>
+          ))}
+        </dl>
+        {opt.url && (
+          <a className="btn btn--outline btn--block btn--lg" href={opt.url} target="_blank" rel="noopener noreferrer">
+            <ExternalLink size={18} aria-hidden /> {p22.det.open}
+          </a>
+        )}
+        {opt.receipt && (
+          <Link className="btn btn--outline btn--block btn--lg" to={`/items/${encodeURIComponent(item.key)}`}>
+            {p22.det.history}
+          </Link>
+        )}
+        <button type="button" className="btn btn--primary btn--block btn--lg" onClick={onChoose}>
+          {p22.det.choose}
+        </button>
+      </div>
+    </Sheet>
   );
 }
 
