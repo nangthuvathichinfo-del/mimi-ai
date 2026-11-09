@@ -13,7 +13,6 @@ test("Kế hoạch 2.2: lưu kế hoạch nháp qua 3 bước, thêm món sắp 
   await page.getByText("Chào Lan!").waitFor();
   await page.goto("/plan");
 
-  // Thẻ đầu: kế hoạch chưa lưu, thanh 3 bước ở bước 2, giá cũ gạch ngang.
   // Kế hoạch chưa lưu ở đầu màn chính là màn bước 1: thông tin kế hoạch, danh sách món, nút Tiếp tục.
   const card = page.locator(".top22");
   await expect(card.getByRole("textbox", { name: "Tên kế hoạch" })).toHaveValue("Giỏ mua sắm");
@@ -49,12 +48,22 @@ test("Kế hoạch 2.2: lưu kế hoạch nháp qua 3 bước, thêm món sắp 
   await expect(page.locator(".past22", { hasText: "Giỏ mua sắm · Online" })).toBeVisible();
   await page.getByRole("button", { name: "Của tôi" }).click();
 
-  // Kế hoạch mới: trống, bước 1, thêm món sắp hết một chạm có Hoàn tác.
+  // Kế hoạch mới: trống, bước 1, chạm tên món sắp hết để thêm.
   await page.getByRole("button", { name: /Kế hoạch mới/ }).click();
+  await expect(page.locator(".top22").getByRole("textbox", { name: "Tên kế hoạch" })).toHaveValue(/^Kế hoạch \d/);
   const next = page.locator(".top22").getByRole("button", { name: "Tiếp tục" });
   await expect(next).toHaveAttribute("aria-disabled", "true");
   await page.locator(".top22").getByRole("button", { name: /Thêm cả \d+ món/ }).click();
   await expect(next).not.toHaveAttribute("aria-disabled", "true");
+
+  // Thêm sản phẩm: tên món nằm ngang, chạm tên là thêm (không có nút Thêm riêng).
+  await page.locator(".top22").getByRole("button", { name: "Thêm món", exact: true }).click();
+  await page.getByRole("button", { name: /Thêm sản phẩm/ }).click();
+  await page.getByRole("textbox", { name: /Tìm nhóm hàng/ }).fill("nước");
+  const chip = page.locator(".chips22 .chip22:not(.chip22--new)").first();
+  await chip.click();
+  await expect(chip).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: /Đóng/ }).first().click();
 
   // Ba tab.
   // Tab Được nhờ mua giữ như 2.1: chỉ danh sách kế hoạch được nhờ.

@@ -18,7 +18,6 @@ import {
 } from "../api/hooks";
 import type { Cart, CartItem, MarketPrice, PlanMeta } from "../api/types";
 import { MainFrame } from "../components/AppShell";
-import { CategoryIcon } from "../components/ItemRow";
 import { AddAnything, BasketPricesPanel, MarketPricesPanel } from "../components/PlanExtras";
 import { Stepper, TripRows, useLowItems } from "../components/PlanDraft22";
 import { LoadState } from "../components/LoadState";
@@ -205,7 +204,7 @@ export function Step1Body({ id, cart }: { id: string; cart: Cart }) {
       )}
       {sheet === "product" && (
         <Sheet title={p22.addProduct} sub={p22.addProductSub} onClose={() => setSheet(null)}>
-          <AddAnything cart={cart} />
+          <AddAnything cart={cart} chips onAdded={() => markDraft(id)} />
           <LowQuick planId={id} cart={cart} />
         </Sheet>
       )}
@@ -252,22 +251,21 @@ function LowQuick({ planId, cart }: { planId: string; cart: Cart }) {
           {p22.addAll(low.length)}
         </button>
       </div>
-      <ul className="lines15">
+      <div className="chips22" role="group" aria-labelledby="lowq22-h">
         {low.map((i) => (
-          <li key={i.key} className="line15">
-            <div className="line15__row">
-              <CategoryIcon category={i.category_key} />
-              <span className="line15__text">
-                <span className="line15__name">{i.name}</span>
-                <span className="line15__sub">{i.days_left != null ? p22.daysLeft(i.days_left) : m15.plan.learning}</span>
-              </span>
-              <button type="button" className="tog22" aria-label={`${p22.add} ${i.name}`} aria-disabled={busy || (edit.isPending && edit.variables?.key === i.key) || undefined} onClick={() => !busy && add(i.key)}>
-                <Plus size={20} aria-hidden />
-              </button>
-            </div>
-          </li>
+          <button
+            key={i.key}
+            type="button"
+            className="chip22"
+            aria-label={`${p22.add} ${i.name}`}
+            aria-disabled={busy || (edit.isPending && edit.variables?.key === i.key) || undefined}
+            onClick={() => !busy && add(i.key)}
+          >
+            {i.name}
+            {i.days_left != null && <small>{p22.daysLeft(i.days_left)}</small>}
+          </button>
         ))}
-      </ul>
+      </div>
     </section>
   );
 }

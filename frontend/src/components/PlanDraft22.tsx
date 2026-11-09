@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CalendarDays, Check, ChevronRight, Pencil, Plus, Scale, ShoppingCart, Store, TrendingDown } from "lucide-react";
+import { CalendarDays, Check, ChevronRight, Pencil, Plus, Scale, ShoppingCart, TrendingDown } from "lucide-react";
 import { p22 } from "../i18n/p22";
 import { m15 } from "../i18n/m15";
 import { t } from "../i18n";
@@ -102,12 +102,7 @@ export function TripRows({ planId, cart }: { planId: string; cart: Cart }) {
   return (
     <>
       <div className="trip22">
-        <button type="button" className="trip22__row" onClick={() => setSheet("store")}>
-          <Store size={20} aria-hidden />
-          <span className="trip22__label">{p22.store}</span>
-          <span className={st.trip_note ? "trip22__val" : "trip22__val trip22__val--empty"}>{st.trip_note || p22.chooseStore}</span>
-          <ChevronRight size={18} aria-hidden />
-        </button>
+        {/* Anh bỏ dòng Cửa hàng ở bước 1 (09/11): nơi mua chọn theo giá ở bước 2. */}
         <button type="button" className="trip22__row" onClick={() => setSheet("date")}>
           <CalendarDays size={20} aria-hidden />
           <span className="trip22__label">{p22.date}</span>
