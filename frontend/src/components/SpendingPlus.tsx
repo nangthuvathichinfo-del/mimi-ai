@@ -5,7 +5,7 @@
  */
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { AlertTriangle, CalendarClock, ChevronRight, PiggyBank, Sparkles, Store, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import { AlertTriangle, CalendarClock, ChevronRight, Pencil, PiggyBank, Repeat, Store, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import { categoryLabel, t } from "../i18n";
 import { s22 } from "../i18n/s22";
 import { ApiError } from "../api/client";
@@ -52,21 +52,20 @@ export function BudgetBar({ budget, spent, bills, onEdit }: { budget: number; sp
   const w = (v: number) => `${Math.max(0, Math.min(100, (v / total) * 100))}%`;
   const left = Math.max(0, budget - spent - bills);
   const over = Math.max(0, spent + bills - budget);
+  const pct = Math.round((spent / Math.max(1, budget)) * 100);
   return (
     <div className="bud22">
-      <div className="bud22__head">
-        <span>{s22.budget.of(formatVnd(budget))}</span>
-        <button type="button" className="bud22__edit" onClick={onEdit}>{s22.budget.edit}</button>
-      </div>
       <div className="bud22__bar" role="img" aria-label={`${s22.budget.spent} ${formatVnd(spent)}, ${s22.budget.bills} ${formatVnd(bills)}, ${over > 0 ? `${s22.budget.over} ${formatVnd(over)}` : `${s22.budget.left} ${formatVnd(left)}`}`}>
         <span className="bud22__seg bud22__seg--spent" style={{ width: w(spent) }} />
         <span className="bud22__seg bud22__seg--bills" style={{ width: w(bills) }} />
       </div>
-      <ul className="bud22__legend" aria-hidden>
-        <li><i className="bud22__dot bud22__dot--spent" />{s22.budget.spent}</li>
-        <li><i className="bud22__dot bud22__dot--bills" />{s22.budget.bills} {formatVnd(bills)}</li>
-        <li><i className="bud22__dot" />{over > 0 ? `${s22.budget.over} ${formatVnd(over)}` : `${s22.budget.left} ${formatVnd(left)}`}</li>
-      </ul>
+      <div className="bud22__row">
+        <span>{s22.pctSpent(pct)}</span>
+        <span>{s22.billsDue(formatVnd(bills))}</span>
+        <button type="button" className="bud22__edit" onClick={onEdit} aria-label={s22.budget.edit}>
+          {s22.ofBudget(formatVnd(budget))} <Pencil size={14} aria-hidden />
+        </button>
+      </div>
     </div>
   );
 }
@@ -126,6 +125,7 @@ export function askPath(q: string) {
   return `/spending/analytics?ask=${encodeURIComponent(q)}`;
 }
 
+/** Thẻ Còn tiêu được gọn như Redesign: số mỗi ngày là số lớn, nút hỏi bên phải. */
 export function SafeToSpend({ free, perDay, daysLeft }: { free: number; perDay: number; daysLeft: number }) {
   const over = free < 0;
   return (
@@ -133,21 +133,21 @@ export function SafeToSpend({ free, perDay, daysLeft }: { free: number; perDay: 
       <span className="safe22__icon">{over ? <AlertTriangle size={22} aria-hidden /> : <Wallet size={22} aria-hidden />}</span>
       <div className="safe22__body">
         <h2 id="safe22">{over ? s22.safe.overTitle : s22.safe.title}</h2>
-        <p className="safe22__num num">{formatVnd(Math.abs(free))}</p>
-        <p className="safe22__sub">
-          {over ? <Link to="/spending?tab=upcoming">{s22.safe.overSub}</Link> : <>{s22.safe.perDay(formatVnd(perDay))} · {s22.safe.sub(daysLeft)}</>}
+        <p className="safe22__num num">
+          {over ? formatVnd(Math.abs(free)) : <>{formatVnd(perDay)}<span>{s22.perDayUnit}</span></>}
         </p>
-        {!over && (
-          <Link className="pill22" to={askPath(s22.safe.affordQ(formatVnd(free)))}>
-            <Sparkles size={17} aria-hidden /> {s22.safe.afford}
-          </Link>
-        )}
+        <p className="safe22__sub">
+          {over ? <Link to="/spending?tab=upcoming">{s22.safe.overSub}</Link> : s22.freeAfter(daysLeft)}
+        </p>
       </div>
+      {!over && (
+        <Link className="pill22 safe22__ask" to={askPath(s22.safe.affordQ(formatVnd(free)))}>{s22.safe.afford}</Link>
+      )}
     </section>
   );
 }
 
-type Insight = { id: string; Icon: typeof Store; text: string; sub?: string; cta: string; to?: string; plan?: { key: string; name: string } };
+type Insight = { id: string; c: string; Icon: typeof Store; text: string; sub?: string; cta: string; to?: string; plan?: { key: string; name: string } };
 
 /**
  * Mimi nhận thấy (spec Redesign 5.1, bốn loại), tính ở máy từ API sẵn có:
@@ -168,12 +168,12 @@ export function Noticed({ r, prev }: { r: SpendingReport; prev?: SpendingReport 
     const low = (items.data ?? []).filter((i) => goodsTier(i) !== "plenty").sort((a, b) => (a.days_left ?? -1) - (b.days_left ?? -1))[0];
     if (low) {
       const p = price.get(low.key);
-      out.push({ id: `low:${low.key}`, Icon: CalendarClock, text: s22.noticed.low(low.name, low.days_left), sub: p != null ? s22.noticed.lowSub(formatVnd(p)) : undefined, cta: s22.noticed.addToPlan, plan: { key: low.key, name: low.name } });
+      out.push({ id: `low:${low.key}`, c: "var(--c-groc, #2f9e6e)", Icon: CalendarClock, text: s22.noticed.low(low.name, low.days_left), sub: p != null ? s22.noticed.lowSub(formatVnd(p)) : undefined, cta: s22.noticed.addToPlan, plan: { key: low.key, name: low.name } });
     }
     // 2. Khoản định kỳ đến hạn sớm nhất trong 7 ngày.
     const bill = (rec.data?.items ?? []).filter((x) => x.active && daysUntil(x.next_due_at) <= 7).sort((a, b) => a.next_due_at.localeCompare(b.next_due_at))[0];
     if (bill) {
-      out.push({ id: `bill:${bill.id}`, Icon: CalendarClock, text: s22.noticed.bill(bill.name, daysUntil(bill.next_due_at)), sub: formatVnd(bill.amount), cta: s22.noticed.seeUpcoming, to: "/spending?tab=upcoming" });
+      out.push({ id: `bill:${bill.id}`, c: "var(--c-bill, #d4538a)", Icon: Repeat, text: s22.noticed.bill(bill.name, daysUntil(bill.next_due_at)), sub: formatVnd(bill.amount), cta: s22.noticed.seeUpcoming, to: "/spending?tab=upcoming" });
     }
     // 3. Cửa hàng chiếm phần lớn nhất (khi có từ 2 cửa hàng).
     const byStore = new Map<string, { total: number; last: string; id: string }>();
@@ -187,7 +187,7 @@ export function Noticed({ r, prev }: { r: SpendingReport; prev?: SpendingReport 
     const top = [...byStore.entries()].sort((a, b) => b[1].total - a[1].total)[0];
     if (top && byStore.size > 1 && r.spent > 0) {
       const pct = Math.round((top[1].total / r.spent) * 100);
-      if (pct >= 25) out.push({ id: `store:${top[0]}`, Icon: Store, text: s22.noticed.store(top[0], pct), cta: s22.noticed.viewReceipt, to: `/spending/receipt/${encodeURIComponent(top[1].id)}` });
+      if (pct >= 25) out.push({ id: `store:${top[0]}`, c: "var(--c-home, #2a5bd7)", Icon: Store, text: s22.noticed.store(top[0], pct), cta: s22.noticed.viewReceipt, to: `/spending/receipt/${encodeURIComponent(top[1].id)}` });
     }
     // 4. Nhóm hàng đổi nhiều nhất so với tháng trước (từ 20% và 50.000đ trở lên).
     if (prev) {
@@ -201,7 +201,7 @@ export function Noticed({ r, prev }: { r: SpendingReport; prev?: SpendingReport 
       if (m) {
         const up = m.diff > 0;
         const cat = categoryLabel(m.key);
-        out.push({ id: `trend:${m.key}`, Icon: up ? TrendingUp : TrendingDown, text: s22.noticed.trend(cat, Math.abs(m.pct), up), cta: s22.noticed.askWhy, to: askPath(s22.noticed.whyQ(cat.toLowerCase(), up)) });
+        out.push({ id: `trend:${m.key}`, c: "var(--c-care, #8b5cf6)", Icon: up ? TrendingUp : TrendingDown, text: s22.noticed.trend(cat, Math.abs(m.pct), up), cta: s22.noticed.askWhy, to: askPath(s22.noticed.whyQ(cat.toLowerCase(), up)) });
       }
     }
     return out;
@@ -213,10 +213,12 @@ export function Noticed({ r, prev }: { r: SpendingReport; prev?: SpendingReport 
       <h2 id="noticed22" className="h15sec">{s22.noticed.title}</h2>
       <ul className="noticed22">
         {list.map((x) => (
-          <li key={x.id} className="box15 noticed22__card">
-            <span className="safe22__icon"><x.Icon size={20} aria-hidden /></span>
+          <li key={x.id} className="box15 noticed22__card" style={{ ["--c" as string]: x.c }}>
+            <span className="noticed22__icon"><x.Icon size={20} aria-hidden /></span>
             <p className="noticed22__text">{x.text}{x.sub && <small>{x.sub}</small>}</p>
-            <button type="button" className="pill22" onClick={() => (x.plan ? setPick(x.plan) : x.to && nav(x.to))}>{x.cta}</button>
+            <button type="button" className="noticed22__cta" onClick={() => (x.plan ? setPick(x.plan) : x.to && nav(x.to))}>
+              {x.cta} <ChevronRight size={16} aria-hidden />
+            </button>
           </li>
         ))}
       </ul>
@@ -225,16 +227,18 @@ export function Noticed({ r, prev }: { r: SpendingReport; prev?: SpendingReport 
   );
 }
 
-const COLORS = ["var(--blue)", "#2e9d57", "var(--orange-ink, #b4530a)", "#8a5cf6", "#e5484d", "#0ea5b7", "#a1a1aa"];
+const COLORS = ["var(--c-bill, #d4538a)", "var(--c-groc, #2f9e6e)", "var(--c-home, #2a5bd7)", "var(--c-baby, #e8873a)", "var(--c-care, #8b5cf6)", "#0ea5b7", "#a1a1aa"];
 
 /**
- * Theo nhóm hàng: biểu đồ vòng + chú giải (anh chốt 09/11). Khoản chi định kỳ vẫn đứng đầu
- * chú giải và bấm mở Đồ dùng, phần Khoản chi định kỳ; chạm nhóm khác để xem số tiền ở giữa vòng.
+ * Theo nhóm hàng: biểu đồ vòng bên trái, chú giải bên phải như Redesign (anh chốt 09/11).
+ * Tháng hiện tại: mỗi nhóm có nhãn tăng giảm so với tháng trước; tháng cũ: phần trăm.
+ * Khoản chi định kỳ vẫn đứng đầu chú giải và bấm mở Đồ dùng; nhóm khác chạm để xem số ở giữa vòng.
  */
-export function CategoryDonut({ cats, total, rateDay }: { cats: SpendingReport["by_category"]; total: number; rateDay?: string }) {
+export function CategoryDonut({ cats, total, rateDay, prev }: { cats: SpendingReport["by_category"]; total: number; rateDay?: string; prev?: SpendingReport }) {
   const [sel, setSel] = useState<string | null>(null);
   const sum = cats.reduce((a, c) => a + c.amount, 0) || 1;
   const R = 52, C = 2 * Math.PI * R;
+  const before = new Map((prev?.by_category ?? []).map((c) => [c.key, c.amount]));
   let acc = 0;
   const arcs = cats.map((c, i) => {
     const len = (c.amount / sum) * C;
@@ -243,28 +247,32 @@ export function CategoryDonut({ cats, total, rateDay }: { cats: SpendingReport["
     return a;
   });
   const picked = cats.find((c) => c.key === sel);
+  const trend = (key: string, pct: number) => {
+    const b = before.get(key);
+    if (!prev || !b) return <span className="donut22__pct">{Math.round(pct)}%</span>;
+    const cur = cats.find((c) => c.key === key)!.amount;
+    const d = Math.round((cur / b - 1) * 100);
+    return <span className={`tr22 tr22--${d < 0 ? "down" : d > 0 ? "up" : "flat"}`}>{d < 0 ? "↓" : d > 0 ? "↑" : "–"} {Math.abs(d)}%</span>;
+  };
   return (
     <div className="box15 donut22">
       <svg viewBox="0 0 140 140" className="donut22__svg" role="img" aria-label={cats.map((c) => `${categoryLabel(c.key)} ${Math.round(c.pct)}%`).join(", ")}>
-        <circle cx="70" cy="70" r={R} fill="none" stroke="var(--line)" strokeWidth="18" />
+        <circle cx="70" cy="70" r={R} fill="none" stroke="var(--line, #e3e8f7)" strokeWidth="15" />
         {arcs.map((a) => (
-          <circle key={a.key} cx="70" cy="70" r={R} fill="none" stroke={a.color} strokeWidth={sel === a.key ? 22 : 18}
-            strokeDasharray={`${Math.max(0, a.len - 1.5)} ${C}`} strokeDashoffset={-a.off} transform="rotate(-90 70 70)"
-            opacity={sel && sel !== a.key ? 0.35 : 1} />
+          <circle key={a.key} cx="70" cy="70" r={R} fill="none" stroke={a.color} strokeWidth={sel === a.key ? 20 : 15}
+            strokeDasharray={`${Math.max(1, a.len - 3)} ${C}`} strokeDashoffset={-a.off} transform="rotate(-90 70 70)"
+            opacity={sel && sel !== a.key ? 0.3 : 1} />
         ))}
         <text x="70" y="64" textAnchor="middle" className="donut22__k">{picked ? categoryLabel(picked.key) : s22.donut.total}</text>
-        <text x="70" y="84" textAnchor="middle" className="donut22__v">{formatVnd(picked ? picked.amount : total, rateDay)}</text>
+        <text x="70" y="83" textAnchor="middle" className="donut22__v">{formatVnd(picked ? picked.amount : total, rateDay)}</text>
       </svg>
       <ul className="donut22__legend">
         {cats.map((c, i) => {
-          const dot = <i className="bud22__dot" style={{ background: COLORS[Math.min(i, COLORS.length - 1)] }} />;
           const body = (
             <>
-              {dot}
-              <span className="donut22__name">{categoryLabel(c.key)}</span>
-              <span className="num">{formatVnd(c.amount, rateDay)}</span>
-              <span className="donut22__pct">{Math.round(c.pct)}%</span>
-              {c.key === REC && <ChevronRight size={16} aria-hidden />}
+              <i className="donut22__dot" style={{ background: COLORS[Math.min(i, COLORS.length - 1)] }} />
+              <span className="donut22__name">{categoryLabel(c.key)}<small className="num">{formatVnd(c.amount, rateDay)}</small></span>
+              {c.key === REC ? <ChevronRight size={16} aria-hidden /> : trend(c.key, c.pct)}
             </>
           );
           return (

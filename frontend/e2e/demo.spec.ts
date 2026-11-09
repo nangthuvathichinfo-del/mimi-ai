@@ -38,7 +38,7 @@ test("kịch bản demo: quét bill, Đồ dùng, Sổ chi tiêu, Kế hoạch",
   await page.getByRole("button", { name: "Về Trang chủ" }).click();
   await page.getByRole("link", { name: /^Đồ dùng/ }).first().click();
   await expect(page.getByText("CẦN MUA NGAY")).toBeVisible();
-  await expect(page.getByText("SẮP HẾT")).toBeVisible();
+  await expect(page.getByText("SẮP HẾT", { exact: true })).toBeVisible();
   await expect(page.getByText("Sữa tươi không đường").first()).toBeVisible();
   await expect(page.getByText(/Dầu gội/).first()).toBeVisible();
   await expect(page.getByText("Dự kiến còn khoảng: 5 ngày")).toBeVisible();

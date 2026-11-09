@@ -1,3 +1,4 @@
+import { s22 } from "../i18n/s22";
 import { m15 } from "../i18n/m15";
 import { useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
@@ -35,7 +36,7 @@ export function PlanList() {
   const toMe = useDelegated().data?.to_me.length ?? 0;
   return (
     <MainFrame>
-      <TopBar title={m15.plan.title} showTitle />
+      <TopBar title={m15.plan.title} sub={s22.heads.plans} showTitle />
       <div className="page p15">
         <div className="seg seg15" role="group" aria-label={m15.plan.title}>
           <button type="button" aria-pressed={tab === "mine"} onClick={() => setParams({}, { replace: true })}>{m15.plan.mine}</button>

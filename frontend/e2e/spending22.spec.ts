@@ -19,7 +19,7 @@ test("Sổ chi tiêu 2.2: ngân sách, Còn tiêu được, Mimi nhận thấy, 
 
   await expect(page.getByText("Theo dõi những gì mẹ đã chi")).toBeVisible();
   await expect(page.getByText(/so với cùng kỳ tháng/)).toBeVisible();
-  await expect(page.getByText(/^Ngân sách /)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Sửa ngân sách" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Còn tiêu được" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Mimi nhận thấy" })).toBeVisible();
   // Khoản chi định kỳ vẫn đứng đầu chú giải và mở Đồ dùng.

@@ -1,3 +1,4 @@
+import { s22 } from "../i18n/s22";
 import { switchUiLang, t, uiLang } from "../i18n";
 import { displayCurrency, switchCurrency, type DisplayCurrency } from "../lib/money";
 import { useEffect, useState, type ReactNode } from "react";
@@ -94,7 +95,7 @@ export function Settings() {
   const name = me?.display_name || auth.session?.email || "";
   return (
     <MainFrame>
-      <TopBar title={S.title} showTitle />
+      <TopBar title={S.title} sub={s22.heads.settings} showTitle />
       <div className="page p15 set15">
         <Link to="/settings/profile" className="box15 set15__me">
           <span className="set15__avatar" aria-hidden>{initial(name)}</span>

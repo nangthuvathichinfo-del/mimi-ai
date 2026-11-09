@@ -1,3 +1,4 @@
+import { s22 } from "../i18n/s22";
 import { t } from "../i18n";
 import { m15 } from "../i18n/m15";
 import { useMemo, useState } from "react";
@@ -33,7 +34,7 @@ export function Items() {
 
   return (
     <MainFrame>
-      <TopBar title={t.items.title} />
+      <TopBar title={t.items.title} sub={s22.heads.items} showTitle />
       <div className="page p15">
         <div className="seg seg15" role="group" aria-label={t.items.typeGroup}>
           <button type="button" aria-pressed={tier1 === "goods"} onClick={() => { setParams({}, { replace: true }); setTerm(""); }}>
@@ -118,17 +119,22 @@ function GoodsCard({ item, added }: { item: Item; added: boolean }) {
   const nav = useNavigate();
   const qty = stockInDisplay(item);
   const days = item.status === "waiting" || item.days_left == null ? null : Math.max(0, item.days_left);
-  const sub = [
-    qty ? `${formatNum(qty[0])} ${unitLabel(qty[1])}` : null,
-    days == null ? m15.items.learning : m15.items.left(days),
-  ].filter(Boolean).join(" · ");
+  // Mimi 2.2 (theo Redesign): số ngày còn lại tô màu trạng thái, kèm thanh tiến độ (ngày / 30).
+  const tier = goodsTier(item);
+  const qtyText = qty ? `${formatNum(qty[0])} ${unitLabel(qty[1])}` : null;
   return (
     <li className="card15">
       <button type="button" className="card15__main" onClick={() => nav(`/items/${encodeURIComponent(item.key)}`)}>
         <span className="card15__icon"><CategoryIcon category={item.category_key} /></span>
         <span className="card15__text">
           <span className="card15__name">{item.name}</span>
-          <span className="card15__sub">{sub}</span>
+          <span className="card15__sub">
+            {qtyText && <>{qtyText} · </>}
+            {days == null ? m15.items.learning : <span className={`left22 left22--${tier}`}>{m15.items.left(days)}</span>}
+          </span>
+          {days != null && (
+            <span className={`bar22 bar22--${tier}`} aria-hidden><i style={{ width: `${Math.max(6, Math.min(100, (days / 30) * 100))}%` }} /></span>
+          )}
           <span className="card15__edit"><Pencil size={14} aria-hidden /> {m15.items.edit}</span>
         </span>
       </button>

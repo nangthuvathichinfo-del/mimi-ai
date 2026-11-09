@@ -28,9 +28,8 @@ export function Spending() {
   const tab = params.get("tab") === "upcoming" ? "upcoming" : "spent";
   return (
     <MainFrame>
-      <TopBar title={t.spending.title} showTitle />
+      <TopBar title={t.spending.title} sub={s22.subtitle} showTitle />
       <div className="page p15">
-        <p className="sub22">{s22.subtitle}</p>
         <div className="seg seg15" role="group" aria-label={t.spending.title}>
           <button type="button" aria-pressed={tab === "spent"} onClick={() => setParams({}, { replace: true })}>{m15.spending.spent}</button>
           <button type="button" aria-pressed={tab === "upcoming"} onClick={() => setParams({ tab: "upcoming" }, { replace: true })}>{m15.spending.upcoming}</button>
@@ -136,12 +135,15 @@ function Report({ r, month }: { r: SpendingReport; month: string }) {
   const rateDay = month >= currentMonth() ? undefined : `${month}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, "0")}`;
   return (
     <>
-      <section className="hero15" aria-label={m15.spending.spent}>
+      <section className="hero15 hero22" aria-label={m15.spending.spent}>
+        <p className="hero22__label">{isCurrent ? s22.spentIn(m, clock.day, clock.days) : s22.spentIn(m)}</p>
         <p className="hero15__num num">{formatVnd(r.spent, rateDay)}</p>
-        <p className="hero15__sub">{compare(r, month)}</p>
-        {(r.delegated_spent ?? 0) > 0 && <p className="hero15__sub">{m15.spending.delegated(formatVnd(r.delegated_spent ?? 0, rateDay))}</p>}
-        <p className="hero15__day">{isCurrent ? s22.dayOf(clock.day, clock.days) : s22.monthDone}</p>
+        {(r.delegated_spent ?? 0) > 0 && <p className="hero22__note">{m15.spending.delegated(formatVnd(r.delegated_spent ?? 0, rateDay))}</p>}
         {isCurrent && budget != null && <BudgetBar budget={budget} spent={r.spent} bills={bills} onEdit={() => setEditBudget(true)} />}
+        <div className="hero22__pills">
+          <p className="hero15__sub">{compare(r, month)}</p>
+          {!isCurrent && <p className="hero15__sub">{s22.monthDone}</p>}
+        </div>
       </section>
 
       {isCurrent && (safe ? <SafeToSpend free={safe.free} perDay={safe.perDay} daysLeft={clock.left} /> : <BudgetInvite onSet={() => setEditBudget(true)} />)}
@@ -158,7 +160,7 @@ function Report({ r, month }: { r: SpendingReport; month: string }) {
       {cats.length > 0 && (
         <section aria-labelledby="cat15">
           <h2 id="cat15" className="h15sec">{m15.spending.byCategory}</h2>
-          <CategoryDonut cats={cats} total={r.spent} rateDay={rateDay} />
+          <CategoryDonut cats={cats} total={r.spent} rateDay={rateDay} prev={isCurrent ? prevQ.data : undefined} />
         </section>
       )}
 
@@ -275,7 +277,7 @@ function HistorySummary() {
       {/* Mimi 2.2: tiêu đề ngày cho 3 hóa đơn mới nhất (ngày theo giờ máy). */}
       {groupByDay(rows).map(([day, list]) => (
         <div key={day} className="day22">
-          <h3 className="day22__head">{formatDayMonth(day)}</h3>
+          <h3 className="day22__head"><span>{formatDayMonth(day)}</span><span className="num">{formatVnd(list.reduce((a, x) => a + x.total_vnd, 0))}</span></h3>
           <ul className="box15 ph15__list">{list.map((x) => <ReceiptRow key={x.receipt_id} r={x} />)}</ul>
         </div>
       ))}

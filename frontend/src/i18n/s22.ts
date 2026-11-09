@@ -3,6 +3,13 @@ import { uiLang } from ".";
 /** Chữ thêm cho Sổ chi tiêu bản Mimi 2.2 (đề xuất tổng hợp chốt 09/11). Hai bản đủ khóa như nhau. */
 const vi = {
   subtitle: "Theo dõi những gì mẹ đã chi",
+  heads: { items: "Những gì sắp hết trong nhà", plans: "Lên kế hoạch · So giá · Mua hợp lý", settings: "Tài khoản và gia đình" },
+  spentIn: (m: number, d?: number, n?: number) => (d ? `Đã chi tháng ${m} · ngày ${d}/${n}` : `Đã chi tháng ${m}`),
+  pctSpent: (p: number) => `Đã chi ${p}%`,
+  billsDue: (v: string) => `${v} định kỳ sắp trả`,
+  ofBudget: (v: string) => `trên ${v}`,
+  freeAfter: (d: number) => `Sau các khoản định kỳ · còn ${d} ngày`,
+  perDayUnit: " / ngày",
   dayOf: (d: number, n: number) => `Ngày ${d}/${n}`,
   monthDone: "Đã hết tháng",
   sameRange: (prev: string) => `cùng kỳ ${prev}`,
@@ -54,6 +61,16 @@ const vi = {
 
 const en: typeof vi = {
   subtitle: "Track what you spend",
+  heads: { items: "What is running low at home", plans: "Plan smart · Compare prices · Buy better", settings: "Your account and family" },
+  spentIn: (m, d, n) => {
+    const name = new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" }).format(new Date(Date.UTC(2026, m - 1, 1)));
+    return d ? `Spent in ${name} · day ${d} of ${n}` : `Spent in ${name}`;
+  },
+  pctSpent: (p) => `${p}% spent`,
+  billsDue: (v) => `${v} bills due`,
+  ofBudget: (v) => `of ${v}`,
+  freeAfter: (d) => `Free after bills · ${d} days left`,
+  perDayUnit: " / day",
   dayOf: (d, n) => `Day ${d} of ${n}`,
   monthDone: "Month complete",
   sameRange: (prev) => `the same days of ${prev}`,
