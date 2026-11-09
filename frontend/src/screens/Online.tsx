@@ -1,7 +1,7 @@
 import { t, uiLang } from "../i18n";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Camera, CreditCard, PackageCheck, ShieldCheck, Truck } from "lucide-react";
+import { Camera, CreditCard, Package, PackageCheck, ShieldCheck, Truck } from "lucide-react";
 import { ApiError } from "../api/client";
 import {
   useAdvanceOrder, useBasket, useCaptureOrder, useCardToken, useCheckout, usePayCard, useOrder, useOrders, useReadDelivery, useRefundOrder,
@@ -300,7 +300,14 @@ export function Orders() {
       <div className="page plan">
         {orders.isPending && <p className="hint">{t.common.loading}</p>}
         {orders.isError && <p className="error">{t.common.genericError}</p>}
-        {orders.data && orders.data.length === 0 && <p className="hint">{t.orders.empty}</p>}
+        {orders.data && orders.data.length === 0 && (
+          // B3 (theo Redesign): trang trống có icon, tiêu đề và dòng phụ.
+          <div className="empty22" role="status">
+            <span className="empty22__ill" aria-hidden><Package size={30} /></span>
+            <strong>{m15.settings.ordersEmptyTitle}</strong>
+            <span className="hint">{m15.settings.ordersEmptySub}</span>
+          </div>
+        )}
         <ul className="list">
           {(orders.data ?? []).map((o) => (
             <li key={o.id}>

@@ -92,7 +92,7 @@
   background: linear-gradient(180deg, var(--wash), var(--bg));
 }
 [data-ui="v2"] .frame--nav { padding-bottom: calc(var(--nav-h) + var(--nav-pad) + 30px); }
-[data-ui="v2"] .page { padding-inline: max(20px, env(safe-area-inset-left, 0px)) max(20px, env(safe-area-inset-right, 0px)); }
+[data-ui="v2"] .page { padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px)); }
 [data-ui="v2"] .p15 { gap: 16px; }
 
 /* Vào màn: các khối trượt lên 10 px, cách nhau 0.04 s, tối đa 5 khối */
@@ -109,7 +109,7 @@
 }
 
 /* ---------- 3. Đầu màn ---------- */
-[data-ui="v2"] .topbar { min-height: 64px; padding: 12px max(20px, env(safe-area-inset-right, 0px)) 4px max(20px, env(safe-area-inset-left, 0px)); gap: 12px; }
+[data-ui="v2"] .topbar { min-height: 64px; padding: 12px max(16px, env(safe-area-inset-right, 0px)) 4px max(16px, env(safe-area-inset-left, 0px)); gap: 12px; }
 [data-ui="v2"] .topbar h1,
 [data-ui="v2"] .topbar__title { font-size: 23px; font-weight: 700; letter-spacing: -.02em; color: var(--ink); flex: 1; min-width: 0; overflow-wrap: anywhere; line-height: 1.2; }
 @media (max-width: 360px) {
@@ -162,7 +162,7 @@
   .set15__list, .set15__me, .save15, .sync15, .welcome__card, .tile, .list, .spend-hero, .plan-stop, .h15__tile) {
   background: var(--card); border: 0; border-radius: var(--r-card); box-shadow: var(--shadow);
 }
-[data-ui="v2"] :is(.card15, .box15, .plancard15) { padding: 14px 16px; }
+[data-ui="v2"] :is(.card15, .box15, .plancard15) { padding: 16px; } /* lưới 4/8 của iOS */
 [data-ui="v2"] .welcome__card { padding: 18px; }
 [data-ui="v2"] .g15__list { gap: 12px; }
 /* Thẻ "Tiết kiệm nhiều nhất": giữ ý xanh lá nhưng nhẹ hơn */
@@ -173,7 +173,7 @@
 
 /* Thẻ tổng chi tiêu: chuyển sắc xanh, chữ trắng, vòng tròn mờ góc phải */
 [data-ui="v2"] .hero15 {
-  position: relative; overflow: hidden; padding: 20px;
+  position: relative; overflow: hidden; padding: 16px;
   background: linear-gradient(135deg, var(--hero-from), var(--hero-to)); color: #fff;
 }
 [data-ui="v2"] .hero15::after {
@@ -315,3 +315,55 @@
 @media (prefers-reduced-motion: reduce) {
   [data-ui="v2"] * { animation: none !important; transition: none !important; }
 }
+
+/* ---------- 15. Mimi 2.2: chỉnh sát Redesign hơn (cỡ chữ, tab, icon, đầu màn, Cài đặt) ---------- */
+/* Thang chữ của Redesign: nội dung 14–15, phụ 12.5–13, tiêu đề mục 17. Ô nhập giữ 16 (iOS không phóng to). */
+[data-ui="v2"] {
+  --fs-xs: 0.78125rem;  /* 12.5 */
+  --fs-sm: 0.875rem;    /* 14 */
+  --fs-lg: 1.0625rem;   /* 17 */
+  --fs-xl: 1.375rem;    /* 22 */
+  --fs-num: 1.625rem;   /* 26 */
+  --fs-hero: 2.125rem;  /* 34 */
+}
+/* Icon nét mảnh 1.8 như Redesign (CSS thắng thuộc tính stroke-width của lucide) */
+[data-ui="v2"] svg.lucide { stroke-width: 1.8; }
+
+/* Tiêu đề + dòng phụ sát nhau */
+[data-ui="v2"] .topbar__tt { flex: 1; min-width: 0; }
+[data-ui="v2"] .topbar__tt .topbar__title { margin: 0; line-height: 1.15; }
+[data-ui="v2"] .topbar__sub { margin: 2px 0 0; font-size: 12.5px; color: var(--mute); }
+
+/* Tab: khung trắng có bóng, nút đang chọn chuyển sắc xanh, chữ trắng */
+[data-ui="v2"] .seg { background: var(--card); box-shadow: var(--shadow); border-radius: 18px; }
+[data-ui="v2"] .seg button { font-size: 14px; }
+[data-ui="v2"] .seg button[aria-pressed="true"] {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--blue) 88%, #fff), var(--blue) 40%, color-mix(in srgb, var(--blue) 80%, #000));
+  color: var(--on-blue); box-shadow: 0 4px 12px color-mix(in srgb, var(--blue) 35%, transparent);
+}
+[data-ui="v2"] .seg button[aria-pressed="true"] .badge15 { box-shadow: 0 0 0 2px var(--blue); }
+
+/* Nút chính chuyển sắc như Redesign */
+[data-ui="v2"] .btn--primary { background: linear-gradient(135deg, color-mix(in srgb, var(--blue) 90%, #fff), var(--blue) 45%, color-mix(in srgb, var(--blue) 82%, #000)); }
+
+/* Cài đặt: tiêu đề nhóm nhỏ, nhạt */
+[data-ui="v2"] .set15__group > .h15sec { font-size: 13px; font-weight: 600; color: var(--mute); letter-spacing: .02em; padding: 0 4px; }
+
+/* Đồ dùng: số ngày còn lại theo màu trạng thái + thanh tiến độ cao 6 */
+[data-ui="v2"] .left22 { font-weight: 700; }
+[data-ui="v2"] .left22--now { color: var(--red); }
+[data-ui="v2"] .left22--soon { color: var(--orange-ink); }
+[data-ui="v2"] .left22--plenty { color: var(--green); }
+[data-ui="v2"] .bar22 { display: block; height: 6px; margin-top: 7px; border-radius: 999px; overflow: hidden; background: color-mix(in srgb, var(--blue) 12%, transparent); }
+[data-ui="v2"] .bar22 i { display: block; height: 100%; border-radius: 999px; }
+[data-ui="v2"] .bar22--now i { background: var(--red); }
+[data-ui="v2"] .bar22--soon i { background: var(--orange-ink); }
+[data-ui="v2"] .bar22--plenty i { background: var(--green); }
+[data-ui="v2"] .topbar__tt + .topbar__spacer { display: none; }
+/* Hàng Cài đặt: tên 15/600, dòng phụ 13 như hàng danh sách của Redesign */
+[data-ui="v2"] .set15__text > span, [data-ui="v2"] .set15__text > strong { font-size: 15px; font-weight: 600; }
+[data-ui="v2"] .set15__text small { font-size: 13px; }
+[data-ui="v2"] .set15__row { min-height: 56px; }
+/* Hàng liên kết (Phân tích chi tiêu, Lịch sử mua hàng): không gạch chân, như hàng bấm được của Redesign */
+[data-ui="v2"] .rowlink15, [data-ui="v2"] .rowlink15 * { text-decoration: none; }
+[data-ui="v2"] .rowlink15 small { display: block; font-weight: 400; font-size: 12.5px; color: var(--mute); }

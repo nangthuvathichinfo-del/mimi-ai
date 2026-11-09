@@ -271,7 +271,7 @@ export const en = {
     emptyTitle: (month: string) => `No receipts in ${month} yet`,
     emptyBody: "Scan a receipt and your spending shows up here.",
     scan: "Scan a receipt",
-    ownerOnly: "Only the household owner can see spending.",
+    ownerOnly: "Join a home to see your spending.",
     loadFailed: "Couldn't load your spending.",
     tableNote: "Amounts are what you paid, from saved receipts.",
   },

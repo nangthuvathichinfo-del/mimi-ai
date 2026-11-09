@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/smartlife-lab/mimi/backend/internal/assistant"
 	"github.com/smartlife-lab/mimi/backend/internal/authz"
 	"github.com/smartlife-lab/mimi/backend/internal/domain"
 	"github.com/smartlife-lab/mimi/backend/internal/fx"
@@ -153,6 +154,10 @@ type (
 		Get(ctx context.Context, p authz.Principal, id string) (order.Order, error)
 		List(ctx context.Context, p authz.Principal) ([]order.Order, error)
 	}
+	// Assistant chạy một lượt Hỏi Mimi cho người dùng (POST /ai/turn).
+	Assistant interface {
+		Turn(ctx context.Context, uid string, req assistant.Request) (assistant.Response, error)
+	}
 	ReadinessChecker interface {
 		Ready(ctx context.Context) error
 	}
@@ -185,6 +190,7 @@ type Deps struct {
 	History      History   // nil: lịch sử mua hàng trả 404
 	FX           FXHistory // nil: không có GET /fx/rates (app chỉ hiện VND)
 	Accounts     Accounts  // nil: DELETE /me trả 501
+	Assistant    Assistant // nil: không có POST /ai/turn (ẩn Hỏi Mimi)
 	SignIn       SignInChecker
 	Ready        ReadinessChecker
 	Metrics      Metrics // nil: không ghi metric
@@ -213,6 +219,7 @@ type Server struct {
 	priceRefresh PriceRefresh
 	history      History
 	fx           FXHistory
+	assistant    Assistant
 	ready        ReadinessChecker
 	metrics      Metrics
 	limiter      *windowLimiter
@@ -244,7 +251,7 @@ func New(d Deps, opts ...Option) (*Server, error) {
 		log: d.Log, tokens: d.Tokens, accounts: d.Accounts, signIn: d.SignIn, appCheck: d.AppCheck, principals: d.Principals,
 		profiles: d.Profiles, receipts: d.Receipts, items: d.Items, ready: d.Ready, metrics: d.Metrics,
 		home: d.Home, spending: d.Spending, settings: d.Settings, plan: d.Plan, notes: d.Notes, orders: d.Orders,
-		recurring: d.Recurring, households: d.Households, pricing: d.Pricing, market: d.Market, priceRefresh: d.PriceRefresh, history: d.History, fx: d.FX,
+		recurring: d.Recurring, households: d.Households, pricing: d.Pricing, market: d.Market, priceRefresh: d.PriceRefresh, history: d.History, fx: d.FX, assistant: d.Assistant,
 		limiter: newWindowLimiter(60), readTimeout: 55 * time.Second, defaultTimeout: 10 * time.Second,
 	}
 	if s.metrics == nil {
@@ -344,6 +351,8 @@ func (s *Server) Handler() http.Handler {
 	}
 	if s.market != nil {
 		private("GET /plan/market-prices", s.defaultTimeout, s.getPlanMarketPrices)
+		private("GET /items/{key}/market-prices", s.defaultTimeout, s.getItemMarketPrices)
+		private("GET /items/market-prices", s.defaultTimeout, s.listItemMarketPrices)
 		if s.priceRefresh != nil {
 			private("POST /plan/market-prices/refresh", s.readTimeout, s.refreshPlanMarketPrices)
 		}
@@ -365,6 +374,10 @@ func (s *Server) Handler() http.Handler {
 		private("POST /orders/{id}/refund", s.readTimeout, s.refundOrder)
 		// Braintree gọi thẳng, không có token người dùng: tin nhờ chữ ký bt_signature.
 		public("POST /webhooks/braintree", s.braintreeWebhook)
+	}
+
+	if s.assistant != nil {
+		private("POST /ai/turn", s.readTimeout, s.aiTurn)
 	}
 
 	if s.accounts != nil && s.signIn != nil {

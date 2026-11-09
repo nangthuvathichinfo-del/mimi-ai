@@ -22,6 +22,7 @@ export type Me = {
     remind_enabled?: boolean;
     digest_time?: string;      // HH:MM
     relations?: Record<string, string>; // tên gọi người nhà theo uid, lưu trên máy chủ
+    monthly_budget_vnd?: number; // Mimi 2.2: ngân sách tháng (đồng); vắng là chưa đặt
   };
 };
 
@@ -254,6 +255,8 @@ export type HistoryReceipt = {
   /** kind "recurring": khoản định kỳ đã trả, bấm thì mở chi tiết khoản (góp ý 01/11). */
   recurring_id?: string;
 };
+/** Một dòng Lịch sử đơn hàng (2.2, chỉ ở giao diện): hóa đơn, hoặc đơn online (kind "online") gộp vào, bấm thì mở chi tiết đơn. */
+export type HistoryRow = Omit<HistoryReceipt, "kind"> & { kind?: HistoryReceipt["kind"] | "online"; order_id?: string; order_state?: string };
 /** unit_price, amount null: món chưa rõ giá, không tính vào tổng. */
 export type ReceiptDetailLine = { name: string; /** Tên theo bill khi name là tên đã dịch. */ original_name?: string; spec?: string; qty: number; unit_price: number | null; amount: number | null; category_key?: string; discount?: number; tag?: "for_owner" | "mine";
   /** B7: estimate = không nhập giá, lấy giá mua gần nhất; missing = chưa có giá. "online" để dành cho bước 13. */
@@ -264,6 +267,9 @@ export type SpendingReport = {
   month: string;
   spent: number;
   spent_prev_month_pct: number | null;
+  /** Mimi 2.2: chỉ tháng hiện tại, so với ngày 1 đến same_range_day của tháng trước. */
+  spent_prev_same_range_pct?: number | null;
+  same_range_day?: number;
   saved: number;
   saved_ratio: number | null;
   receipt_count: number;
@@ -308,6 +314,8 @@ export type SettingsPatch = Partial<{
   currency: "VND" | "USD";
   /** Chỉ gửi phần đổi; "" là xóa tên gọi của uid đó. */
   relations: Record<string, string>;
+  /** Mimi 2.2: ngân sách tháng (đồng); 0 là bỏ ngân sách. */
+  monthly_budget_vnd: number;
 }>;
 
 export type ApiErrorBody = { code: string; message: string; fields?: Record<string, unknown>; retryable?: boolean };
@@ -452,7 +460,7 @@ export type Assignment = {
   /** Tên, thời gian, ghi chú của Plan gốc, luôn là bản mới nhất (3.1 mục 3B.4). */
   trip?: { plan_name: string; buy_date?: string; buy_hour?: number; buy_minute?: number; trip_note?: string };
 };
-export type Delegated = { to_me: Assignment[]; from_me: Assignment[] };
+export type Delegated = { to_me: Assignment[]; from_me: Assignment[]; /** 2.2: vòng được nhờ đã mua xong. */ to_me_done?: Assignment[] };
 
 /** 8.1: lịch sử giá theo đơn giá chuẩn hóa. */
 export type PriceObservation = {
@@ -468,6 +476,8 @@ export type ItemPriceHistory = {
 export type MarketPrice = { store: string; price_vnd: number; local?: number; currency?: string; size?: string; source: string; url?: string; on: string };
 /** Nút "Cập nhật giá": còn mấy lần hôm nay, lần bấm gần nhất. */
 export type MarketRefreshStatus = { daily: number; left: number; last_at?: string };
+/** Mimi 2.2: giá chung của một món trong Đồ dùng. updated_at null: Mimi chưa tra món này lần nào. */
+export type ItemMarketPrices = { key: string; name: string; prices: MarketPrice[]; updated_at: string | null };
 export type MarketPrices = { items: { key: string; name: string; prices: MarketPrice[]; updated_at: string }[]; refresh?: MarketRefreshStatus };
 /** Nút "Cập nhật giá": bảng giá mới kèm số món vừa tra. */
 export type MarketRefresh = MarketPrices & { looked: number; found: number; fresh: number };

@@ -25,6 +25,7 @@ type Config struct {
 
 	ReceiptDailyLimit int
 	PriceSyncLimit    int           // số món tối đa job price-sync tra mỗi đêm (ADR-004), PRICE_SYNC_LIMIT
+	AIDailyLimit      int           // số lượt "Hỏi Mimi" mỗi người mỗi ngày (AI_DAILY_LIMIT); 0: tắt Hỏi Mimi
 	ReadTimeout       time.Duration // ngân sách cho POST /receipts/read, dưới giới hạn 60 s của Hosting rewrite
 	DefaultTimeout    time.Duration
 
@@ -34,6 +35,9 @@ type Config struct {
 	EmailAPIKey  string // gắn từ Secret Manager, chỉ worker và job cần
 	EmailFrom    string
 	TaxonomyKeys []string // nạp từ file nhúng trong binary, không từ env
+
+	// Channel3: nguồn giá đồ dùng nhà, thuốc, đồ trẻ em ở Mỹ (secret channel3-api-key). Rỗng: tắt.
+	Channel3Key string
 
 	// PayPal (Mimi 2.0 mục 15). PAYPAL_MODE: sandbox | live | fake | off.
 	// fake: giả lập trong bộ nhớ để demo khi chưa có tài khoản Sandbox.
@@ -73,6 +77,7 @@ func Load() (Config, error) {
 		DefaultTimeout:      10 * time.Second,
 		ReceiptDailyLimit:   20,
 		PriceSyncLimit:      200,
+		AIDailyLimit:        300, // một câu hỏi thường tốn 2 đến 6 lượt (gọi tool rồi trả lời)
 		PayPalMode:          get("PAYPAL_MODE", "fake"),
 		PayPalClientID:      strings.TrimSpace(os.Getenv("PAYPAL_CLIENT_ID")),
 		PayPalSecret:        strings.TrimSpace(os.Getenv("PAYPAL_CLIENT_SECRET")), // secret cất bằng --data-file=- thường dính dấu xuống dòng
@@ -83,6 +88,7 @@ func Load() (Config, error) {
 		BraintreePublicKey:  strings.TrimSpace(os.Getenv("BRAINTREE_PUBLIC_KEY")),
 		BraintreePrivateKey: strings.TrimSpace(os.Getenv("BRAINTREE_PRIVATE_KEY")),
 		BraintreeMerchantAc: strings.TrimSpace(os.Getenv("BRAINTREE_MERCHANT_ACCOUNT_ID")),
+		Channel3Key:         strings.TrimSpace(os.Getenv("CHANNEL3_API_KEY")),
 	}
 	var errs []error
 	if c.ProjectID == "" {
@@ -101,6 +107,13 @@ func Load() (Config, error) {
 			errs = append(errs, fmt.Errorf("PRICE_SYNC_LIMIT invalid: %q", v))
 		}
 		c.PriceSyncLimit = n
+	}
+	if v := os.Getenv("AI_DAILY_LIMIT"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 || n > 5000 {
+			errs = append(errs, fmt.Errorf("AI_DAILY_LIMIT invalid: %q", v))
+		}
+		c.AIDailyLimit = n
 	}
 	if v := os.Getenv("PAYPAL_VND_PER_USD"); v != "" {
 		n, err := strconv.ParseInt(v, 10, 64)

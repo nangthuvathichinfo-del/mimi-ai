@@ -20,7 +20,8 @@ import { formatVnd } from "../lib/text";
 import { planName } from "./PlanList";
 import { Sheet } from "../components/Sheet15";
 import { useRelations } from "../lib/relation";
-import { buyerOf, clearDraft, markDraft, setBuyer, usePlanDraftVersion, type BuyerPick } from "../lib/planDraft";
+import { buyerOf, clearDraft, isDraft, markDraft, setBuyer, usePlanDraftVersion, type BuyerPick } from "../lib/planDraft";
+import { p22 } from "../i18n/p22";
 import { AddToCalendar } from "../components/AddToCalendar";
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -51,6 +52,7 @@ function Detail({ id }: { id: string }) {
   const nav = useNavigate();
   const metaAct = usePlanMeta();
   const [confirmDel, setConfirmDel] = useState(false);
+  const [confirmDone, setConfirmDone] = useState(false);
   const clearDefault = useClearDefaultPlan();
   const deleting = metaAct.remove.isPending || clearDefault.isPending;
   const saveState = useSavePlanState();
@@ -197,9 +199,34 @@ function Detail({ id }: { id: string }) {
           />
         )}
 
+        {/* Mimi 2.2 (anh chốt 09/11): kế hoạch chỉ hoàn thành khi quét hóa đơn hoặc người dùng tự xác nhận. */}
+        {meta?.status === "archived" ? (
+          <p className="sent15" role="status"><Check size={18} aria-hidden /> {p22.confirmedDone}</p>
+        ) : (
+          meta && !meta.default && !isDraft(id) && buyer && cart?.phase !== "reconciled" && (
+            <div className="pd22__more">
+              <button type="button" className="btn btn--outline btn--block btn--lg" onClick={() => { markDraft(id); nav(`/plan/${encodeURIComponent(id)}/add`); }}>
+                <Pencil size={18} aria-hidden /> {p22.editPlan}
+              </button>
+              <button
+                type="button"
+                className={`btn btn--outline btn--block btn--lg${confirmDone ? " pd15__del--confirm" : ""}`}
+                aria-disabled={metaAct.update.isPending || undefined}
+                onClick={() => {
+                  if (metaAct.update.isPending) return;
+                  if (!confirmDone) return setConfirmDone(true);
+                  metaAct.update.mutate({ id, status: "archived" }, { onSuccess: () => { setCurrentPlanId("default"); nav("/plan", { replace: true }); } });
+                }}
+              >
+                <Check size={18} aria-hidden /> {confirmDone ? p22.confirmDoneAsk : p22.confirmDone}
+              </button>
+              <p className="hint">{p22.confirmDoneHint}</p>
+            </div>
+          )
+        )}
         {(saveState.isError || metaAct.update.isError) && <p className="error" role="alert">{errText(saveState.error ?? metaAct.update.error)}</p>}
         {/* Góp ý 31/10 15:43: nút Xóa nằm cạnh Lưu kế hoạch. Xóa không hoàn tác được nên bấm hai lần. */}
-        <div className="pd15__actions">
+        {meta?.status !== "archived" && <div className="pd15__actions">
           <button
             type="button"
             className={`btn btn--lg pd15__del${confirmDel ? " pd15__del--confirm" : ""}`}
@@ -218,8 +245,8 @@ function Detail({ id }: { id: string }) {
           <button type="button" className="btn btn--primary btn--lg" aria-disabled={busy || !buyer || undefined} onClick={save}>
             <Send size={18} aria-hidden /> {sentTo ? m15.plan.saveUpdate : m15.plan.save}
           </button>
-        </div>
-        {!buyer && <p className="hint" role="status">{m15.plan.needBuyer}</p>}
+        </div>}
+        {!buyer && meta?.status !== "archived" && <p className="hint" role="status">{m15.plan.needBuyer}</p>}
         {assign.isError && <p className="error" role="alert">{errText(assign.error)}</p>}
         {mimiAsk && sentTo && (
           <Sheet title={m15.plan.mimiAskTitle} sub={m15.plan.mimiTakeOver(sentTo.buyer_display_name)} onClose={() => setMimiAsk(false)}>
@@ -268,7 +295,7 @@ function Detail({ id }: { id: string }) {
 }
 
 /* ---------- Danh sách dự kiến mua ---------- */
-function Lines({ cart, onChange, done }: { cart: Cart; onChange: () => void; done: Set<string> }) {
+export function Lines({ cart, onChange, done }: { cart: Cart; onChange: () => void; done: Set<string> }) {
   const [editing, setEditing] = useState<string | null>(null);
   const h = useHousehold();
   const who = (uid?: string) => h.data?.members.find((m) => m.uid === uid)?.display_name ?? "";
@@ -438,6 +465,7 @@ function Forecast({ cart }: { cart: Cart }) {
 }
 
 /* ---------- Người mua ---------- */
+const SHOW_MIMI_BUYER = false;
 function Buyer({ pick, name, onMe, onMember, onMimi }: { pick: BuyerPick | null; name: string; onMe: () => void; onMember: () => void; onMimi: () => void }) {
   const member = !!pick && pick !== "me";
   return (
@@ -448,14 +476,15 @@ function Buyer({ pick, name, onMe, onMember, onMimi }: { pick: BuyerPick | null;
         <button type="button" aria-pressed={member} onClick={onMember}>
           {member && name ? name : m15.plan.sendMember}
         </button>
-        <button type="button" onClick={onMimi}>{m15.plan.mimi}<small className="buyer15__sub">{m15.plan.mimiOnline}</small></button>
+        {/* Anh chốt 09/11 (Cài đặt T1): bỏ Mimi mua online theo Ủy quyền; mua online chỉ qua giá Channel3 ở bước So sánh giá. */}
+        {SHOW_MIMI_BUYER && <button type="button" onClick={onMimi}>{m15.plan.mimi}<small className="buyer15__sub">{m15.plan.mimiOnline}</small></button>}
       </div>
     </section>
   );
 }
 
 /* ---------- Bảng chọn icon ---------- */
-function IconSheet({ value, onCancel, onSave }: { value: string; onCancel: () => void; onSave: (k: string) => void }) {
+export function IconSheet({ value, onCancel, onSave }: { value: string; onCancel: () => void; onSave: (k: string) => void }) {
   const [pick, setPick] = useState(value);
   return (
     <Sheet title={m15.plan.pickIcon} sub={m15.plan.pickIconSub} onClose={onCancel}>

@@ -4,6 +4,7 @@ import "./styles/tokens.css";
 import "./styles/base.css";
 import "./styles/screens.css";
 import "./styles/m15.css";
+import "./styles/s22.css";
 import "./styles/v2.css";
 import { App } from "./app/App";
 import { startPwaUpdates } from "./app/pwaUpdate";

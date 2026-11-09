@@ -247,7 +247,7 @@ export const vi: Messages = {
     emptyTitle: (month: string) => `${month} chưa có hóa đơn`,
     emptyBody: "Quét hóa đơn để chi tiêu hiện ở đây.",
     scan: "Quét hóa đơn",
-    ownerOnly: "Chỉ chủ giỏ xem được chi tiêu.",
+    ownerOnly: "Hãy vào một nhà để xem chi tiêu của mình.",
     loadFailed: "Chưa tải được sổ chi tiêu.",
     tableNote: "Số tiền là số bạn đã trả, lấy từ hóa đơn đã lưu.",
   },
