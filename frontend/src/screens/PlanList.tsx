@@ -29,7 +29,8 @@ export function whenText(st: Cart["state"] | undefined): string {
 }
 
 /**
- * Kế hoạch mua sắm. Mimi 2.2 (đề xuất chốt 09/11): ba tab Của tôi, Nhờ mua, Tất cả đơn (T5).
+ * Kế hoạch mua sắm. Mimi 2.2 (đề xuất chốt 09/11): ba tab Của tôi, Được nhờ mua, Tất cả đơn (T5).
+ * Tab Được nhờ mua giữ như 2.1 (anh chốt 09/11): danh sách kế hoạch được nhờ, nhận hoặc từ chối trong màn đi mua.
  * Tab Của tôi: trên cùng là kế hoạch chưa lưu, hiện sẵn đầy đủ như Redesign (T1); bên dưới là kế hoạch
  * đã lưu hoặc đang triển khai dạng thẻ gọn (bấm mới xem chi tiết), cuối cùng là Đã mua xong (B6).
  */
@@ -45,12 +46,12 @@ export function PlanList() {
         <div className="seg seg15 seg22--3" role="group" aria-label={m15.plan.title}>
           <button type="button" aria-pressed={tab === "mine"} onClick={() => setParams({}, { replace: true })}>{p22.tabs.mine}</button>
           <button type="button" aria-pressed={tab === "to-me"} onClick={() => setParams({ tab: "to-me" }, { replace: true })}>
-            {p22.tabs.asks}
+            {m15.plan.toMe}
             {toMe > 0 && <span className="badge15" aria-label={m15.run.newBadge(toMe)}>{toMe}</span>}
           </button>
           <button type="button" aria-pressed={tab === "orders"} onClick={() => setParams({ tab: "orders" }, { replace: true })}>{p22.tabs.orders}</button>
         </div>
-        {tab === "mine" ? <Mine /> : tab === "to-me" ? <Asks /> : <AllOrders />}
+        {tab === "mine" ? <Mine /> : tab === "to-me" ? <ToMe /> : <AllOrders />}
       </div>
     </MainFrame>
   );
@@ -178,36 +179,6 @@ function Mine() {
         </>
       )}
       <p className="hint hint15"><Info size={16} aria-hidden /> {m15.plan.note}</p>
-    </>
-  );
-}
-
-/** Tab Nhờ mua (T5): Nhờ tôi mua (màn đi mua của 2.1) và Tôi đã nhờ. */
-function Asks() {
-  const d = useDelegated();
-  const nav = useNavigate();
-  const mine = d.data?.from_me ?? [];
-  return (
-    <>
-      <h2 className="h15sec">{p22.askedMe}</h2>
-      <ToMe />
-      <h2 className="h15sec">{p22.sentByMe}</h2>
-      {d.data && mine.length === 0 && <p className="hint">{p22.sentByMeEmpty}</p>}
-      <ul className="box15 past22">
-        {mine.map((a) => (
-          <li key={a.assignment_id}>
-            <button type="button" className="past22__row" onClick={() => { setCurrentPlanId(a.plan_id); nav(`/plan/${encodeURIComponent(a.plan_id)}`); }}>
-              <span className="plancard15__icon" aria-hidden><UsersRound size={20} /></span>
-              <span className="past22__text">
-                <b>{a.trip?.plan_name || m15.plan.main}</b>
-                <small>{m15.plan.buyer(a.buyer_display_name)} · {m15.plan.count(a.items.length)}</small>
-              </span>
-              <span className={`tag15 ask22--${a.status}`}>{p22.askStatus[a.status] ?? a.status}</span>
-              <ChevronRight size={20} aria-hidden />
-            </button>
-          </li>
-        ))}
-      </ul>
     </>
   );
 }

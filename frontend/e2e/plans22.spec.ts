@@ -44,8 +44,9 @@ test("Kế hoạch 2.2: lưu kế hoạch nháp qua 3 bước, thêm món sắp 
   await expect(page.locator(".draft22").getByText("Bước 2/3 · So sánh giá")).toBeVisible();
 
   // Ba tab.
-  await page.getByRole("button", { name: /Nhờ mua/ }).click();
-  await expect(page.getByRole("heading", { name: "Tôi đã nhờ" })).toBeVisible();
+  // Tab Được nhờ mua giữ như 2.1: chỉ danh sách kế hoạch được nhờ.
+  await page.getByRole("button", { name: /Được nhờ mua/ }).click();
+  await expect(page.locator(".plancard15", { hasText: "Nhờ từ Minh" })).toBeVisible();
   await page.getByRole("button", { name: "Tất cả đơn" }).click();
   await expect(page.getByText("Đã chi qua kế hoạch")).toBeVisible();
 
