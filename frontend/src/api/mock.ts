@@ -549,6 +549,29 @@ const orders = new Map<string, Order>();
 const addDays = (n: number) => iso(new Date(today.getTime() + n * 86_400_000));
 const usd = (vnd: number) => (Math.round((vnd / VND_PER_USD) * 100) / 100).toFixed(2);
 
+// 2.2: một đơn online đã nhận đủ hàng tuần trước, để Lịch sử đơn hàng có cả đơn online lẫn hóa đơn.
+let seeded = false;
+function seedOrder() {
+  if (seeded) return;
+  seeded = true;
+  const lines: OrderLine[] = (["giay-ve-sinh", "nuoc-rua-chen"] as const).map((k) => {
+    const pr = CATALOG[k];
+    const name = k === "giay-ve-sinh" ? (L ? "Toilet paper" : "Giấy vệ sinh") : (L ? "Dish soap" : "Nước rửa chén");
+    return { key: k, name, product_name: pr.name, category_key: "hoa-pham", category: pr.category, qty: 1, unit: pr.unit, pack_qty: pr.pack, plan_qty: 1,
+      unit_price_vnd: pr.offer, snapshot_price_vnd: pr.snapshot, total_vnd: pr.offer, eta: addDays(pr.eta) };
+  });
+  const total = lines.reduce((a, l) => a + l.total_vnd, 0);
+  const b = { merchant: "Mimi Mart Sandbox", lines, total_vnd: total, amount_usd: usd(total), decision: { result: "ALLOW" as const, reasons: [] } };
+  const paid = new Date(today.getTime() - 4 * 86_400_000).toISOString();
+  const got = new Date(today.getTime() - 2 * 86_400_000).toISOString();
+  orders.set("o-mau", {
+    id: "o-mau", state: "verified", merchant: b.merchant, lines: b.lines, total_vnd: b.total_vnd, amount_usd: b.amount_usd, vnd_per_usd: VND_PER_USD,
+    decision: b.decision, approved_by_user: true, provider: "paypal", paypal_order_id: `FAKE-${b.amount_usd}-mock`, paypal_capture_id: "FAKECAP-mau",
+    paid_at: paid, eta: got, events: [{ state: "awaiting_payment", at: paid }, { state: "paid", at: paid }, { state: "verified", at: got }],
+    refunds: [], refunded_vnd: 0, net_vnd: b.total_vnd, suggested_refund_vnd: 0, created_at: paid,
+  });
+}
+
 function buildBasket(keys: string[]): Basket {
   const c = mockCart();
   const lines: OrderLine[] = [];
@@ -607,7 +630,10 @@ function mockOnline(method: string, p: string, init: RequestInit): Response | nu
     const k = body().keys as string[] | undefined;
     return json(buildBasket(k?.length ? k : [...cart])); // rỗng: mọi món, như backend
   }
-  if (method === "GET" && p === "/orders") return json({ orders: [...orders.values()].reverse() });
+  if (method === "GET" && p === "/orders") {
+    seedOrder();
+    return json({ orders: [...orders.values()].reverse() });
+  }
   if (method === "POST" && p === "/orders/card-token") return json({ client_token: "fake-client-token" });
   if (method === "POST" && p === "/orders") {
     const b = body() as { keys?: string[]; approve?: boolean; provider?: string };
@@ -773,6 +799,16 @@ const assignments: MockAssignment[] = [{
     { consumption_group_key: "nuoc-mam", name_display: L ? "Fish sauce" : "Nước mắm", status: "assigned" },
   ],
 }];
+// 2.2: một lời nhờ đã mua xong tuần trước, để tab Được nhờ mua có mục Đã hoàn thành.
+const doneForMinh: MockAssignment = {
+  assignment_id: "trip-xong", owner_uid: "mock-minh", owner_display_name: "Minh", buyer_uid: ME, buyer_display_name: "Lan", plan_id: "p-minh-cu",
+  status: "completed", created_at: iso(new Date(today.getTime() - 6 * 86_400_000)), updated_at: iso(new Date(today.getTime() - 5 * 86_400_000)),
+  items: [
+    { consumption_group_key: "gao", name_display: L ? "Rice 5kg" : "Gạo 5kg", status: "done", qty: 1, unit: L ? "bag" : "bao", unit_price: 120_000, category_key: "do-kho" },
+    { consumption_group_key: "nuoc-mam", name_display: L ? "Fish sauce" : "Nước mắm", status: "done", qty: 1, unit: L ? "bottle" : "chai", unit_price: 45_000, category_key: "gia-vi" },
+  ],
+  trip: { plan_name: L ? "Groceries for Minh" : "Đồ cho Minh", buy_date: iso(new Date(today.getTime() - 5 * 86_400_000)) },
+};
 // Một lời nhờ mẫu từ người nhà, để thấy luồng Buyer.
 const incoming: MockAssignment = {
   assignment_id: "trip-mau", owner_uid: "mock-minh", owner_display_name: "Minh", buyer_uid: ME, buyer_display_name: "Lan", plan_id: "default",
@@ -1135,7 +1171,8 @@ function mockM1(method: string, url: URL, init: RequestInit): Response | null {
     return json(incoming);
   }
   if (p === "/plan/delegated" && method === "GET") {
-    return json({ to_me: incoming.status === "assigned" ? [incoming] : [], from_me: assignments });
+    const done = incoming.status === "completed" || incoming.status === "closed_partial";
+    return json({ to_me: incoming.status === "assigned" ? [incoming] : [], to_me_done: [...(done ? [incoming] : []), doneForMinh], from_me: assignments });
   }
   if (method === "POST" && p === "/receipts") {
     const b = body() as { assignment_id?: string };

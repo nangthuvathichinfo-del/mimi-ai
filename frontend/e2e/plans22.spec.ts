@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 // Mimi 2.2: màn Kế hoạch (đề xuất chốt 09/11): thẻ kế hoạch chưa lưu, luồng 3 bước, 3 tab.
-test("Kế hoạch 2.2: lưu kế hoạch nháp qua 3 bước, thêm món sắp hết một chạm, 3 tab", async ({ page }) => {
+test("Kế hoạch 2.2: lưu kế hoạch nháp qua 3 bước, thêm món sắp hết một chạm, 3 tab (Của tôi, Được nhờ mua, Lịch sử đơn hàng)", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.setViewportSize({ width: 393, height: 852 });
@@ -59,13 +59,13 @@ test("Kế hoạch 2.2: lưu kế hoạch nháp qua 3 bước, thêm món sắp 
   await expect(page.locator(".plancard15", { hasText: "Đi chợ cuối tuần · Online" })).toBeVisible();
   await expect(page.locator(".top22").getByRole("button", { name: "Tiếp tục" })).toHaveAttribute("aria-disabled", "true");
 
-  // Kế hoạch đã lưu: xác nhận đã mua xong thì sang Tất cả đơn, mục Đã hoàn thành.
+  // Kế hoạch đã lưu: xác nhận đã mua xong thì xuống mục Đã hoàn thành của tab Của tôi.
   await page.locator(".plancard15", { hasText: "Đi chợ cuối tuần · Online" }).click();
   await page.getByRole("button", { name: "Xác nhận đã mua xong" }).click();
   await page.getByRole("button", { name: "Bấm lần nữa để xác nhận" }).click();
-  await page.getByRole("button", { name: "Đã hoàn thành", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Đã hoàn thành" })).toBeVisible();
   await expect(page.locator(".past22", { hasText: "Đi chợ cuối tuần · Online" })).toBeVisible();
-  await page.getByRole("button", { name: "Của tôi" }).click();
+  await expect(page.locator(".plancard15", { hasText: "Đi chợ cuối tuần · Online" })).toHaveCount(0);
 
   // Kế hoạch mới: trống, bước 1, chạm tên món sắp hết để thêm.
   await page.getByRole("button", { name: /Kế hoạch mới/ }).click();
@@ -86,16 +86,23 @@ test("Kế hoạch 2.2: lưu kế hoạch nháp qua 3 bước, thêm món sắp 
   await expect(page.getByRole("button", { name: "Xong" })).toHaveCount(0);
 
   // Ba tab.
-  // Tab Được nhờ mua giữ như 2.1: chỉ danh sách kế hoạch được nhờ.
+  // Được nhờ mua: mọi kế hoạch người nhà gửi, gồm Đang chuẩn bị mua và Đã hoàn thành (bấm mở bản chỉ xem).
   await page.getByRole("button", { name: /Được nhờ mua/ }).click();
-  await expect(page.locator(".plancard15", { hasText: "Nhờ từ Minh" })).toBeVisible();
-  await page.getByRole("button", { name: "Tất cả đơn" }).click();
-  await expect(page.getByText("Đã chi qua kế hoạch")).toBeVisible();
-  // Tất cả đơn gồm cả kế hoạch đã lưu (Giỏ mua sắm) và kế hoạch được nhờ.
-  await page.getByRole("button", { name: "Chưa hoàn thành", exact: true }).click();
-  await expect(page.locator(".past22", { hasText: "Mua đồ cho bé" })).toBeVisible();
-  await page.getByRole("button", { name: "Nhờ mua", exact: true }).click();
-  await expect(page.locator(".past22", { hasText: "Nhờ từ Minh" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Đang chuẩn bị mua" })).toBeVisible();
+  await expect(page.locator(".plancard15", { hasText: "Mua đồ cuối tuần" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Đã hoàn thành" })).toBeVisible();
+  await page.locator(".plancard15", { hasText: "Đồ cho Minh" }).click();
+  await expect(page.getByText("Kế hoạch này đã mua xong.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Mua hàng xong" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Quay lại" }).click();
+
+  // Lịch sử đơn hàng: hóa đơn mua tại cửa hàng và đơn online chung một danh sách, giống màn ở Sổ chi tiêu.
+  await page.getByRole("button", { name: "Lịch sử đơn hàng" }).click();
+  await expect(page.getByRole("button", { name: "Online", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Online", exact: true }).click();
+  await expect(page.locator(".ph15__row").first()).toContainText("Online");
+  await page.getByRole("button", { name: "Tại cửa hàng", exact: true }).click();
+  await expect(page.locator(".ph15__row").first()).not.toContainText("Online ·");
 
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(393);
   expect(errors).toEqual([]);

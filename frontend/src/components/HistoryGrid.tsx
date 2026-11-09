@@ -6,9 +6,10 @@ import { useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { AgGridReact } from "ag-grid-react";
 import { AllCommunityModule, ModuleRegistry, themeQuartz, type ColDef } from "ag-grid-community";
-import type { HistoryReceipt } from "../api/types";
+import type { HistoryRow } from "../api/types";
 import { m15 } from "../i18n/m15";
 import { formatVnd } from "../lib/text";
+import { historyLink } from "../screens/PurchaseHistory";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -24,7 +25,7 @@ const vnDay = (iso: string) => {
 /** "2026-11-03" → "03/11/26": gọn cho màn hẹp, vẫn sắp xếp theo chuỗi ISO gốc. */
 const shortDay = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(2, 4)}`;
 
-export default function HistoryGrid({ rows, titleOf }: { rows: HistoryReceipt[]; titleOf: (r: HistoryReceipt) => string }) {
+export default function HistoryGrid({ rows, titleOf }: { rows: HistoryRow[]; titleOf: (r: HistoryRow) => string }) {
   const nav = useNavigate();
   const grid = useRef<AgGridReact<Row>>(null);
   const g = m15.history.grid;
@@ -32,7 +33,7 @@ export default function HistoryGrid({ rows, titleOf }: { rows: HistoryReceipt[];
     () =>
       rows.map((r) => ({
         id: r.receipt_id,
-        to: r.kind === "recurring" ? `/items/recurring/${encodeURIComponent(r.recurring_id ?? "")}` : `/spending/receipt/${encodeURIComponent(r.receipt_id)}`,
+        to: historyLink(r),
         day: vnDay(r.purchased_at),
         title: titleOf(r),
         kind: g.kinds[r.kind ?? "own"],

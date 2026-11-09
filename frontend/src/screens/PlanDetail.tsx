@@ -215,7 +215,7 @@ function Detail({ id }: { id: string }) {
                 onClick={() => {
                   if (metaAct.update.isPending) return;
                   if (!confirmDone) return setConfirmDone(true);
-                  metaAct.update.mutate({ id, status: "archived" }, { onSuccess: () => { setCurrentPlanId("default"); nav("/plan?tab=orders", { replace: true }); } });
+                  metaAct.update.mutate({ id, status: "archived" }, { onSuccess: () => { setCurrentPlanId("default"); nav("/plan", { replace: true }); } });
                 }}
               >
                 <Check size={18} aria-hidden /> {confirmDone ? p22.confirmDoneAsk : p22.confirmDone}

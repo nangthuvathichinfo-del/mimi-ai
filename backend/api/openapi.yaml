@@ -546,7 +546,7 @@ paths:
   /plan/delegated:
     get:
       tags: [plan, household]
-      summary: "4.1 mục 9.2: vòng mua hộ được giao cho tôi (to_me, còn mở) và vòng tôi đã gửi (from_me)"
+      summary: "4.1 mục 9.2: vòng mua hộ được giao cho tôi (to_me, còn mở; to_me_done, đã mua xong) và vòng tôi đã gửi (from_me)"
       responses: { "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Delegated" } } } } }
   /plans:
     get:
@@ -1473,6 +1473,7 @@ components:
       properties:
         to_me: { type: array, items: { $ref: "#/components/schemas/Assignment" } }
         from_me: { type: array, items: { $ref: "#/components/schemas/Assignment" } }
+        to_me_done: { type: array, description: "2.2: vòng được nhờ đã mua xong (completed, closed_partial), cho tab Được nhờ mua", items: { $ref: "#/components/schemas/Assignment" } }
     PlanState:
       type: object
       additionalProperties: false

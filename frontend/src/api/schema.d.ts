@@ -1879,7 +1879,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** 4.1 mục 9.2: vòng mua hộ được giao cho tôi (to_me, còn mở) và vòng tôi đã gửi (from_me) */
+        /** 4.1 mục 9.2: vòng mua hộ được giao cho tôi (to_me, còn mở; to_me_done, đã mua xong) và vòng tôi đã gửi (from_me) */
         get: {
             parameters: {
                 query?: never;
@@ -3849,6 +3849,8 @@ export interface components {
         Delegated: {
             to_me?: components["schemas"]["Assignment"][];
             from_me?: components["schemas"]["Assignment"][];
+            /** @description 2.2: vòng được nhờ đã mua xong (completed, closed_partial), cho tab Được nhờ mua */
+            to_me_done?: components["schemas"]["Assignment"][];
         };
         PlanState: {
             /** @description YYYY-MM-DD hoặc chuỗi rỗng; từ 7 ngày trước đến 1 năm tới */
