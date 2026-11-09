@@ -58,7 +58,7 @@
 .noticed22__icon { width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; color: var(--c); background: color-mix(in srgb, var(--c) 18%, transparent); }
 .noticed22__text { margin: 0; flex: 1; font-size: 14px; line-height: 1.4; color: var(--ink); display: grid; gap: 2px; }
 .noticed22__text small { color: var(--ink-soft); font-size: 12.5px; }
-.noticed22__text b { font-weight: 700; color: color-mix(in srgb, var(--c) 70%, var(--ink)); }
+.noticed22__text b { font-weight: 700; color: var(--ink); } /* như Redesign: đậm, cùng màu chữ */
 .noticed22__cta { align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 0; border: 0; background: none; font: inherit; font-size: 13.5px; font-weight: 700; color: var(--m15-blue); cursor: pointer; }
 
 /* Biểu đồ vòng bên trái, chú giải bên phải. Vòng mảnh (nét 10 trên khung 140), chữ giữa nhẹ, viên % nhỏ như Redesign */
