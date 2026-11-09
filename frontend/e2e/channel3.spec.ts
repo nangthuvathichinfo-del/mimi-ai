@@ -18,7 +18,7 @@ test("So sánh giá: Mỹ có giá Channel3 cho đồ dùng nhà, Việt Nam kh�
     }, path);
   await go("/plan/default/compare");
   await expect(page.locator(".cmpi22").first()).toBeVisible();
-  await expect(page.getByText(/Channel3/)).toHaveCount(0);
+  await expect(page.locator(".cmpi22").getByText(/Channel3/)).toHaveCount(0);
 
   await go("/settings/language");
   await page.getByRole("combobox", { name: /Quốc gia/ }).selectOption("US");

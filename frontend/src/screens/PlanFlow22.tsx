@@ -46,16 +46,34 @@ function writePicks(id: string, v: Record<string, string>) {
   }
 }
 
-export type PriceOption = { id: string; store: string; sub: string; total: number; url?: string; receipt: boolean; price?: MarketPrice };
+export type PriceOption = { id: string; store: string; sub: string; total: number; url?: string; receipt: boolean; online: boolean; price?: MarketPrice };
 
-/** Các lựa chọn giá của một món: hóa đơn cũ của nhà mình và giá đang bán trên mạng, rẻ nhất trước. */
+/** Channel3 là nguồn duy nhất trả online (PayPal, thẻ); hóa đơn cũ và Gemini là giá mua tại cửa hàng (anh chốt 09/11). */
+export const isOnlineSource = (source?: string) => source === "channel3";
+
+/** Các lựa chọn giá của một món: giá rẻ nhất của từng nguồn (hóa đơn nhà mình, Gemini, Channel3), rẻ nhất trước. */
 export function optionsOf(item: CartItem, prices: MarketPrice[]): PriceOption[] {
   const out: PriceOption[] = [];
   if (item.unit_price != null)
-    out.push({ id: "receipt", store: item.best_store || p22.pastReceipt(""), sub: p22.pastReceipt(""), total: item.unit_price * item.qty, receipt: true });
-  prices.forEach((p, i) =>
-    out.push({ id: `web:${i}:${p.store}`, store: p.store, sub: [p22.src(p.source), p.size, formatDayMonth(p.on)].filter(Boolean).join(" · "), total: p.price_vnd * item.qty, url: p.url, receipt: false, price: p }),
-  );
+    out.push({ id: "receipt", store: item.best_store || p22.pastReceipt(""), sub: `${p22.pastReceipt("")} · ${p22.atStore}`, total: item.unit_price * item.qty, receipt: true, online: false });
+  const best = new Map<string, MarketPrice>();
+  for (const p of prices) {
+    const old = best.get(p.source);
+    if (!old || p.price_vnd < old.price_vnd) best.set(p.source, p);
+  }
+  for (const p of best.values()) {
+    const online = isOnlineSource(p.source);
+    out.push({
+      id: `${p.source}:${p.store}`,
+      store: p.store,
+      sub: [p22.src(p.source), online ? p22.onlineBuy : p22.atStore, formatDayMonth(p.on)].filter(Boolean).join(" · "),
+      total: p.price_vnd * item.qty,
+      url: p.url,
+      receipt: false,
+      online,
+      price: p,
+    });
+  }
   return out.sort((a, b) => a.total - b.total);
 }
 
@@ -508,7 +526,7 @@ export function PlanConfirm() {
     const store: { item: CartItem; o?: PriceOption }[] = [];
     for (const item of cart.items) {
       const o = chosen(item, optionsOf(item, byKey.get(item.key) ?? []), picks);
-      if (o && !o.receipt) online.push({ item, o });
+      if (o && o.online) online.push({ item, o });
       else store.push({ item, o });
     }
     return { online, store };

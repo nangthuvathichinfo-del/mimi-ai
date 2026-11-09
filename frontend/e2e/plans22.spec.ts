@@ -11,7 +11,16 @@ test("Kế hoạch 2.2: lưu kế hoạch nháp qua 3 bước, thêm món sắp 
   await page.getByRole("button", { name: "Nhận link đăng nhập" }).click();
   await page.getByText("Mở link (bản thử)").click();
   await page.getByText("Chào Lan!").waitFor();
-  await page.goto("/plan");
+  // Thanh toán online chỉ có giá Channel3, mà Channel3 chỉ có ở Mỹ: chuyển sang Mỹ trong app (tải lại trang thì mất dữ liệu bản thử).
+  const go = (path: string) =>
+    page.evaluate((p) => {
+      history.pushState({}, "", p);
+      dispatchEvent(new PopStateEvent("popstate"));
+    }, path);
+  await go("/settings/language");
+  await page.getByRole("combobox", { name: /Quốc gia/ }).selectOption("US");
+  await page.waitForTimeout(500);
+  await go("/plan");
 
   // Kế hoạch chưa lưu ở đầu màn chính là màn bước 1: thông tin kế hoạch, danh sách món, nút Tiếp tục.
   const card = page.locator(".top22");
@@ -36,7 +45,7 @@ test("Kế hoạch 2.2: lưu kế hoạch nháp qua 3 bước, thêm món sắp 
   await first.getByRole("radio").first().click();
   await page.getByRole("button", { name: "Tiếp tục" }).click();
 
-  // Bước 3: có cả giá online và giá hóa đơn cũ thì tách 2 kế hoạch; phần cửa hàng phải chọn người mua.
+  // Bước 3: chỉ giá Channel3 vào Thanh toán online; giá hóa đơn và Gemini là mua tại cửa hàng, phải chọn người mua.
   await expect(page.getByText(/tách thành 2 kế hoạch/)).toBeVisible();
   const save = page.getByRole("button", { name: "Lưu, tách 2 kế hoạch" });
   await expect(save).toHaveAttribute("aria-disabled", "true");
