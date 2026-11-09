@@ -54,12 +54,12 @@ test("Phân tích chi tiêu: bảng, widget Mimi, Hỏi Mimi", async ({ page }) 
 test.describe("trên điện thoại", () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
-  test("Phân tích chi tiêu: một cột, không cuộn ngang, Hỏi Mimi chiếm cả màn", async ({ page }) => {
+  test("Phân tích chi tiêu: thẻ hai cột, không cuộn ngang, Hỏi Mimi chiếm cả màn", async ({ page }) => {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
     await signIn(page);
     await page.goto("/spending/analytics");
-    await expect(page.getByText("Sắp hết trước")).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator(".radar")).toBeVisible({ timeout: 20_000 });
 
     // Câu gợi ý: bấm "Mua ở đâu rẻ hơn?" là sang trang So sánh giá.
     await page.getByRole("button", { name: "Mua ở đâu rẻ hơn?" }).click();
@@ -69,6 +69,15 @@ test.describe("trên điện thoại", () => {
     await page.locator(".cal__cell:has(.cal__amt)").first().click();
     await expect(page.locator(".cal__list li").first()).toBeVisible();
     await page.getByRole("button", { name: "Tổng quan" }).click();
+
+    // Thẻ hai cột: chạm thẻ "Sắp phải trả" thì mở trang chi tiết, qua thẻ sau được, Esc để đóng.
+    await page.locator(".ag-studio-layout-widget", { hasText: "Sắp phải trả" }).click({ position: { x: 40, y: 40 } });
+    const sheet = page.getByRole("dialog", { name: "Sắp phải trả" });
+    await expect(sheet.getByText("Đây là gì?")).toBeVisible();
+    await sheet.getByRole("button", { name: "Thẻ sau" }).click();
+    await expect(page.getByRole("dialog", { name: "Sắp hết" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
 
     // Widget nằm gọn trong bề ngang màn hình.
     const box = await page.locator(".radar").boundingBox();

@@ -14,7 +14,8 @@ import { uiLang } from "../i18n";
 import { useAnalyticsData, studioData, type AnalyticsRows } from "./data";
 import { buildAskMimi } from "./askMimi";
 import { CHART_TOOLS, chartFor, ToolChart, useAutoOpenCharts } from "./chatCharts";
-import { initialPhoneReport, initialReport, pageTitles, PHONE_MAX_WIDTH } from "./report";
+import { initialPhoneReport, initialReport, PAGE, pageTitles, PHONE_CARDS, PHONE_MAX_WIDTH } from "./report";
+import { CardDetail } from "./CardDetail";
 import { mimiStudioTheme } from "./theme";
 import { mimiWidgets } from "./widgets";
 import { at } from "./text";
@@ -128,6 +129,25 @@ function Dashboard({ rows, note, phone }: { rows: AnalyticsRows; note?: string; 
   const saveTimer = useRef<number | undefined>(undefined);
   const studioRef = useRef<HTMLDivElement>(null);
   useAutoOpenCharts(studioRef);
+  // Điện thoại, trang Tổng quan: chạm một thẻ trong lưới 2 cột thì mở trang chi tiết của thẻ đó.
+  const [detail, setDetail] = useState<number | null>(null);
+  const cardIds = useMemo(() => (PHONE_CARDS[PAGE.overview] ?? []).filter((id) => widgetIds.has(`${PAGE.overview}/${id}`)), [widgetIds]);
+  useEffect(() => {
+    const root = studioRef.current;
+    if (!root || !phone || mode !== "view" || pageId !== PAGE.overview) return;
+    const onTap = (e: MouseEvent) => {
+      const card = (e.target as HTMLElement).closest<HTMLElement>(".ag-studio-layout-widget");
+      const id = card ? widgetAt(card) : undefined;
+      const i = id ? cardIds.indexOf(id) : -1;
+      if (i < 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setDetail(i);
+    };
+    root.addEventListener("click", onTap, true);
+    return () => root.removeEventListener("click", onTap, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phone, mode, pageId, cardIds]);
   useEffect(() => () => window.clearTimeout(saveTimer.current), []);
 
   const go = (id: string) => {
@@ -137,6 +157,31 @@ function Dashboard({ rows, note, phone }: { rows: AnalyticsRows; note?: string; 
   // Khung chat của Studio chỉ có ở chế độ chỉnh: "Hỏi Mimi" mở chế độ chỉnh với khung chat mở,
   // các khung khác thu gọn để bảng vẫn rộng.
   /**
+   * Studio không gắn mã widget lên DOM: thứ tự widget trên màn (trên xuống, trái sang) trùng thứ
+   * tự trong widgetLayout của trang, nên ghép hai danh sách theo thứ tự đó.
+   */
+  const ordered = (page: string) => {
+    const layout = apiRef.current?.getState().pages.find((p) => p.id === page)?.widgetLayout ?? {};
+    const ids = Object.entries(layout)
+      .filter(([, l]) => l)
+      .sort(([, a], [, b]) => a!.yTrack - b!.yTrack || a!.xTrack - b!.xTrack)
+      .map(([id]) => id);
+    const canvas = studioRef.current?.querySelector<HTMLElement>(".ag-studio-layout-canvas");
+    const els = [...(canvas?.querySelectorAll<HTMLElement>(".ag-studio-layout-widget") ?? [])]
+      .map((el) => ({ el, r: el.getBoundingClientRect() }))
+      .sort((a, b) => Math.round(a.r.top - b.r.top) || a.r.left - b.r.left)
+      .map((x) => x.el);
+    return els.length === ids.length ? { ids, els } : { ids: [], els: [] };
+  };
+  const widgetEl = (page: string, widget: string) => {
+    const { ids, els } = ordered(page);
+    return els[ids.indexOf(widget)];
+  };
+  const widgetAt = (el: HTMLElement) => {
+    const { ids, els } = ordered(apiRef.current?.getState().selectedPageId ?? "");
+    return ids[els.indexOf(el)];
+  };
+  /**
    * Câu gợi ý: mở đúng trang rồi cuộn tới widget và nháy viền một lúc. Studio không gắn mã widget
    * lên DOM, nên tìm widget theo vị trí của nó trong bố cục (widgetLayout, lưới 24 cột).
    */
@@ -145,18 +190,7 @@ function Dashboard({ rows, note, phone }: { rows: AnalyticsRows; note?: string; 
     if (!api) return;
     if (api.getState().selectedPageId !== page) go(page);
     window.setTimeout(() => {
-      // Thứ tự widget trên màn (trên xuống, trái sang) trùng thứ tự trong widgetLayout.
-      const layout = api.getState().pages.find((p) => p.id === page)?.widgetLayout ?? {};
-      const order = Object.entries(layout)
-        .filter(([, l]) => l)
-        .sort(([, a], [, b]) => a!.yTrack - b!.yTrack || a!.xTrack - b!.xTrack)
-        .map(([id]) => id);
-      const canvas = studioRef.current?.querySelector<HTMLElement>(".ag-studio-layout-canvas");
-      if (!canvas) return;
-      const els = [...canvas.querySelectorAll<HTMLElement>(".ag-studio-layout-widget")]
-        .map((el) => ({ el, r: el.getBoundingClientRect() }))
-        .sort((a, b) => Math.round(a.r.top - b.r.top) || a.r.left - b.r.left);
-      const best = els.length === order.length ? els[order.indexOf(widget)]?.el : undefined;
+      const best = widgetEl(page, widget);
       if (!best) return;
       best.scrollIntoView({ block: "start", behavior: "smooth" });
       best.classList.remove("ana-flash");
@@ -208,6 +242,9 @@ function Dashboard({ rows, note, phone }: { rows: AnalyticsRows; note?: string; 
         ))}
         {note && <span className="ana__note">{note}</span>}
       </nav>
+      {detail != null && cardIds[detail] && (
+        <CardDetail rows={rows} ids={cardIds} index={detail} onMove={setDetail} onClose={() => setDetail(null)} />
+      )}
       {mode === "view" && (
         <nav className="ana__guide" aria-label={at.guide.title}>
           <span className="ana__guide-title">{at.guide.title}</span>

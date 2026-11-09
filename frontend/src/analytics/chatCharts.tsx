@@ -151,11 +151,11 @@ function options(c: ChatChart): AgCartesianChartOptions {
     background: { visible: false },
     // Nhãn số ở đầu thanh nằm ngoài thanh nên chừa chỗ bên phải.
     padding: { top: 4, right: horizontal && c.series.length === 1 ? 64 : 12, bottom: 4, left: 8 },
-    title: { text: c.title, fontFamily: FONT, fontSize: 13, fontWeight: "bold", color: "#1b2340", textAlign: "left" },
+    title: { enabled: !!c.title, text: c.title, fontFamily: FONT, fontSize: 13, fontWeight: "bold", color: "#1b2340", textAlign: "left" },
     legend: { enabled: c.series.length > 1, position: "bottom", item: { label: { fontFamily: FONT, fontSize: 11 } } },
     series: c.series.map((s, j) =>
       c.kind === "line"
-        ? { type: "line" as const, xKey: "label", yKey: `v${j}`, yName: s.name, stroke: MIMI_CHART[j], marker: { fill: MIMI_CHART[j] }, tooltip: { renderer: ({ datum }: { datum: Json }) => fmt(n(datum[`v${j}`])) } }
+        ? { type: "line" as const, xKey: "label", yKey: `v${j}`, yName: s.name, stroke: j === 0 ? "#1595a8" : "#9aa3c4", strokeWidth: j === 0 ? 3 : 2, ...(j > 0 && { lineDash: [6, 4] }), marker: { enabled: false }, interpolation: { type: "smooth" as const }, tooltip: { renderer: ({ datum }: { datum: Json }) => fmt(n(datum[`v${j}`])) } }
         : {
             type: "bar" as const,
             direction: horizontal ? ("horizontal" as const) : ("vertical" as const),

@@ -8,7 +8,6 @@ import { at } from "./text";
 const pos = (xTrack: number, yTrack: number, xSpan: number, ySpan: number): AgWidgetLayoutState => ({ xTrack, yTrack, xSpan, ySpan });
 const title = (text: string) => ({ title: { enabled: true, text } });
 const sum = (id: string) => ({ id, aggregation: "sum" as const });
-const countd = (id: string) => ({ id, aggregation: "countd" as const });
 const FONT = '"Be Vietnam Pro", system-ui, sans-serif';
 const type = (fontSize: number, fontWeight: "normal" | "bold" = "normal") => ({ fontFamily: FONT, fontSize, fontWeight, fontStyle: "normal" as const });
 
@@ -33,7 +32,7 @@ const overview: AgPageState = {
       format: { ...title(at.r.dateFilter), style: { selection: { type: "multiple" }, dimensions: { height: 30, minWidth: 72 } } },
     },
     "kpi-spent": kpi(at.r.spent, sum("receipts.total"), "calendar::month"),
-    "kpi-receipts": kpi(at.r.receipts, countd("receipts.id")),
+    "kpi-upcoming": kpi(at.r.upcoming, sum("upcoming.amount")),
     "kpi-avg": kpi(at.r.avgBill, { id: "avgReceipt" }),
     // Widget riêng của Mimi: kiểu nằm ngoài danh sách widget có sẵn nên ép kiểu.
     saved: {
@@ -70,7 +69,7 @@ const overview: AgPageState = {
   },
   widgetLayout: {
     "kpi-spent": pos(0, 0, 6, 8),
-    "kpi-receipts": pos(6, 0, 5, 8),
+    "kpi-upcoming": pos(6, 0, 5, 8),
     "kpi-avg": pos(11, 0, 5, 8),
     saved: pos(16, 0, 8, 8),
     period: pos(0, 8, 24, 8),
@@ -188,21 +187,35 @@ export const PHONE_MAX_WIDTH = 720;
  * nên trên điện thoại phải cuộn ngang), widget xếp chồng một cột theo thứ tự đọc của bản máy tính.
  * Riêng ô số (KPI) đi đôi một hàng hai ô cho đỡ dài.
  */
+/**
+ * Trang Tổng quan trên điện thoại mở đầu bằng lưới thẻ 2 cột (mỗi hàng 2 thẻ vuông), chạm thẻ để
+ * xem chi tiết (./CardDetail.tsx). Các widget còn lại xếp một cột bên dưới như các trang khác.
+ */
+export const PHONE_CARDS: Record<string, string[]> = {
+  [PAGE.overview]: ["kpi-spent", "by-category", "kpi-upcoming", "radar", "saved", "kpi-avg"],
+};
+const CARD_H = 11;
+
 export function toPhoneReport(report: AgReportState): AgReportState {
   return {
     ...report,
     pages: report.pages.map((page) => {
       const layout = page.widgetLayout ?? {};
-      const ids = Object.keys(page.widgets ?? {}).sort((a, b) => {
+      const cards = (PHONE_CARDS[page.id] ?? []).filter((id) => page.widgets?.[id]);
+      const ids = Object.keys(page.widgets ?? {}).filter((id) => !cards.includes(id)).sort((a, b) => {
         const la = layout[a];
         const lb = layout[b];
         return (la?.yTrack ?? 0) - (lb?.yTrack ?? 0) || (la?.xTrack ?? 0) - (lb?.xTrack ?? 0);
       });
       const out: Record<string, AgWidgetLayoutState> = {};
-      let y = 0;
+      const widgets = { ...page.widgets };
+      cards.forEach((id, i) => {
+        out[id] = pos((i % 2) * 12, Math.floor(i / 2) * CARD_H, 12, CARD_H);
+        widgets[id] = phoneCard(widgets[id], id);
+      });
+      let y = Math.ceil(cards.length / 2) * CARD_H;
       let half: number | null = null; // ô KPI đang đứng một mình bên trái hàng
       let halfId = "";
-      const widgets = { ...page.widgets };
       for (const id of ids) {
         const w = page.widgets?.[id] as { type?: string } | undefined;
         const h = layout[id]?.ySpan ?? 12;
@@ -242,6 +255,26 @@ function phoneKpi<T>(widget: T): T {
   const typography = w.format?.style?.typography;
   if (!typography) return widget;
   return { ...w, format: { ...w.format, style: { ...w.format?.style, typography: { ...typography, fontSize: 19 } } } } as T;
+}
+
+/** Thẻ nửa màn: ô số nhỏ chữ lại, biểu đồ bỏ chú giải và nhãn để vừa thẻ. */
+function phoneCard<T>(widget: T, id: string): T {
+  // Thẻ "Xu hướng chi" mở ra trang chi tiết của tháng này, nên số trên thẻ cũng là tháng này.
+  if (id === "kpi-spent") widget = { ...(widget as object), dataMapping: { value: [sum("receipts.thisMonth")] } } as T;
+  const short = at.detail.cards[id]?.title;
+  const titled = (short ? { ...(widget as object), format: { ...(widget as { format?: object }).format, title: { ...((widget as { format?: { title?: object } }).format?.title ?? {}), enabled: true, text: short } } } : widget) as T;
+  return phoneCardStyle(titled);
+}
+function phoneCardStyle<T>(widget: T): T {
+  const w = widget as { type?: string; format?: { style?: Record<string, unknown> } };
+  if (w.type === "value") return phoneKpi(widget);
+  if (w.type === "donut-chart") {
+    return {
+      ...w,
+      format: { ...w.format, style: { ...w.format?.style, custom: { pieDataLabel: { enabled: false }, totalLabel: { enabled: true } }, theme: { common: { legend: { enabled: false } } } } },
+    } as T;
+  }
+  return widget;
 }
 
 export const initialPhoneReport = toPhoneReport(initialReport);

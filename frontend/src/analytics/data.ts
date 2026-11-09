@@ -7,10 +7,10 @@ import { useMemo } from "react";
 import { useQueries } from "@tanstack/react-query";
 import type { AgDataSourcesDefinition, AgFieldDefinition, AgFormat, AgRelationDefinition } from "ag-studio";
 import { apiGet } from "../api/client";
-import { qk, useItems, useMarketPrices, usePlan, useReceiptHistory } from "../api/hooks";
-import type { Cart, HistoryReceipt, Item, MarketPrices, ReceiptDetail } from "../api/types";
+import { qk, useItems, useMarketPrices, usePlan, useReceiptHistory, useRecurring } from "../api/hooks";
+import type { Cart, HistoryReceipt, Item, MarketPrices, ReceiptDetail, Recurring } from "../api/types";
 import { categoryLabel } from "../i18n";
-import { formatVnd } from "../lib/text";
+import { currentMonth, formatVnd } from "../lib/text";
 import { at } from "./text";
 
 /** Số hóa đơn gần nhất được tải chi tiết (mỗi hóa đơn một lời gọi API). */
@@ -19,6 +19,8 @@ export const DETAIL_LIMIT = 60;
 export type ReceiptRow = {
   id: string; store: string; date: string; month: string; kind: string; buyer: string;
   total: number; discount: number; itemCount: number;
+  /** Bằng total nếu hóa đơn thuộc tháng hiện tại, ngược lại 0 (thẻ "Tháng này" trên điện thoại). */
+  thisMonth: number;
 };
 export type LineRow = {
   id: string; receiptId: string; name: string; category: string; qty: number;
@@ -35,7 +37,9 @@ export type PriceRow = {
   cheaperItem: number;
   currency: string; local: number | null; size: string; on: string; url: string;
 };
-export type AnalyticsRows = { receipts: ReceiptRow[]; lines: LineRow[]; items: ItemRow[]; prices: PriceRow[]; asOf: string };
+/** Khoản định kỳ (điện, nước, internet…) sắp đến hạn, từ màn Hóa đơn định kỳ. */
+export type UpcomingRow = { id: string; name: string; due: string; amount: number; category: string };
+export type AnalyticsRows = { receipts: ReceiptRow[]; lines: LineRow[]; items: ItemRow[]; prices: PriceRow[]; upcoming: UpcomingRow[]; asOf: string };
 
 const pad = (n: number) => String(n).padStart(2, "0");
 /** Ngày mua theo giờ Việt Nam (như màn Lịch sử mua hàng). */
@@ -55,6 +59,7 @@ function receiptRow(h: HistoryReceipt, d: ReceiptDetail | undefined): ReceiptRow
     kind: at.kinds[h.kind ?? "own"],
     buyer: h.buyer_name ?? "",
     total: h.total_vnd,
+    thisMonth: day.slice(0, 7) === currentMonth() ? h.total_vnd : 0,
     discount: (d?.discount ?? 0) + lineDiscount,
     itemCount: d ? d.lines.length : h.item_names.length,
   };
@@ -134,10 +139,20 @@ export function priceRows(mp: MarketPrices | undefined, cart: Cart | undefined):
   });
 }
 
-export function buildRows(history: HistoryReceipt[], details: Map<string, ReceiptDetail>, items: Item[], mp?: MarketPrices, cart?: Cart): AnalyticsRows {
+/** Kỳ chưa trả của các khoản định kỳ đang bật, đến hạn trong 30 ngày tới (kể cả quá hạn). */
+export function upcomingRows(recurring: Recurring[], now = new Date()): UpcomingRow[] {
+  const until = vnDay(new Date(now.getTime() + 30 * 86_400_000).toISOString());
+  return recurring
+    .filter((r) => r.active && r.display !== "paused" && r.next_due_at)
+    .map((r) => ({ id: r.current?.id ?? r.id, name: r.name, due: vnDay(r.current?.due_at ?? r.next_due_at), amount: r.current?.amount ?? r.amount, category: r.category_key ? categoryLabel(r.category_key) : "" }))
+    .filter((r) => r.due <= until)
+    .sort((a, b) => a.due.localeCompare(b.due));
+}
+
+export function buildRows(history: HistoryReceipt[], details: Map<string, ReceiptDetail>, items: Item[], mp?: MarketPrices, cart?: Cart, recurring: Recurring[] = []): AnalyticsRows {
   const receipts = history.map((h) => receiptRow(h, details.get(h.receipt_id)));
   const lines = history.flatMap((h) => lineRows(h, details.get(h.receipt_id)));
-  return { receipts, lines, items: items.map(itemRow), prices: priceRows(mp, cart), asOf: new Date().toISOString() };
+  return { receipts, lines, items: items.map(itemRow), prices: priceRows(mp, cart), upcoming: upcomingRows(recurring), asOf: new Date().toISOString() };
 }
 
 /** Tải mọi thứ màn cần. Chi tiết hóa đơn dùng chung cache với màn Chi tiết hóa đơn. */
@@ -146,6 +161,7 @@ export function useAnalyticsData() {
   const items = useItems({ tab: "active", horizon: 365 });
   const cart = usePlan();
   const market = useMarketPrices(true);
+  const recurring = useRecurring();
   const recent = useMemo(
     () => [...(history.data ?? [])].filter((h) => h.kind !== "recurring").sort((a, b) => b.purchased_at.localeCompare(a.purchased_at)).slice(0, DETAIL_LIMIT),
     [history.data],
@@ -163,10 +179,10 @@ export function useAnalyticsData() {
     if (!history.data || !detailsDone) return undefined;
     const map = new Map<string, ReceiptDetail>();
     for (const d of details) if (d.data) map.set(d.data.receipt_id, d.data);
-    return buildRows(history.data, map, items.data ?? [], market.data, cart.data);
+    return buildRows(history.data, map, items.data ?? [], market.data, cart.data, recurring.data?.items);
     // details đổi tham chiếu mỗi lần render; loadedDetails đủ để biết khi nào có thêm dữ liệu.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [history.data, detailsDone, loadedDetails, items.data, market.data, cart.data]);
+  }, [history.data, detailsDone, loadedDetails, items.data, market.data, cart.data, recurring.data]);
   return {
     rows,
     isPending: history.isPending || !detailsDone,
@@ -219,6 +235,7 @@ export function studioData(rows: AnalyticsRows): AgDataSourcesDefinition {
           ["kind", f.kind, "textFormat"],
           ["buyer", f.buyer, "textFormat"],
           ["total", f.total, "currencyFormat"],
+          ["thisMonth", f.thisMonth, "currencyFormat"],
           ["discount", f.discount, "currencyFormat"],
           ["itemCount", f.itemCount, "integerFormat"],
         ]),
@@ -255,6 +272,19 @@ export function studioData(rows: AnalyticsRows): AgDataSourcesDefinition {
           ["statusKey", f.status, "textFormat", true],
           ["purchases", f.purchases, "integerFormat"],
           ["interval", f.interval, "integerFormat"],
+        ]),
+      },
+      {
+        id: "upcoming",
+        name: at.tables.upcoming,
+        description: "Unpaid recurring bills (electricity, water, internet, subscriptions…) due in the next 30 days, including overdue ones.",
+        data: rows.upcoming,
+        fields: fields([
+          ["id", f.billId, "textFormat", true],
+          ["name", f.bill, "textFormat"],
+          ["due", f.due, "dateFormat"],
+          ["amount", f.amount, "currencyFormat"],
+          ["category", f.category, "textFormat"],
         ]),
       },
       {

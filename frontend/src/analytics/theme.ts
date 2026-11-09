@@ -9,7 +9,8 @@ const v = (name: string) => `var(--${name})`;
 const line = (color: string) => ({ width: 1, color: v(color) });
 
 /** 10 màu biểu đồ, phân biệt được cả khi in đen trắng nhờ độ sáng khác nhau. */
-export const MIMI_CHART = ["#2a5bd7", "#ff8a3d", "#1f7a3a", "#7b5cd6", "#d23f6b", "#1595a8", "#b4530a", "#56618a", "#8bb2ff", "#f2c14e"];
+// Năm màu đầu là màu danh mục của bản thiết kế mới (Household, Groceries, Baby, Personal care, Bills).
+export const MIMI_CHART = ["#2a5bd7", "#2f9e6e", "#e8873a", "#8b5cf6", "#d4538a", "#1595a8", "#b4530a", "#56618a", "#8bb2ff", "#f2c14e"];
 
 const palette = Object.fromEntries(
   MIMI_CHART.flatMap((c, i) => [
@@ -21,39 +22,40 @@ const palette = Object.fromEntries(
 export const mimiStudioTheme = studioTheme.withParams({
   fontFamily: v("font"),
   fontSize: 14,
-  textColor: v("ink"),
+  textColor: "var(--ink, #1b2559)",
   foregroundColor: v("ink"),
-  subtleTextColor: v("ink-soft"),
+  subtleTextColor: "var(--mute, #5d678f)",
   backgroundColor: v("paper"),
   borderColor: v("sky-line"),
   accentColor: v("blue"),
   iconColor: v("ink"),
   rowHoverColor: v("sky"),
 
-  // Canvas là nền xanh nhạt của app; mỗi widget là một "thẻ" trắng bo góc như các ô ở Home.
+  // Canvas là nền xanh nhạt của app; mỗi widget là một thẻ trắng bo 20, không viền, có bóng
+  // (bóng đặt bằng CSS trong analytics.css vì Studio không có tham số bóng cho widget).
   studioWrapperBorder: false,
   studioWrapperBorderRadius: 0,
   studioWrapperSpacing: 0,
-  studioWrapperBackgroundColor: "#f5f8ff",
+  studioWrapperBackgroundColor: "var(--bg, #f4f6ff)",
   studioCanvasBorder: false,
   studioCanvasBorderRadius: 0,
   studioCanvasShadow: false,
-  studioCanvasBackgroundColor: "#f5f8ff",
+  studioCanvasBackgroundColor: "var(--bg, #f4f6ff)",
   studioCanvasPadding: 12,
   studioCanvasRowHeight: 18,
   studioCanvasFontFamily: v("font"),
 
-  studioWidgetBackgroundColor: v("paper"),
-  studioWidgetBorder: line("sky-line"),
+  studioWidgetBackgroundColor: "var(--card, #ffffff)",
+  studioWidgetBorder: false,
   studioWidgetBorderRadius: 20,
-  studioWidgetPadding: 12,
+  studioWidgetPadding: 14,
   studioWidgetTitleFontFamily: v("font"),
-  studioWidgetTitleFontSize: 16,
+  studioWidgetTitleFontSize: 15,
   studioWidgetTitleFontWeight: 700,
-  studioWidgetTitleTextColor: v("ink"),
+  studioWidgetTitleTextColor: "var(--ink, #1b2559)",
   studioWidgetSubtitleFontFamily: v("font"),
   studioWidgetSubtitleFontSize: 13,
-  studioWidgetSubtitleTextColor: v("ink-soft"),
+  studioWidgetSubtitleTextColor: "var(--mute, #5d678f)",
   studioWidgetCaptionFontFamily: v("font"),
   studioWidgetCaptionFontSize: 13,
   studioWidgetCaptionTextColor: v("ink-soft"),
