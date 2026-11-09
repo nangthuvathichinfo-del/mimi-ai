@@ -22,6 +22,7 @@ export type Me = {
     remind_enabled?: boolean;
     digest_time?: string;      // HH:MM
     relations?: Record<string, string>; // tên gọi người nhà theo uid, lưu trên máy chủ
+    monthly_budget_vnd?: number; // Mimi 2.2: ngân sách tháng (đồng); vắng là chưa đặt
   };
 };
 
@@ -264,6 +265,9 @@ export type SpendingReport = {
   month: string;
   spent: number;
   spent_prev_month_pct: number | null;
+  /** Mimi 2.2: chỉ tháng hiện tại, so với ngày 1 đến same_range_day của tháng trước. */
+  spent_prev_same_range_pct?: number | null;
+  same_range_day?: number;
   saved: number;
   saved_ratio: number | null;
   receipt_count: number;
@@ -308,6 +312,8 @@ export type SettingsPatch = Partial<{
   currency: "VND" | "USD";
   /** Chỉ gửi phần đổi; "" là xóa tên gọi của uid đó. */
   relations: Record<string, string>;
+  /** Mimi 2.2: ngân sách tháng (đồng); 0 là bỏ ngân sách. */
+  monthly_budget_vnd: number;
 }>;
 
 export type ApiErrorBody = { code: string; message: string; fields?: Record<string, unknown>; retryable?: boolean };

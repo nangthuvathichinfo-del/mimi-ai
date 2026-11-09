@@ -5,7 +5,7 @@
  * Bảng người dùng tự chỉnh được nhớ trên máy (localStorage), nút "Về bảng gốc" xóa bản đã nhớ.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { ChevronLeft, Pencil, RotateCcw, Check, Sparkles } from "lucide-react";
 import { AgStudioAiModule, type AgReportState, type AgStudioApi, type AgStudioMode } from "ag-studio";
 import { AgStudio, AgStudioProvider } from "ag-studio-react";
@@ -211,6 +211,28 @@ function Dashboard({ rows, note, phone }: { rows: AnalyticsRows; note?: string; 
       api.setState({ ...st, panels: { ...st.panels, ai: { ...st.panels?.ai, collapsed: false, ...(phone && { width: window.innerWidth }) }, edit: { ...st.panels?.edit, collapsed: true }, data: { ...st.panels?.data, collapsed: true }, filters: { ...st.panels?.filters, collapsed: true } } });
     }, 50);
   };
+  // Mimi 2.2: Sổ chi tiêu mở màn này kèm ?ask=… ("Mình có mua nổi…?", "Hỏi Mimi vì sao"): mở khung
+  // Hỏi Mimi và điền sẵn câu hỏi vào ô nhập; người dùng sửa rồi tự bấm gửi (không tự tốn lượt hỏi).
+  const [params, setParams] = useSearchParams();
+  const ask = params.get("ask");
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    if (!ask || !ready) return;
+    askMimi();
+    let tries = 0;
+    const timer = window.setInterval(() => {
+      const box = studioRef.current?.querySelector<HTMLTextAreaElement | HTMLInputElement>(`textarea, [placeholder="${at.ai.placeholder}"]`);
+      if (box || ++tries > 40) window.clearInterval(timer);
+      if (!box) return;
+      const proto = box instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+      Object.getOwnPropertyDescriptor(proto, "value")?.set?.call(box, ask);
+      box.dispatchEvent(new Event("input", { bubbles: true }));
+      box.focus();
+      setParams({}, { replace: true });
+    }, 100);
+    return () => window.clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ask, ready]);
   const reset = () => {
     save(phone, null);
     const api = apiRef.current;
@@ -273,6 +295,7 @@ function Dashboard({ rows, note, phone }: { rows: AnalyticsRows; note?: string; 
             localeText={{ ...(uiLang === "vi" ? AG_STUDIO_LOCALE_VN : {}), panelTitleAi: at.ai.agent, aiMessageInputPlaceholder: at.ai.placeholder } as never}
             onApiReady={(e) => {
               apiRef.current = e.api;
+              setReady(true);
             }}
             onStateUpdated={(e) => {
               setPageId(e.state.selectedPageId);

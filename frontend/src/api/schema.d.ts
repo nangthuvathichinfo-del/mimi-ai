@@ -3256,6 +3256,11 @@ export interface components {
             relations?: {
                 [key: string]: "anh" | "chi" | "em" | "bo" | "me" | "con" | "ong" | "ba" | "khac" | "";
             };
+            /**
+             * Format: int64
+             * @description Ngân sách chi mỗi tháng, bằng đồng. PUT 0 là bỏ ngân sách; vắng là chưa đặt
+             */
+            monthly_budget_vnd?: number;
         };
         Profile: {
             uid?: string;
@@ -3448,6 +3453,10 @@ export interface components {
             spent?: components["schemas"]["Vnd"];
             /** @description Phần trăm so với tháng trước; null khi tháng trước chưa có chi tiêu */
             spent_prev_month_pct?: number | null;
+            /** @description Chỉ tháng hiện tại: phần trăm so với cùng khoảng ngày (1 đến same_range_day) tháng trước, tính trên hóa đơn quét và phần người nhà mua hộ. null khi tháng trước chưa có hóa đơn trong khoảng đó hoặc không phải tháng hiện tại */
+            spent_prev_same_range_pct?: number | null;
+            /** @description Ngày cuối của khoảng so cùng kỳ (hôm nay theo giờ Việt Nam). Vắng ở tháng cũ */
+            same_range_day?: number;
             saved?: components["schemas"]["Vnd"];
             /** @description discount / (spent + discount); null khi không có discount */
             saved_ratio?: number | null;

@@ -1,0 +1,70 @@
+/* Mimi 2.2: các khối Sổ chi tiêu mới (ngân sách, Còn tiêu được, Mimi nhận thấy, biểu đồ vòng).
+   Dùng token của 2.0 (--m15-*, --ink, --ink-soft); giao diện mới (v2.css) đã ánh xạ các token này. */
+
+.sub22 { margin: -4px 0 0; color: var(--ink-soft); font-size: var(--fs-sm); }
+
+/* Nhãn ngày trong thẻ tổng: "Ngày 9/30", tháng cũ "Đã hết tháng" */
+.hero15__day { margin: 6px 0 0; font-size: var(--fs-xs); opacity: .85; position: relative; }
+
+/* Thanh ngân sách 3 phần, đặt trong thẻ tổng; màu theo chữ của thẻ (trắng ở giao diện mới) */
+.bud22 { margin-top: 14px; display: grid; gap: 8px; position: relative; }
+.bud22__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: var(--fs-sm); font-weight: 600; }
+.bud22__edit { min-height: 32px; padding: 0 12px; border: 0; border-radius: 999px; font: inherit; font-size: 13px; font-weight: 600; color: inherit; background: color-mix(in srgb, currentColor 16%, transparent); cursor: pointer; }
+.bud22__bar { display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: color-mix(in srgb, currentColor 20%, transparent); }
+.bud22__seg { display: block; height: 100%; }
+.bud22__seg--spent { background: currentColor; }
+.bud22__seg--bills { background: color-mix(in srgb, currentColor 50%, transparent); }
+.bud22__legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; opacity: .9; }
+.bud22__legend li { display: inline-flex; align-items: center; gap: 6px; }
+.bud22__dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: color-mix(in srgb, currentColor 20%, transparent); flex: none; }
+.bud22__dot--spent { background: currentColor; }
+.bud22__dot--bills { background: color-mix(in srgb, currentColor 50%, transparent); }
+.bud22__form { display: grid; gap: 12px; padding-bottom: 8px; }
+.bud22__form .field15 { display: grid; gap: 6px; font-weight: 600; }
+.bud22__form .input { min-height: 52px; padding: 0 14px; font-size: 18px; }
+
+/* Còn tiêu được / lời mời đặt ngân sách */
+.safe22 { display: flex; align-items: flex-start; gap: 12px; }
+.safe22__icon { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; flex: none; background: color-mix(in srgb, var(--m15-blue) 12%, transparent); color: var(--m15-blue); }
+.safe22__body { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.safe22 h2 { margin: 0; font-size: var(--fs-sm); font-weight: 600; color: var(--ink-soft); }
+.safe22__num { margin: 0; font-size: 26px; font-weight: 800; color: var(--ink); letter-spacing: -.02em; }
+.safe22__sub { margin: 0; font-size: 13px; color: var(--ink-soft); }
+.safe22__sub a { color: inherit; font-weight: 600; }
+.safe22--over .safe22__icon { background: color-mix(in srgb, var(--m15-red) 12%, transparent); color: var(--m15-red); }
+.safe22--over h2, .safe22--over .safe22__num { color: var(--m15-red); }
+.safe22--invite { align-items: center; border: 0; text-align: left; }
+.safe22--invite > span:nth-child(2) { display: grid; gap: 2px; }
+.safe22--invite small { font-weight: 400; color: var(--ink-soft); font-size: 13px; }
+
+/* Nút viên thuốc của Redesign: cao 40, nền nhạt */
+.pill22 { justify-self: start; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; margin-top: 6px; border: 0; border-radius: 999px; background: color-mix(in srgb, var(--m15-blue) 12%, transparent); color: var(--m15-blue); font: inherit; font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer; }
+
+/* Mimi nhận thấy: hàng thẻ cuộn ngang, mỗi thẻ rộng 250. min-width 0: không để hàng thẻ kéo giãn cả trang */
+.noticed22wrap { min-width: 0; max-width: 100%; }
+.noticed22 { list-style: none; margin: 0 -16px; padding: 2px 16px 10px; display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; }
+.noticed22::-webkit-scrollbar { display: none; }
+.noticed22__card { flex: 0 0 250px; scroll-snap-align: start; display: grid; grid-template-rows: auto 1fr auto; gap: 8px; align-content: start; }
+.noticed22__text { margin: 0; font-size: 14px; font-weight: 600; color: var(--ink); display: grid; gap: 2px; }
+.noticed22__text small { font-weight: 400; color: var(--ink-soft); font-size: 13px; }
+.noticed22 .pill22 { margin-top: 0; }
+
+/* Biểu đồ vòng + chú giải theo nhóm hàng */
+.donut22 { grid-template-columns: 1fr; justify-items: center; }
+.donut22__svg { width: 180px; height: 180px; }
+.donut22__svg circle { transition: stroke-width .15s, opacity .15s; }
+.donut22__k { font-size: 10px; fill: var(--ink-soft); }
+.donut22__v { font-size: 13px; font-weight: 700; fill: var(--ink); }
+.donut22__legend { list-style: none; margin: 0; padding: 0; width: 100%; display: grid; }
+.donut22__row { width: 100%; min-height: 44px; display: grid; grid-template-columns: 9px 1fr auto 40px 16px; align-items: center; gap: 10px; padding: 0 2px; border: 0; border-top: 1px solid var(--m15-line); background: none; font: inherit; font-size: var(--fs-sm); color: var(--ink); text-align: left; text-decoration: none; cursor: pointer; }
+.donut22__legend li:first-child .donut22__row { border-top: 0; }
+.donut22__row[aria-pressed="true"] { font-weight: 700; }
+.donut22__row .num { font-weight: 700; }
+.donut22__name { min-width: 0; overflow-wrap: anywhere; }
+.donut22__pct { color: var(--ink-soft); font-size: var(--fs-xs); text-align: right; }
+
+/* Tiêu đề ngày trong Mua hàng gần đây */
+.day22 { display: grid; gap: 6px; margin-top: 10px; }
+.day22__head { margin: 0 4px; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-soft); }
+
+@media (prefers-reduced-motion: reduce) { .donut22__svg circle { transition: none; } }

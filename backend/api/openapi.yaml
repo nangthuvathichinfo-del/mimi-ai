@@ -1001,6 +1001,7 @@ components:
           maxProperties: 50
           description: "Tên gọi người nhà theo uid, riêng từng tài khoản. PUT chỉ gửi phần đổi; \"\" là xóa"
           additionalProperties: { type: string, enum: [anh, chi, em, bo, me, con, ong, ba, khac, ""] }
+        monthly_budget_vnd: { type: integer, format: int64, minimum: 0, maximum: 1000000000, description: "Ngân sách chi mỗi tháng, bằng đồng. PUT 0 là bỏ ngân sách; vắng là chưa đặt" }
     Profile:
       type: object
       properties:
@@ -1183,6 +1184,8 @@ components:
         month: { type: string }
         spent: { $ref: "#/components/schemas/Vnd" }
         spent_prev_month_pct: { type: [number, "null"], description: "Phần trăm so với tháng trước; null khi tháng trước chưa có chi tiêu" }
+        spent_prev_same_range_pct: { type: [number, "null"], description: "Chỉ tháng hiện tại: phần trăm so với cùng khoảng ngày (1 đến same_range_day) tháng trước, tính trên hóa đơn quét và phần người nhà mua hộ. null khi tháng trước chưa có hóa đơn trong khoảng đó hoặc không phải tháng hiện tại" }
+        same_range_day: { type: integer, minimum: 1, maximum: 31, description: "Ngày cuối của khoảng so cùng kỳ (hôm nay theo giờ Việt Nam). Vắng ở tháng cũ" }
         saved: { $ref: "#/components/schemas/Vnd" }
         saved_ratio: { type: [number, "null"], description: "discount / (spent + discount); null khi không có discount" }
         receipt_count: { type: integer }

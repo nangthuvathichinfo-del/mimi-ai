@@ -1,4 +1,4 @@
-import { categoryLabel, t } from "../i18n";
+import { t } from "../i18n";
 import { m15 } from "../i18n/m15";
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -13,8 +13,10 @@ import { recurringTier } from "../components/RecurringList";
 import { goodsTier } from "../lib/displayUnit";
 import { addMonths, currentMonth, formatDayMonth, formatVnd } from "../lib/text";
 import { LoadState } from "../components/LoadState";
+import { s22 } from "../i18n/s22";
+import { daysUntil } from "../lib/displayUnit";
+import { BudgetBar, BudgetInvite, BudgetSheet, CategoryDonut, Noticed, SafeToSpend, billsLeft, monthClock, safeToSpend, useBudget } from "../components/SpendingPlus";
 
-const TOP_CATS = 5;
 const ym = (s: string) => s.split("-").map(Number) as [number, number];
 
 /**
@@ -26,8 +28,9 @@ export function Spending() {
   const tab = params.get("tab") === "upcoming" ? "upcoming" : "spent";
   return (
     <MainFrame>
-      <TopBar title={t.spending.title} />
+      <TopBar title={t.spending.title} showTitle />
       <div className="page p15">
+        <p className="sub22">{s22.subtitle}</p>
         <div className="seg seg15" role="group" aria-label={t.spending.title}>
           <button type="button" aria-pressed={tab === "spent"} onClick={() => setParams({}, { replace: true })}>{m15.spending.spent}</button>
           <button type="button" aria-pressed={tab === "upcoming"} onClick={() => setParams({ tab: "upcoming" }, { replace: true })}>{m15.spending.upcoming}</button>
@@ -90,8 +93,10 @@ function EmptyMonth() {
 
 function compare(r: SpendingReport, month: string): string {
   const [py, pm] = ym(addMonths(month, -1));
-  const prev = m15.spending.prevMonth(pm, py);
-  const pct = r.spent_prev_month_pct;
+  // Mimi 2.2 (C3): tháng hiện tại so với cùng kỳ tháng trước; tháng cũ vẫn so cả tháng.
+  const same = r.same_range_day != null && r.spent_prev_same_range_pct !== undefined;
+  const prev = same ? s22.sameRange(m15.spending.prevMonth(pm, py)) : m15.spending.prevMonth(pm, py);
+  const pct = same ? r.spent_prev_same_range_pct ?? null : r.spent_prev_month_pct;
   if (pct == null) return m15.spending.noPrev(prev);
   const n = Math.round(Math.abs(pct));
   if (n === 0) return m15.spending.same(prev);
@@ -112,12 +117,18 @@ function byStore(rows: ReceiptSummary[]) {
 }
 
 function Report({ r, month }: { r: SpendingReport; month: string }) {
-  const [allCats, setAllCats] = useState(false);
   // Khoản chi định kỳ luôn đứng đầu danh mục; các nhóm còn lại xếp theo số tiền.
   const REC = "hoa-don-dinh-ky";
   const cats = [...r.by_category].sort((a, b) => (a.key === REC ? -1 : b.key === REC ? 1 : b.amount - a.amount));
-  const shown = allCats ? cats : cats.slice(0, TOP_CATS);
-  const maxCat = Math.max(1, ...cats.map((c) => c.amount));
+  // Mimi 2.2: ngân sách, Còn tiêu được, Mimi nhận thấy chỉ ở tháng hiện tại.
+  const isCurrent = month >= currentMonth();
+  const clock = monthClock();
+  const budget = useBudget();
+  const rec = useRecurring();
+  const prevQ = useSpending(addMonths(month, -1));
+  const [editBudget, setEditBudget] = useState(false);
+  const bills = billsLeft(rec.data?.items, clock.end).total;
+  const safe = budget != null ? safeToSpend(budget, r.spent, bills, clock.left) : null;
   const best = r.top_saving_receipts[0];
   const stores = byStore(r.recent_receipts);
   // Tổng của tháng đã qua quy đổi theo tỷ giá ngày cuối tháng (cố định); tháng này theo hôm nay.
@@ -129,38 +140,25 @@ function Report({ r, month }: { r: SpendingReport; month: string }) {
         <p className="hero15__num num">{formatVnd(r.spent, rateDay)}</p>
         <p className="hero15__sub">{compare(r, month)}</p>
         {(r.delegated_spent ?? 0) > 0 && <p className="hero15__sub">{m15.spending.delegated(formatVnd(r.delegated_spent ?? 0, rateDay))}</p>}
+        <p className="hero15__day">{isCurrent ? s22.dayOf(clock.day, clock.days) : s22.monthDone}</p>
+        {isCurrent && budget != null && <BudgetBar budget={budget} spent={r.spent} bills={bills} onEdit={() => setEditBudget(true)} />}
       </section>
+
+      {isCurrent && (safe ? <SafeToSpend free={safe.free} perDay={safe.perDay} daysLeft={clock.left} /> : <BudgetInvite onSet={() => setEditBudget(true)} />)}
+      {isCurrent && <Noticed r={r} prev={prevQ.data} />}
+      {editBudget && <BudgetSheet current={budget} onClose={() => setEditBudget(false)} />}
+
+      {/* Phân tích chi tiêu (AG Studio): bảng phân tích, radar sắp hết, Hỏi Mimi. */}
+      <Link to="/spending/analytics" className="box15 rowlink15 ana-entry">
+        <ChartPie size={20} aria-hidden />
+        <span>{ana.open}<small>{ana.openSub}</small></span>
+        <ChevronRight size={20} aria-hidden />
+      </Link>
 
       {cats.length > 0 && (
         <section aria-labelledby="cat15">
           <h2 id="cat15" className="h15sec">{m15.spending.byCategory}</h2>
-          <div className="box15">
-            <ul className="bars15">
-              {shown.map((c) => {
-                const row = (
-                  <>
-                    <span className="bars15__label">{categoryLabel(c.key)}{c.key === REC && <ChevronRight size={16} aria-hidden />}</span>
-                    <span className="bars15__value num">{formatVnd(c.amount, rateDay)}</span>
-                    <span className="bars15__pct">{Math.round(c.pct)}%</span>
-                    <span className="bars15__track" aria-hidden>
-                      <span style={{ width: `${Math.max(2, (c.amount / maxCat) * 100)}%` }} />
-                    </span>
-                  </>
-                );
-                // Góp ý 01/11 06:30: dòng Khoản chi định kỳ mở Đồ dùng, phần Khoản chi định kỳ. Các nhóm khác chỉ để xem số.
-                return (
-                  <li key={c.key}>
-                    {c.key === REC ? <Link to="/items?tab=recurring" className="bars15__link">{row}</Link> : row}
-                  </li>
-                );
-              })}
-            </ul>
-            {cats.length > TOP_CATS && (
-              <button type="button" className="link15" aria-expanded={allCats} onClick={() => setAllCats(!allCats)}>
-                {allCats ? m15.spending.seeLess : m15.spending.seeAll} <ChevronRight size={16} aria-hidden />
-              </button>
-            )}
-          </div>
+          <CategoryDonut cats={cats} total={r.spent} rateDay={rateDay} />
         </section>
       )}
 
@@ -193,13 +191,6 @@ function Report({ r, month }: { r: SpendingReport; month: string }) {
         </section>
       )}
 
-      {/* Phân tích chi tiêu (AG Studio): bảng phân tích, radar sắp hết, Hỏi Mimi. */}
-      <Link to="/spending/analytics" className="box15 rowlink15 ana-entry">
-        <ChartPie size={20} aria-hidden />
-        <span>{ana.open}<small>{ana.openSub}</small></span>
-        <ChevronRight size={20} aria-hidden />
-      </Link>
-
       {/* Spec 1.5 mục 4: tóm tắt 3 hóa đơn mới nhất; bấm tiêu đề mở màn 4c, bấm hóa đơn mở 4d. */}
       <HistorySummary />
     </>
@@ -217,7 +208,7 @@ function Upcoming() {
   const [open, setOpen] = useState<"rec" | "goods" | null>(null);
 
   const recRows = useMemo(
-    () => (rec.data?.items ?? []).filter((r) => recurringTier(r) !== "later").map((r) => ({ key: r.id, name: r.name, sub: formatDayMonth(r.next_due_at), amount: r.amount as number | null })),
+    () => (rec.data?.items ?? []).filter((r) => recurringTier(r) !== "later").map((r) => ({ key: r.id, name: r.name, sub: `${formatDayMonth(r.next_due_at)} · ${s22.due(daysUntil(r.next_due_at))}`, amount: r.amount as number | null })),
     [rec.data],
   );
   const goodsRows = useMemo(() => {
@@ -281,7 +272,23 @@ function HistorySummary() {
         <span>{m15.spending.history}</span>
         <ChevronRight size={20} aria-hidden />
       </Link>
-      <ul className="box15 ph15__list">{rows.map((x) => <ReceiptRow key={x.receipt_id} r={x} />)}</ul>
+      {/* Mimi 2.2: tiêu đề ngày cho 3 hóa đơn mới nhất (ngày theo giờ máy). */}
+      {groupByDay(rows).map(([day, list]) => (
+        <div key={day} className="day22">
+          <h3 className="day22__head">{formatDayMonth(day)}</h3>
+          <ul className="box15 ph15__list">{list.map((x) => <ReceiptRow key={x.receipt_id} r={x} />)}</ul>
+        </div>
+      ))}
     </section>
   );
+}
+
+function groupByDay<T extends { purchased_at: string }>(rows: T[]): [string, T[]][] {
+  const out = new Map<string, T[]>();
+  for (const r of rows) {
+    const d = new Date(r.purchased_at);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    out.set(key, [...(out.get(key) ?? []), r]);
+  }
+  return [...out.entries()];
 }

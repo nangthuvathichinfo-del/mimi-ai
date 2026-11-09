@@ -64,6 +64,7 @@ let receiptCount = 5;
 let defaultPlanIcon = "bag";
 let mockSettings: Me["settings"] & { display_name?: string } = {
   lead_days: 7, lang: uiLang, timezone: "Asia/Ho_Chi_Minh", remind_enabled: true, digest_time: "08:00",
+  monthly_budget_vnd: 6_000_000, // Mimi 2.2: ngân sách mẫu
 };
 /** Bản trước lần sửa tồn gần nhất của từng món, để Hoàn tác trả lại đúng trạng thái cũ. */
 const beforeOverride = new Map<string, Item>();
@@ -232,6 +233,7 @@ async function mockCore(method: string, url: URL, init: RequestInit): Promise<Re
       settings: { lead_days: mockSettings.lead_days, lang: mockSettings.lang, timezone: mockSettings.timezone,
         remind_enabled: mockSettings.remind_enabled, digest_time: mockSettings.digest_time, relations: mockSettings.relations ?? {},
         ...(mockSettings.country ? { country: mockSettings.country } : {}),
+        ...(mockSettings.monthly_budget_vnd ? { monthly_budget_vnd: mockSettings.monthly_budget_vnd } : {}),
         // Bản thử không có máy chủ: tiền tệ hiển thị nhớ theo máy.
         currency: mockSettings.currency ?? (localStorage.getItem("mimi.currency") === "USD" ? "USD" : "VND") },
     };
@@ -419,6 +421,7 @@ async function mockCore(method: string, url: URL, init: RequestInit): Promise<Re
       else delete rels[uid];
     }
     mockSettings = { ...mockSettings, ...body, relations: rels };
+    if (body.monthly_budget_vnd === 0) delete mockSettings.monthly_budget_vnd; // 0 là bỏ ngân sách
     return json({
       ...mockSettings, display_name: mockSettings.display_name ?? "Lan",
       currency: mockSettings.currency ?? (localStorage.getItem("mimi.currency") === "USD" ? "USD" : "VND"),
@@ -435,13 +438,16 @@ async function mockCore(method: string, url: URL, init: RequestInit): Promise<Re
       month, spent: 0, spent_prev_month_pct: null, saved: 0, saved_ratio: null, receipt_count: 0,
       by_category: [], top_saving_receipts: [], recent_receipts: [],
     };
-    if (prevOfMock) return json({ ...base, spent: 1_070_000, receipt_count: 4 });
+    if (prevOfMock) return json({ ...base, spent: 1_070_000, receipt_count: 4, by_category: [
+      { key: "hoa-pham", amount: 380_000, pct: 35.5 }, { key: "sua", amount: 190_000, pct: 17.8 },
+      { key: "tuoi-song", amount: 300_000, pct: 28 }, { key: "do-kho", amount: 200_000, pct: 18.7 },
+    ] });
     if (!sameAsMock) return json(base);
     const r = (id: string, store: string, d: number, total: number, discount: number) => ({
       receipt_id: id, store, purchased_on: `${month}-${String(d).padStart(2, "0")}`, total_vnd: total, discount_vnd: discount,
     });
     return json({
-      ...base, spent: 1_284_000, spent_prev_month_pct: 20, saved: 96_000, saved_ratio: 0.07, receipt_count: receiptCount,
+      ...base, spent: 1_284_000, spent_prev_month_pct: 20, spent_prev_same_range_pct: 34, same_range_day: today.getDate(), saved: 96_000, saved_ratio: 0.07, receipt_count: receiptCount,
       by_category: [
         { key: "hoa-don-dinh-ky", amount: 354_499, pct: 27.6 },
         { key: "hoa-pham", amount: 412_000, pct: 32.1 }, { key: "sua", amount: 318_000, pct: 24.8 },
