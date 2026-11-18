@@ -39,7 +39,7 @@ APP_CHECK="$(gcloud run services describe mimi-api --region "$REGION" --format=j
 try: e=json.load(sys.stdin)["spec"]["template"]["spec"]["containers"][0].get("env",[])
 except Exception: e=[]
 print(next((x.get("value","") for x in e if x.get("name")=="APP_CHECK_REQUIRED"),"false"))' || echo false)"
-ENV_VARS="GOOGLE_CLOUD_PROJECT=$PROJECT,MIMI_ENV=dev,APP_CHECK_REQUIRED=$APP_CHECK,GEMINI_MODEL=$GEMINI_MODEL,GEMINI_THINKING=$GEMINI_THINKING,GEMINI_LOCATION=global,PAYPAL_MODE=off"
+ENV_VARS="GOOGLE_CLOUD_PROJECT=$PROJECT,MIMI_ENV=dev,APP_CHECK_REQUIRED=$APP_CHECK,GEMINI_MODEL=$GEMINI_MODEL,GEMINI_THINKING=$GEMINI_THINKING,GEMINI_LOCATION=global"
 gcloud run deploy mimi-api --source "$ROOT/backend" --region "$REGION" \
   --service-account "sa-api@$PROJECT.iam.gserviceaccount.com" \
   --set-env-vars "$ENV_VARS" --args serve-api \

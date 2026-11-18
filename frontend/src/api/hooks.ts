@@ -1,11 +1,11 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { categoryLabel } from "../i18n";
-import { ApiError, UPLOAD_TIMEOUT_MS, apiGet, apiSend, apiSendQueued, apiUploadImages, apiUploadReceipt } from "./client";
+import { ApiError, UPLOAD_TIMEOUT_MS, apiGet, apiSend, apiSendQueued, apiUploadReceipt } from "./client";
 import { currentPlanId, planQuery, useCurrentPlanId } from "../lib/currentPlan";
 import type {
-  Assignment, HistoryReceipt, ReceiptDetail, Basket, BasketPrices, MarketPrices, MarketRefresh, Cart, Delegated, DeliveryObservation, Forecast, HomeSummary, Household, Item, ItemDetail,
-  ItemPriceHistory, ItemsQuery, Mandate, Me, Notification, Occurrence, Order, PlanLinePatch, PlanMeta, PlanPrices, PlanState,
-  QuickStock, ReceiptDraft, ReceiptDraftLine, Recurring, RecurringInput, RefundReason, SaveReceiptRequest, SaveReceiptResult, SettingsPatch,
+  Assignment, HistoryReceipt, ReceiptDetail, BasketPrices, MarketPrices, MarketRefresh, Cart, Delegated, Forecast, HomeSummary, Household, Item, ItemDetail,
+  ItemPriceHistory, ItemsQuery, Me, Notification, Occurrence, PlanLinePatch, PlanMeta, PlanPrices, PlanState,
+  QuickStock, ReceiptDraft, ReceiptDraftLine, Recurring, RecurringInput, SaveReceiptRequest, SaveReceiptResult, SettingsPatch,
   SpendingReport, TaxonomyGroup,
 } from "./types";
 
@@ -34,9 +34,6 @@ export const qk = {
   delegated: ["plan", "delegated"] as const,
   priceHistory: (key: string) => ["item", key, "prices"] as const,
   taxonomy: (q: string) => ["taxonomy", q] as const,
-  mandate: ["mandate"] as const,
-  orders: ["orders"] as const,
-  order: (id: string) => ["orders", id] as const,
 };
 
 export const useMe = () => useQuery({ queryKey: qk.me, queryFn: () => apiGet<Me>("/me") });
@@ -296,68 +293,6 @@ export function useSaveSettings() {
       qc.invalidateQueries({ queryKey: qk.home });
       qc.invalidateQueries({ queryKey: qk.items() });
     },
-  });
-}
-
-// ================= Mimi Online: Mandate, giỏ online, PayPal, giao hàng, Verify, Refund =================
-
-export const useMandate = () => useQuery({ queryKey: qk.mandate, queryFn: () => apiGet<Mandate>("/mandate") });
-
-export function useSaveMandate() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (m: Mandate) => apiSend<Mandate>("PUT", "/mandate", m),
-    onSuccess: (m) => qc.setQueryData(qk.mandate, m),
-  });
-}
-
-/** Giỏ online dựng từ Kế hoạch, kèm kết quả Household Mandate. Chưa tạo giao dịch. */
-export const useBasket = (keys: string[], enabled = true) =>
-  useQuery({
-    queryKey: ["basket", keys] as const,
-    queryFn: () => apiSend<Basket>("POST", "/orders/basket", { keys }),
-    enabled,
-  });
-
-export const useOrders = () =>
-  useQuery({ queryKey: qk.orders, queryFn: async () => (await apiGet<{ orders: Order[] }>("/orders")).orders });
-
-export const useOrder = (id: string) =>
-  useQuery({ queryKey: qk.order(id), queryFn: () => apiGet<Order>(`/orders/${encodeURIComponent(id)}`), enabled: id !== "" });
-
-/** Mọi thao tác trên đơn trả về đơn mới; cập nhật cache và làm mới các màn liên quan. */
-function useOrderAction<V>(fn: (v: V) => Promise<Order>) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: fn,
-    onSuccess: (o) => {
-      qc.setQueryData(qk.order(o.id), o);
-      qc.invalidateQueries({ queryKey: qk.orders });
-      qc.invalidateQueries({ queryKey: qk.plan });
-      qc.invalidateQueries({ queryKey: qk.items() });
-      qc.invalidateQueries({ queryKey: ["spending"] });
-      qc.invalidateQueries({ queryKey: qk.home });
-    },
-  });
-}
-
-const orderPath = (id: string) => `/orders/${encodeURIComponent(id)}`;
-
-export const useCheckout = () =>
-  useOrderAction((v: { keys: string[]; approve: boolean }) => apiSend<Order>("POST", "/orders", v));
-export const useCaptureOrder = () => useOrderAction((id: string) => apiSend<Order>("POST", `${orderPath(id)}/capture`));
-export const useAdvanceOrder = () => useOrderAction((id: string) => apiSend<Order>("POST", `${orderPath(id)}/advance`));
-export const useVerifyOrder = () =>
-  useOrderAction((v: { id: string; actual: Record<string, number> }) =>
-    apiSend<Order>("POST", `${orderPath(v.id)}/verify`, { actual: v.actual }));
-export const useRefundOrder = () =>
-  useOrderAction((v: { id: string; reason: RefundReason; amount_vnd: number; note: string }) =>
-    apiSend<Order>("POST", `${orderPath(v.id)}/refund`, { reason: v.reason, amount_vnd: v.amount_vnd, note: v.note }));
-
-export function useReadDelivery() {
-  return useMutation({
-    mutationFn: async (v: { id: string; images: Blob[] }) =>
-      (await apiUploadImages<{ items: DeliveryObservation[] }>(`${orderPath(v.id)}/delivery/read`, v.images)).items,
   });
 }
 

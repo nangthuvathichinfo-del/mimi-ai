@@ -267,9 +267,6 @@ export type SpendingReport = {
   saved: number;
   saved_ratio: number | null;
   receipt_count: number;
-  online_spent?: number;       // chi qua PayPal (net sau refund), đã nằm trong spent
-  online_orders?: number;
-  refunded?: number;
   delegated_spent?: number;    // người nhà mua hộ cho mình, đã nằm trong spent
   by_category: { key: string; amount: number; pct: number }[];
   top_saving_receipts: ReceiptSummary[];
@@ -311,90 +308,6 @@ export type SettingsPatch = Partial<{
 }>;
 
 export type ApiErrorBody = { code: string; message: string; fields?: Record<string, unknown>; retryable?: boolean };
-
-// ================= Mimi Online (Mimi 2.0 mục 12 đến 19) =================
-
-export type MandateCategory = "grocery" | "household";
-
-/** Household Mandate: phạm vi Mimi được tự mua online. */
-export type Mandate = {
-  enabled: boolean;
-  categories: MandateCategory[];
-  price_tolerance_pct: number;
-  max_order_vnd: number;
-  max_day_vnd: number;
-};
-
-export type MandateResult = "ALLOW" | "ASK" | "BLOCK";
-export type MandateReason = { key?: string; code: string; result: MandateResult; detail: string };
-
-export type OrderLine = {
-  key: string;
-  name: string;
-  product_name: string;
-  category_key?: string;
-  category: MandateCategory;
-  qty: number;                 // số gói
-  unit: string;
-  pack_qty: number;
-  plan_qty: number;
-  plan_unit?: string;
-  unit_price_vnd: number;
-  snapshot_price_vnd: number;
-  total_vnd: number;
-  need_by?: string;
-  eta: string;
-  verified_qty?: number;
-  match?: "match" | "partial" | "missing";
-};
-
-export type Basket = {
-  merchant: string;
-  lines: OrderLine[];
-  missing: string[];
-  total_vnd: number;
-  amount_usd: string;
-  vnd_per_usd: number;
-  rate_source?: string;
-  rate_as_of?: string;
-  snapshot_at: string;
-  decision: { result: MandateResult; reasons: MandateReason[] };
-};
-
-export type OrderState = "awaiting_payment" | "paid" | "ordered" | "shipped" | "delivered" | "verified";
-
-export type OrderRefund = {
-  id: string; ref: string; amount_vnd: number; amount_usd: string;
-  reason: RefundReason; status: string; at: string;
-};
-export type RefundReason = "missing" | "wrong" | "damaged" | "other";
-
-export type Order = {
-  id: string;
-  state: OrderState;
-  merchant: string;
-  lines: OrderLine[];
-  total_vnd: number;
-  amount_usd: string;
-  vnd_per_usd: number;
-  rate_source?: string;
-  rate_as_of?: string;
-  decision: { result: MandateResult; reasons: MandateReason[] };
-  approved_by_user: boolean;
-  paypal_order_id: string;
-  approve_url?: string;
-  paypal_capture_id?: string;
-  paid_at?: string;
-  eta: string;
-  events: { state: OrderState; at: string }[];
-  refunds: OrderRefund[];
-  refunded_vnd: number;
-  net_vnd: number;
-  suggested_refund_vnd: number;
-  created_at: string;
-};
-
-export type DeliveryObservation = { key: string; qty: number; confidence: "low" | "mid" | "high" };
 
 // ================= Bộ spec Mimi 1.0 =================
 

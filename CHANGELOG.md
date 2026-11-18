@@ -5,6 +5,21 @@ Mới nhất ở trên cùng.
 
 ---
 
+## 2026-11-18 · Bản Mimi không có tính năng PayPal
+
+Nhánh `mimi-truoc-paypal`, dựng từ `main` ngày 03/11 (c849e9f, gồm PR #46 đến #53). Mốc này đã chưa có Braintree, Venmo, Channel3, AG Studio và Mimi 2.2 (các nhánh đó vẫn giữ nguyên); thay đổi này gỡ nốt phần PayPal Sandbox "Mimi Online" có từ 28/10.
+
+**Hành vi bị bỏ đi:**
+
+- Màn "Để Mimi mua online" (`/plan/online`), Đơn hàng (`/orders`, `/orders/:id`), Ủy quyền mua online (Household Mandate), Verify ảnh hàng nhận và Refund.
+- Backend: gói `internal/paypal`, `internal/order`, `fsstore/orders.go`, `httpapi/orders.go`, `gemini/verify.go`; các route `/mandate`, `/orders/*`; biến môi trường `PAYPAL_*`; mã lỗi `mandate_blocked`, `approval_required`, `payment_*`; quyền `ActionManageMandate`, `ActionBuyOnline`.
+- Sổ chi tiêu bỏ các trường `online_spent`, `online_orders`, `refunded` (chỉ có giá trị khi có đơn PayPal).
+- Cài đặt bỏ các dòng "Ủy quyền mua online" và "Đơn mua online" đang ở trạng thái Sắp ra mắt.
+
+Giữ nguyên: giá online (bảng giá chung, so giá, Cập nhật giá, Quốc gia) vì chỉ là tra giá, không thanh toán. Dữ liệu cũ trong Firestore (`users/{uid}/orders`, `payments`, trường `mandate`) không bị xóa, app chỉ không đọc nữa.
+
+- Kiểm tra: `go vet ./...`, `go test -race ./...` (có `TestOpenAPIMatchesRoutes`), `npm run gen:api` khớp `schema.d.ts`, `npm run build`, Playwright 3/3 (kịch bản demo, không tràn 320px vi/en).
+
 ## 2026-11-03 · Nước lấy giá online: Việt Nam và Mỹ
 
 Nhánh `feat/nuoc-vn-us`. Mẹ chốt 03/11: Cài đặt → Quốc gia (giá online) cho chọn Việt Nam và Mỹ; giữ Singapore trong hệ thống vì sau này sẽ thêm nhiều nước.

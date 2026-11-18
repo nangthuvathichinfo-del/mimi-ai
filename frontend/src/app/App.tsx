@@ -37,9 +37,6 @@ const SettingsMember = lazySet("SettingsMember");
 const SettingsPrivacy = lazySet("SettingsPrivacy");
 const Notifications = lazy(() => import("../screens/Notifications").then((m) => ({ default: m.Notifications })));
 const Account = lazy(() => import("../screens/Stub").then((m) => ({ default: m.Account })));
-const OnlineBuy = lazy(() => import("../screens/Online").then((m) => ({ default: m.OnlineBuy })));
-const Orders = lazy(() => import("../screens/Online").then((m) => ({ default: m.Orders })));
-const OrderDetail = lazy(() => import("../screens/Online").then((m) => ({ default: m.OrderDetail })));
 const TodayMeal = lazy(() => import("../screens/Stub").then((m) => ({ default: m.TodayMeal })));
 
 function Gate() {
@@ -90,9 +87,6 @@ function Gate() {
         <Route path="/plan" element={<PlanList />} />
         <Route path="/plan/run/:id" element={<ShoppingRun />} />
         <Route path="/plan/:id" element={<PlanDetail />} />
-        <Route path="/plan/online" element={<OnlineBuy />} />
-        <Route path="/orders" element={<Orders />} />
-        <Route path="/orders/:id" element={<OrderDetail />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/settings/account" element={<Account />} />
         <Route path="/settings/profile" element={<SettingsProfile />} />

@@ -21,7 +21,6 @@ import (
 	"github.com/smartlife-lab/mimi/backend/internal/inbox"
 	"github.com/smartlife-lab/mimi/backend/internal/item"
 	"github.com/smartlife-lab/mimi/backend/internal/market"
-	"github.com/smartlife-lab/mimi/backend/internal/order"
 	"github.com/smartlife-lab/mimi/backend/internal/plan"
 	"github.com/smartlife-lab/mimi/backend/internal/pricing"
 	"github.com/smartlife-lab/mimi/backend/internal/receipt"
@@ -136,20 +135,6 @@ type (
 	Settings interface {
 		Update(ctx context.Context, p authz.Principal, patch user.SettingsPatch) (map[string]any, error)
 	}
-	// Orders là nhánh Mimi Online (Mimi 2.0 mục 12 đến 19).
-	Orders interface {
-		GetMandate(ctx context.Context, p authz.Principal) (order.Mandate, error)
-		SetMandate(ctx context.Context, p authz.Principal, m order.Mandate) (order.Mandate, error)
-		Basket(ctx context.Context, p authz.Principal, keys []string) (order.Basket, error)
-		Checkout(ctx context.Context, p authz.Principal, req order.CheckoutRequest) (order.Order, error)
-		Capture(ctx context.Context, p authz.Principal, id string) (order.Order, error)
-		Advance(ctx context.Context, p authz.Principal, id string) (order.Order, error)
-		ReadDelivery(ctx context.Context, p authz.Principal, id string, imgs []receipt.Image) ([]order.Observed, error)
-		Verify(ctx context.Context, p authz.Principal, id string, req order.VerifyRequest) (order.Order, error)
-		Refund(ctx context.Context, p authz.Principal, id string, req order.RefundRequest) (order.Order, error)
-		Get(ctx context.Context, p authz.Principal, id string) (order.Order, error)
-		List(ctx context.Context, p authz.Principal) ([]order.Order, error)
-	}
 	ReadinessChecker interface {
 		Ready(ctx context.Context) error
 	}
@@ -172,7 +157,6 @@ type Deps struct {
 	Settings   Settings
 	Plan       Plan
 	Notes      Notifications
-	Orders     Orders     // nil: các route Mimi Online trả 501
 	Recurring  Recurring  // nil: các route khoản định kỳ trả 501
 	Households Households // nil: các route nhà trả 501
 	Pricing    Pricing    // nil: các route lịch sử giá trả 501
@@ -202,7 +186,6 @@ type Server struct {
 	settings     Settings
 	plan         Plan
 	notes        Notifications
-	orders       Orders
 	recurring    Recurring
 	households   Households
 	pricing      Pricing
@@ -240,7 +223,7 @@ func New(d Deps, opts ...Option) (*Server, error) {
 	s := &Server{
 		log: d.Log, tokens: d.Tokens, accounts: d.Accounts, signIn: d.SignIn, appCheck: d.AppCheck, principals: d.Principals,
 		profiles: d.Profiles, receipts: d.Receipts, items: d.Items, ready: d.Ready, metrics: d.Metrics,
-		home: d.Home, spending: d.Spending, settings: d.Settings, plan: d.Plan, notes: d.Notes, orders: d.Orders,
+		home: d.Home, spending: d.Spending, settings: d.Settings, plan: d.Plan, notes: d.Notes,
 		recurring: d.Recurring, households: d.Households, pricing: d.Pricing, market: d.Market, priceRefresh: d.PriceRefresh, history: d.History, fx: d.FX,
 		limiter: newWindowLimiter(60), readTimeout: 55 * time.Second, defaultTimeout: 10 * time.Second,
 	}
@@ -344,20 +327,6 @@ func (s *Server) Handler() http.Handler {
 		if s.priceRefresh != nil {
 			private("POST /plan/market-prices/refresh", s.readTimeout, s.refreshPlanMarketPrices)
 		}
-	}
-
-	if s.orders != nil {
-		private("GET /mandate", s.defaultTimeout, s.getMandate)
-		private("PUT /mandate", s.defaultTimeout, s.putMandate)
-		private("POST /orders/basket", s.defaultTimeout, s.postBasket)
-		private("POST /orders", s.readTimeout, s.postOrder)
-		private("GET /orders", s.defaultTimeout, s.listOrders)
-		private("GET /orders/{id}", s.defaultTimeout, s.getOrder)
-		private("POST /orders/{id}/capture", s.readTimeout, s.captureOrder)
-		private("POST /orders/{id}/advance", s.defaultTimeout, s.advanceOrder)
-		private("POST /orders/{id}/delivery/read", s.readTimeout, s.readDelivery)
-		private("POST /orders/{id}/verify", s.defaultTimeout, s.verifyOrder)
-		private("POST /orders/{id}/refund", s.readTimeout, s.refundOrder)
 	}
 
 	if s.accounts != nil && s.signIn != nil {

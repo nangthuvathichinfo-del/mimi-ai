@@ -1,7 +1,7 @@
 import { t } from "../i18n";
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Pencil, Plus, ShoppingBag, X } from "lucide-react";
+import { Pencil, Plus, X } from "lucide-react";
 import { ApiError } from "../api/client";
 import { useItems, useMe, usePlan, usePlanItem, usePlanLine, usePlanPrices, useSavePlanState } from "../api/hooks";
 import type { CartItem, Item, PlanPriority, PlanPrices, PlanState } from "../api/types";
@@ -10,7 +10,7 @@ import { CategoryIcon, STATUS_TEXT } from "../components/ItemRow";
 import { formatDayMonth, formatVnd } from "../lib/text";
 import { AddAnything, AssignPanel, BasketPricesPanel, DelegatedPanel, MarketPricesPanel, PlanSwitcher } from "../components/PlanExtras";
 import { m1 } from "../i18n/m1";
-import { DEFAULT_PLAN, useCurrentPlanId } from "../lib/currentPlan";
+import { useCurrentPlanId } from "../lib/currentPlan";
 
 /** Dòng phụ dưới tên món: tồn hiện tại, cùng cách nói với màn Đồ dùng. */
 function stockText(i: Pick<Item, "status" | "days_left">): string {
@@ -148,16 +148,6 @@ export function Plan() {
                   <span className="num">{cart.estimate != null ? formatVnd(cart.estimate) : "–"}</span>
                 </p>
                 {cart.missing_price > 0 && <p className="hint">{t.plan.missing(cart.missing_price)}</p>}
-                {planId === DEFAULT_PLAN ? (
-                  <>
-                    <Link to="/plan/online" className="btn btn--primary btn--block">
-                      <ShoppingBag size={18} aria-hidden /> {t.online.cta}
-                    </Link>
-                    <p className="hint">{t.online.ctaHint}</p>
-                  </>
-                ) : (
-                  <p className="hint">{m1.plans.onlineMainOnly}</p>
-                )}
               </>
             )}
           </section>

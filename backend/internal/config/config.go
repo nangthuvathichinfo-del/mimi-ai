@@ -34,16 +34,6 @@ type Config struct {
 	EmailFrom    string
 	TaxonomyKeys []string // nạp từ file nhúng trong binary, không từ env
 
-	// PayPal (Mimi 2.0 mục 15). PAYPAL_MODE: sandbox | live | fake | off.
-	// fake: giả lập trong bộ nhớ để demo khi chưa có tài khoản Sandbox.
-	PayPalMode     string
-	PayPalClientID string
-	PayPalSecret   string // gắn từ Secret Manager
-	VNDPerUSD      int64  // PayPal không nhận VND: tỷ giá quy đổi cho đơn online
-	// Nguồn và ngày của tỷ giá (vấn đề 44): lưu kèm mỗi đơn để sau này biết đơn được quy đổi
-	// theo tỷ giá nào. PAYPAL_RATE_SOURCE, PAYPAL_RATE_AS_OF (YYYY-MM-DD).
-	VNDRateSource string
-	VNDRateAsOf   string
 }
 
 func Load() (Config, error) {
@@ -66,12 +56,6 @@ func Load() (Config, error) {
 		DefaultTimeout:    10 * time.Second,
 		ReceiptDailyLimit: 20,
 		PriceSyncLimit:    200,
-		PayPalMode:        get("PAYPAL_MODE", "fake"),
-		PayPalClientID:    os.Getenv("PAYPAL_CLIENT_ID"),
-		PayPalSecret:      os.Getenv("PAYPAL_CLIENT_SECRET"),
-		VNDPerUSD:         25_000,
-		VNDRateSource:     get("PAYPAL_RATE_SOURCE", "mac-dinh-cau-hinh"),
-		VNDRateAsOf:       os.Getenv("PAYPAL_RATE_AS_OF"),
 	}
 	var errs []error
 	if c.ProjectID == "" {
@@ -90,31 +74,6 @@ func Load() (Config, error) {
 			errs = append(errs, fmt.Errorf("PRICE_SYNC_LIMIT invalid: %q", v))
 		}
 		c.PriceSyncLimit = n
-	}
-	if v := os.Getenv("PAYPAL_VND_PER_USD"); v != "" {
-		n, err := strconv.ParseInt(v, 10, 64)
-		if err != nil || n < 1_000 || n > 1_000_000 {
-			errs = append(errs, fmt.Errorf("PAYPAL_VND_PER_USD invalid: %q", v))
-		}
-		c.VNDPerUSD = n
-	}
-	if c.VNDRateAsOf != "" {
-		if _, err := time.Parse("2006-01-02", c.VNDRateAsOf); err != nil {
-			errs = append(errs, fmt.Errorf("PAYPAL_RATE_AS_OF invalid: %q (YYYY-MM-DD)", c.VNDRateAsOf))
-		}
-	}
-	// Tiền thật thì không được chạy bằng tỷ giá mặc định trong code.
-	if c.PayPalMode == "live" && (os.Getenv("PAYPAL_VND_PER_USD") == "" || c.VNDRateAsOf == "") {
-		errs = append(errs, errors.New("PAYPAL_VND_PER_USD and PAYPAL_RATE_AS_OF are required for PAYPAL_MODE=live"))
-	}
-	switch c.PayPalMode {
-	case "fake", "off":
-	case "sandbox", "live":
-		if c.PayPalClientID == "" || c.PayPalSecret == "" {
-			errs = append(errs, errors.New("PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET are required for PAYPAL_MODE="+c.PayPalMode))
-		}
-	default:
-		errs = append(errs, fmt.Errorf("PAYPAL_MODE invalid: %q (sandbox | live | fake | off)", c.PayPalMode))
 	}
 	if c.Env == "prod" && !c.AppCheckRequired {
 		errs = append(errs, errors.New("APP_CHECK_REQUIRED must be true in prod"))
