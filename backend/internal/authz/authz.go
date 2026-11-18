@@ -56,14 +56,12 @@ const (
 	ActionManageHousehold
 	ActionJoinHousehold
 	ActionLeaveHousehold
-	ActionManageMandate  // Household Mandate (Mimi 2.0 mục 13)
-	ActionBuyOnline      // giỏ online, PayPal, verify, refund
 	ActionAssignShopping // giao Kế hoạch cho một thành viên đi mua hộ (4.1 / 3B)
 	ActionInviteMember
 )
 
 var ownerOnly = map[Action]bool{
-	ActionSendAsk: true, ActionManageHousehold: true, ActionManageMandate: true, ActionBuyOnline: true,
+	ActionSendAsk: true, ActionManageHousehold: true,
 	ActionInviteMember: true,
 }
 

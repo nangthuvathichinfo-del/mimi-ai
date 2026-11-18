@@ -9,8 +9,8 @@
  */
 import type { components } from "./schema";
 import type {
-  Assignment, Basket, BasketPrices, Cart, Delegated, Forecast, HistoryReceipt, HomeSummary, Household, Item, ItemPriceHistory,
-  Mandate, Occurrence, Order, OrderLine, PlanMeta, PlanPrices, PlanState, PriceObservation, ReceiptSummary, Recurring, Stock,
+  Assignment, BasketPrices, Cart, Delegated, Forecast, HistoryReceipt, HomeSummary, Household, Item, ItemPriceHistory,
+  Occurrence, PlanMeta, PlanPrices, PlanState, PriceObservation, ReceiptSummary, Recurring, Stock,
 } from "./types";
 
 type S = components["schemas"];
@@ -25,7 +25,6 @@ type NoDrift<T extends never> = T;
 
 export type Contract = [
   NoDrift<Drift<Assignment, S["Assignment"]>>,
-  NoDrift<Drift<Basket, S["Basket"]>>,
   NoDrift<Drift<BasketPrices, S["BasketPrices"]>>,
   NoDrift<Drift<Cart, S["Cart"]>>,
   NoDrift<Drift<Delegated, S["Delegated"]>>,
@@ -35,10 +34,7 @@ export type Contract = [
   NoDrift<Drift<Household, S["Household"]>>,
   NoDrift<Drift<Item, S["Item"]>>,
   NoDrift<Drift<ItemPriceHistory, S["ItemPriceHistory"]>>,
-  NoDrift<Drift<Mandate, S["Mandate"]>>,
   NoDrift<Drift<Occurrence, S["Occurrence"]>>,
-  NoDrift<Drift<Order, S["Order"]>>,
-  NoDrift<Drift<OrderLine, S["OrderLine"]>>,
   NoDrift<Drift<PlanMeta, S["PlanMeta"]>>,
   NoDrift<Drift<PlanPrices, S["PlanPrices"]>>,
   NoDrift<Drift<PlanState, S["PlanState"]>>,

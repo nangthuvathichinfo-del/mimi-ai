@@ -19,25 +19,20 @@ const (
 	CodeForbidden       Code = "forbidden"
 	// CodeReauthRequired: thao tác nhạy cảm cần vừa đăng nhập lại. Dùng 403, không phải 401,
 	// để app không tự đăng xuất như khi phiên hết hạn.
-	CodeReauthRequired     Code = "reauth_required"
-	CodeNotFound           Code = "not_found"
-	CodeConflict           Code = "conflict"
-	CodeReceiptConflict    Code = "receipt_conflict"
-	CodePossibleDuplicate  Code = "possible_duplicate"
-	CodePayloadTooLarge    Code = "payload_too_large"
-	CodeUnsupportedMedia   Code = "unsupported_media"
-	CodeQuotaExceeded      Code = "quota_exceeded"
-	CodeRateLimited        Code = "rate_limited"
-	CodeReceiptUnreadable  Code = "receipt_unreadable"
-	CodeAIUnavailable      Code = "ai_unavailable"
-	CodeNotImplemented     Code = "not_implemented"
-	CodeInternal           Code = "internal"
-	CodeMandateBlocked     Code = "mandate_blocked"     // Household Mandate chặn: vi phạm rule cứng
-	CodeApprovalRequired   Code = "approval_required"   // Household Mandate cần người dùng duyệt
-	CodeInvalidState       Code = "invalid_state"       // thao tác không hợp với trạng thái đơn hàng
-	CodePaymentFailed      Code = "payment_failed"      // PayPal từ chối hoặc chưa hoàn tất
-	CodePaymentNotEnabled  Code = "payment_not_enabled" // chưa cấu hình PayPal
-	CodePaymentUnavailable Code = "payment_unavailable" // PayPal lỗi tạm thời, thử lại được
+	CodeReauthRequired    Code = "reauth_required"
+	CodeNotFound          Code = "not_found"
+	CodeConflict          Code = "conflict"
+	CodeReceiptConflict   Code = "receipt_conflict"
+	CodePossibleDuplicate Code = "possible_duplicate"
+	CodePayloadTooLarge   Code = "payload_too_large"
+	CodeUnsupportedMedia  Code = "unsupported_media"
+	CodeQuotaExceeded     Code = "quota_exceeded"
+	CodeRateLimited       Code = "rate_limited"
+	CodeReceiptUnreadable Code = "receipt_unreadable"
+	CodeAIUnavailable     Code = "ai_unavailable"
+	CodeNotImplemented    Code = "not_implemented"
+	CodeInternal          Code = "internal"
+	CodeInvalidState      Code = "invalid_state" // thao tác không hợp với trạng thái đơn hàng
 
 	// Mã lỗi đọc / lưu hóa đơn theo BUG-05 và BUG-06: tách theo nguyên nhân để client
 	// hiện đúng hướng dẫn và không bao giờ gộp mọi lỗi thành "kiểm tra kết nối".
@@ -75,12 +70,7 @@ var statusByCode = map[Code]int{
 	CodeAIUnavailable:       http.StatusServiceUnavailable,
 	CodeNotImplemented:      http.StatusNotImplemented,
 	CodeInternal:            http.StatusInternalServerError,
-	CodeMandateBlocked:      http.StatusForbidden,
-	CodeApprovalRequired:    http.StatusConflict,
 	CodeInvalidState:        http.StatusConflict,
-	CodePaymentFailed:       http.StatusPaymentRequired,
-	CodePaymentNotEnabled:   http.StatusServiceUnavailable,
-	CodePaymentUnavailable:  http.StatusServiceUnavailable,
 	CodeTooManyImages:       http.StatusUnprocessableEntity,
 	CodeImageTooLarge:       http.StatusRequestEntityTooLarge,
 	CodeUnreadableImage:     http.StatusUnprocessableEntity,
@@ -97,7 +87,7 @@ var statusByCode = map[Code]int{
 // retryable: lỗi tạm thời, gửi lại đúng request đó là được (client giữ nguyên dữ liệu).
 var retryable = map[Code]bool{
 	CodeInternal: true, CodeAIUnavailable: true, CodeReadFailed: true, CodeTransactionConflict: true,
-	CodeRateLimited: true, CodePaymentUnavailable: true, CodeIdempotencyInFlight: true,
+	CodeRateLimited: true, CodeIdempotencyInFlight: true,
 }
 
 // Error là lỗi có thể trả thẳng cho client.

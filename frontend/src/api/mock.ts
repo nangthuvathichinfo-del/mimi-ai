@@ -5,8 +5,8 @@ import taxonomyGroups from "./taxonomy-groups.json";
  * Quy tắc trạng thái ở đây chỉ mô phỏng; bản thật do API Go tính (internal/domain).
  */
 import type {
-  Basket, CanonicalUnit, Cart, CartItem, HomeSummary, Item, Mandate, MandateReason, Me, Notification, Order, OrderLine, OrderState,
-  PlanLinePatch, PlanPrices, PlanState, PlanStop, ReceiptDetail, ReceiptDetailLine, ReceiptDraft, RefundReason, SpendingReport, StockStatus,
+  CanonicalUnit, Cart, CartItem, HomeSummary, Item, Me, Notification,
+  PlanLinePatch, PlanPrices, PlanState, PlanStop, ReceiptDetail, ReceiptDetailLine, ReceiptDraft, SpendingReport, StockStatus,
 } from "./types";
 
 const delay = (ms = 250) => new Promise((r) => setTimeout(r, ms));
@@ -508,13 +508,8 @@ async function mockCore(method: string, url: URL, init: RequestInit): Promise<Re
     }
   }
 
-  const online = mockOnline(method, p, init);
-  if (online) return online;
-
   return json({ code: "not_found", message: `Prototype: ${method} ${p} is not available` }, 404);
 }
-
-// ================= Mimi Online (bản thử, mô phỏng backend internal/order) =================
 
 const UNIT_BASE: Record<string, [number, "g" | "ml" | "pc"]> = {
   g: [1, "g"], kg: [1000, "g"], ml: [1, "ml"], l: [1000, "ml"],
@@ -522,152 +517,6 @@ const UNIT_BASE: Record<string, [number, "g" | "ml" | "pc"]> = {
 function toBase(qty: number, unit: string): [number, "g" | "ml" | "pc"] {
   const [f, u] = UNIT_BASE[unit] ?? [1, "pc"];
   return [qty * f, u];
-}
-
-type Product = { name: string; unit: string; pack: number; snapshot: number; offer: number; eta: number; category: "grocery" | "household" };
-// Cửa hàng sandbox; giá mẫu. Dầu gội có giá cao hơn giá quét để thấy luồng ASK.
-const CATALOG: Record<string, Product> = {
-  "sua-tuoi": { name: "Sữa tươi không đường 1L", unit: "hộp", pack: 1, snapshot: 30_000, offer: 31_000, eta: 1, category: "grocery" },
-  "nuoc-rua-chen": { name: "Nước rửa chén 750ml", unit: "chai", pack: 1, snapshot: 38_000, offer: 37_000, eta: 1, category: "household" },
-  "trung-ga": { name: "Trứng gà vỉ 10", unit: "quả", pack: 10, snapshot: 36_000, offer: 34_000, eta: 1, category: "grocery" },
-  gao: { name: "Gạo ST25 5kg", unit: "túi", pack: 1, snapshot: 120_000, offer: 125_000, eta: 2, category: "grocery" },
-  "dau-goi": { name: "Dầu gội 650g", unit: "chai", pack: 1, snapshot: 95_000, offer: 118_000, eta: 2, category: "household" },
-  "giay-ve-sinh": { name: "Giấy vệ sinh 10 cuộn", unit: "bịch", pack: 1, snapshot: 72_000, offer: 72_000, eta: 1, category: "household" },
-  "bot-giat": { name: "Bột giặt 3kg", unit: "túi", pack: 1, snapshot: 155_000, offer: 149_000, eta: 2, category: "household" },
-};
-const VND_PER_USD = 25_000;
-let mandate: Mandate = { enabled: false, categories: ["grocery", "household"], price_tolerance_pct: 10, max_order_vnd: 1_000_000, max_day_vnd: 0 };
-const orders = new Map<string, Order>();
-const addDays = (n: number) => iso(new Date(today.getTime() + n * 86_400_000));
-const usd = (vnd: number) => (Math.round((vnd / VND_PER_USD) * 100) / 100).toFixed(2);
-
-function buildBasket(keys: string[]): Basket {
-  const c = mockCart();
-  const lines: OrderLine[] = [];
-  const missing: string[] = [];
-  for (const k of keys) {
-    const ci = c.items.find((x) => x.key === k);
-    const pr = CATALOG[k];
-    if (!ci) continue;
-    if (!pr) {
-      missing.push(ci.name);
-      continue;
-    }
-    const want = ci.qty - (ci.bought_qty ?? 0);
-    const packs = Math.max(1, Math.ceil(want / pr.pack));
-    lines.push({
-      key: k, name: ci.name, product_name: pr.name, category_key: ci.category_key, category: pr.category,
-      qty: packs, unit: pr.unit, pack_qty: pr.pack, plan_qty: ci.qty, plan_unit: ci.unit,
-      unit_price_vnd: pr.offer, snapshot_price_vnd: pr.snapshot, total_vnd: pr.offer * packs,
-      need_by: ci.need_by, eta: addDays(pr.eta),
-    });
-  }
-  const total = lines.reduce((a, l) => a + l.total_vnd, 0);
-  const reasons: MandateReason[] = [];
-  let result: Basket["decision"]["result"] = "ALLOW";
-  const add = (r: MandateReason) => {
-    reasons.push(r);
-    if (r.result === "BLOCK" || (r.result === "ASK" && result === "ALLOW")) result = r.result;
-  };
-  for (const l of lines) {
-    if (!mandate.categories.includes(l.category)) add({ key: l.key, code: "category", result: "BLOCK", detail: `Danh mục ${l.category} chưa được ủy quyền` });
-    const maxP = Math.floor((l.snapshot_price_vnd * (100 + mandate.price_tolerance_pct)) / 100);
-    if (l.unit_price_vnd > maxP) add({ key: l.key, code: "price_guard", result: "ASK", detail: `Giá ${l.unit_price_vnd}đ cao hơn mức cho phép ${maxP}đ` });
-    if (l.need_by && l.eta > l.need_by) add({ key: l.key, code: "delivery_guard", result: "ASK", detail: `Giao dự kiến ${l.eta}, sau ngày cần ${l.need_by}` });
-  }
-  if (mandate.max_order_vnd > 0 && total > mandate.max_order_vnd) add({ code: "budget_order", result: "ASK", detail: `Tổng đơn vượt trần ${mandate.max_order_vnd}đ/đơn` });
-  if (!mandate.enabled && result === "ALLOW") add({ code: "mandate_off", result: "ASK", detail: "Chưa bật ủy quyền mua online: cần bạn duyệt đơn này" });
-  return {
-    merchant: "Mimi Mart Sandbox", lines, missing, total_vnd: total, amount_usd: usd(total), vnd_per_usd: VND_PER_USD,
-    snapshot_at: iso(today), decision: { result, reasons },
-  };
-}
-
-const NEXT: Partial<Record<OrderState, OrderState>> = { paid: "ordered", ordered: "shipped", shipped: "delivered" };
-
-function mockOnline(method: string, p: string, init: RequestInit): Response | null {
-  const body = () => JSON.parse(String(init.body ?? "{}")) as Record<string, unknown>;
-  const now = () => new Date().toISOString();
-  if (p === "/mandate") {
-    if (method === "GET") return json(mandate);
-    if (method === "PUT") {
-      mandate = body() as Mandate;
-      return json(mandate);
-    }
-  }
-  if (method === "POST" && p === "/orders/basket") return json(buildBasket((body().keys as string[]) ?? [...cart]));
-  if (method === "GET" && p === "/orders") return json({ orders: [...orders.values()].reverse() });
-  if (method === "POST" && p === "/orders") {
-    const b = body() as { keys?: string[]; approve?: boolean };
-    const basket = buildBasket(b.keys ?? [...cart]);
-    if (!basket.lines.length) return json({ code: "validation_failed", message: "empty" }, 422);
-    if (basket.decision.result === "BLOCK") return json({ code: "mandate_blocked", message: "Blocked" }, 403);
-    if (basket.decision.result === "ASK" && !b.approve) return json({ code: "approval_required", message: "Approve" }, 409);
-    const id = "o-" + Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
-    const o: Order = {
-      id, state: "awaiting_payment", merchant: basket.merchant, lines: basket.lines, total_vnd: basket.total_vnd,
-      amount_usd: basket.amount_usd, vnd_per_usd: VND_PER_USD, decision: basket.decision, approved_by_user: !!b.approve,
-      paypal_order_id: `FAKE-${basket.amount_usd}-mock`, eta: basket.lines.reduce((a, l) => (l.eta > a ? l.eta : a), ""),
-      events: [{ state: "awaiting_payment", at: now() }], refunds: [], refunded_vnd: 0, net_vnd: basket.total_vnd,
-      suggested_refund_vnd: 0, created_at: now(),
-    };
-    orders.set(id, o);
-    return json(o, 201);
-  }
-  const m = p.match(/^\/orders\/(o-[0-9a-f]{16})(\/capture|\/advance|\/delivery\/read|\/verify|\/refund)?$/);
-  if (!m) return null;
-  const o = orders.get(m[1]);
-  if (!o) return json({ code: "not_found", message: "Order not found" }, 404);
-  const set = (next: Order) => {
-    orders.set(next.id, next);
-    return json(next);
-  };
-  const bad = () => json({ code: "invalid_state", message: o.state }, 409);
-  switch (method + (m[2] ?? "")) {
-    case "GET":
-      return json(o);
-    case "POST/capture":
-      if (o.state !== "awaiting_payment") return o.state === "paid" ? json(o) : bad();
-      return set({ ...o, state: "paid", paypal_capture_id: "FAKECAP-mock", paid_at: now(), events: [...o.events, { state: "paid", at: now() }] });
-    case "POST/advance": {
-      const next = NEXT[o.state];
-      if (!next) return bad();
-      return set({ ...o, state: next, events: [...o.events, { state: next, at: now() }] });
-    }
-    case "POST/delivery/read":
-      if (o.state !== "delivered") return bad();
-      // Bản thử: "thấy" thiếu một gói ở dòng đầu để demo luồng refund.
-      return json({ items: o.lines.map((l, n) => ({ key: l.key, qty: n === 0 ? Math.max(0, l.qty - 1) : l.qty, confidence: n === 0 ? "mid" : "high" })) });
-    case "POST/verify": {
-      if (o.state !== "delivered") return bad();
-      const actual = (body().actual ?? {}) as Record<string, number>;
-      let suggested = 0;
-      const lines = o.lines.map((l) => {
-        const got = Math.min(l.qty, Math.max(0, Math.floor(actual[l.key] ?? 0)));
-        suggested += (l.qty - got) * l.unit_price_vnd;
-        if (got > 0 && cart.has(l.key)) {
-          const ci = mockCart().items.find((x) => x.key === l.key);
-          const bought = (ci?.bought_qty ?? 0) + got * l.pack_qty;
-          if (ci && bought >= ci.qty) {
-            cart.delete(l.key);
-            planLines.delete(l.key);
-          } else planLines.set(l.key, { ...planLines.get(l.key), bought_qty: bought });
-        }
-        const match: OrderLine["match"] = got >= l.qty ? "match" : got > 0 ? "partial" : "missing";
-        return { ...l, verified_qty: got, match };
-      });
-      return set({ ...o, state: "verified", lines, suggested_refund_vnd: suggested, events: [...o.events, { state: "verified", at: now() }] });
-    }
-    case "POST/refund": {
-      if (o.state !== "verified") return bad();
-      const b = body() as { reason: RefundReason; amount_vnd: number };
-      const amount = Math.round(b.amount_vnd);
-      if (!(amount > 0) || amount > o.net_vnd) return json({ code: "validation_failed", message: "amount_vnd" }, 422);
-      const r = { id: `FAKEREF-${o.refunds.length + 1}`, ref: `${o.id}-r${o.refunds.length + 1}`, amount_vnd: amount, amount_usd: usd(amount), reason: b.reason, status: "COMPLETED", at: now() };
-      return set({ ...o, refunds: [...o.refunds, r], refunded_vnd: o.refunded_vnd + amount, net_vnd: o.net_vnd - amount, suggested_refund_vnd: Math.max(0, o.suggested_refund_vnd - amount) });
-    }
-  }
-  return null;
 }
 
 // ================= Bộ spec Mimi 1.0 (bản thử) =================

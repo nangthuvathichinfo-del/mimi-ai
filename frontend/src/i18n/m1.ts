@@ -46,7 +46,6 @@ const en = {
     restore: "Restore",
     remove: "Delete plan",
     archived: "Archived",
-    onlineMainOnly: "Online ordering uses the shopping cart.",
   },
   add: {
     title: "Add something new",
@@ -254,7 +253,6 @@ const vi: M1 = {
     restore: "Dùng lại",
     remove: "Xóa kế hoạch",
     archived: "Đã lưu trữ",
-    onlineMainOnly: "Mua online dùng Giỏ mua sắm.",
   },
   add: {
     title: "Thêm món mới",
